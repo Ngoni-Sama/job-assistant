@@ -1,0 +1,26 @@
+name = "tapseed-job-assistant"
+main = "src/index.ts"
+compatibility_date = "2024-12-18"
+compatibility_flags = ["nodejs_compat"]
+
+# Workers AI — PDF→Markdown and CV↔job matching
+[ai]
+binding = "AI"
+
+# KV — job cache + processed CV markdown
+[[kv_namespaces]]
+binding = "JOBS_CACHE"
+id = "REPLACE_WITH_KV_ID"          # npx wrangler kv namespace create JOBS_CACHE
+
+# R2 — raw CV uploads
+[[r2_buckets]]
+binding = "CV_BUCKET"
+bucket_name = "tapseed-cvs"        # npx wrangler r2 bucket create tapseed-cvs
+
+# Cron — automated scraping every 6 hours
+[triggers]
+crons = ["0 */6 * * *"]
+
+[vars]
+DEFAULT_SCRAPE_URL = "https://vacancymail.co.zw/jobs/"
+# SERPER_API_KEY is set via: npx wrangler secret put SERPER_API_KEY
