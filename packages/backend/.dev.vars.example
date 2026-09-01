@@ -1,0 +1,3 @@
+# Copy to `.dev.vars` (gitignored) for local `wrangler dev`.
+# Optional — enables Google Jobs search via Serper.dev
+SERPER_API_KEY=""
