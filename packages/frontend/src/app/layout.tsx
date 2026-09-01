@@ -3,7 +3,7 @@ import "./globals.css";
 import { Nav } from "@/components/Nav";
 
 export const metadata: Metadata = {
-  title: "Tapseed Job Assistant",
+  title: "Job Assistant",
   description: "Smart job discovery & application assistant",
 };
 

@@ -18,7 +18,7 @@ export default {
     try {
       // Health check
       if (path === "/" || path === "/api/health") {
-        return json({ ok: true, service: "tapseed-job-assistant" });
+        return json({ ok: true, service: "job-assistant" });
       }
 
       // Upload + process a CV (PDF → Markdown)

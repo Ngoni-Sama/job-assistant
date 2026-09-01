@@ -1,5 +1,5 @@
 {
-  "name": "tapseed-job-assistant",
+  "name": "job-assistant",
   "version": "0.1.0",
   "private": true,
   "description": "Smart Job Discovery & Application Assistant — scrapes jobs, matches them to your CV with AI, and pre-fills applications.",

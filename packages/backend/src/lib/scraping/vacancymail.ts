@@ -12,7 +12,7 @@ export async function scrapeVacancyMail(url: string): Promise<JobListing[]> {
   const res = await fetch(url, {
     headers: {
       "User-Agent":
-        "Mozilla/5.0 (compatible; TapseedJobAssistant/0.1; +https://github.com/Ngoni-Sama/tapseed-job-assistant)",
+        "Mozilla/5.0 (compatible; JobAssistant/0.1; +https://github.com/Ngoni-Sama/job-assistant)",
     },
   });
   if (!res.ok) {

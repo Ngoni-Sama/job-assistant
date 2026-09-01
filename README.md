@@ -1,4 +1,4 @@
-# 📋 Tapseed Job Application Assistant
+# 📋 Job Assistant
 
 A smart job discovery & application tool. It scrapes job listings, converts your CV (PDF → Markdown) with Cloudflare Workers AI, scores each job against your CV, and prepares pre-filled applications for your review.
 
@@ -19,7 +19,7 @@ Cloudflare Worker (backend)                Next.js (frontend)
 ## Monorepo layout
 
 ```
-tapseed-job-assistant/
+job-assistant/
 ├── packages/
 │   ├── backend/     Cloudflare Worker (TypeScript, no framework)
 │   └── frontend/    Next.js 15 App Router + Tailwind
@@ -45,7 +45,7 @@ npm run dev:api
    ```bash
    cd packages/backend
    npx wrangler kv namespace create JOBS_CACHE
-   npx wrangler r2 bucket create tapseed-cvs
+   npx wrangler r2 bucket create job-assistant-cvs
    ```
 3. Deploy:
    ```bash
