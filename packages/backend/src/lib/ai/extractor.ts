@@ -13,10 +13,12 @@ export async function processCV(
   const buffer = await file.arrayBuffer();
   const key = `cvs/${userId}/${Date.now()}-${sanitize(file.name)}`;
 
-  // Persist the raw upload to R2.
-  await env.CV_BUCKET.put(key, buffer, {
-    httpMetadata: { contentType: file.type || "application/pdf" },
-  });
+  // Persist the raw upload to R2 when the bucket is bound (R2 is optional).
+  if (env.CV_BUCKET) {
+    await env.CV_BUCKET.put(key, buffer, {
+      httpMetadata: { contentType: file.type || "application/pdf" },
+    });
+  }
 
   let markdown = "";
   try {

@@ -3,7 +3,7 @@
 export interface Env {
   AI: Ai;
   JOBS_CACHE: KVNamespace;
-  CV_BUCKET: R2Bucket;
+  CV_BUCKET?: R2Bucket; // optional — only bound when R2 is enabled
   DEFAULT_SCRAPE_URL: string;
   SERPER_API_KEY?: string;
 }

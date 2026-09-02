@@ -14,24 +14,20 @@ cd packages/backend
 # One-time browser login
 npx wrangler login
 
-# Create the two storage resources
+# Create the KV namespace (already done — id is committed in wrangler.toml)
 npx wrangler kv namespace create JOBS_CACHE
-npx wrangler r2 bucket create job-assistant-cvs
-```
 
-`kv namespace create` prints something like:
-
-```
-[[kv_namespaces]]
-binding = "JOBS_CACHE"
-id = "a1b2c3d4e5f6..."
-```
-
-Copy that `id` into `wrangler.toml`, replacing `REPLACE_WITH_KV_ID`. Then:
-
-```bash
+# Deploy
 npx wrangler deploy
 ```
+
+### R2 is optional
+
+R2 stores the raw uploaded PDF. The app doesn't need it — the Markdown it matches
+against is cached in KV. R2 is commented out in `wrangler.toml`, so **deploy works
+without it**. To enable it later: turn on R2 in the Cloudflare dashboard (R2 → accept
+terms), then `npx wrangler r2 bucket create job-assistant-cvs` and uncomment the
+`[[r2_buckets]]` block.
 
 You'll get a URL like `https://job-assistant.<your-subdomain>.workers.dev`. Verify it:
 
