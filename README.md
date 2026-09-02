@@ -58,6 +58,11 @@ npm run dev:api
 Copy `packages/frontend/.env.example` → `packages/frontend/.env.local` and set
 `NEXT_PUBLIC_API_URL` to your Worker URL (defaults to `http://localhost:8787`).
 
+## Deployment
+
+See **[DEPLOY.md](DEPLOY.md)** — the Worker goes to Cloudflare, the Next.js app to Vercel.
+(Cloudflare Pages can't host the frontend without the `@opennextjs/cloudflare` adapter.)
+
 ## Security & ethics
 
 - CVs are stored per-user in R2; secrets live only in Wrangler secrets / `.dev.vars` (gitignored).

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "job-assistant-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--workspace=packages/frontend"],
+      "port": 3000
+    },
+    {
+      "name": "job-assistant-api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--workspace=packages/backend"],
+      "port": 8787
+    }
+  ]
+}
