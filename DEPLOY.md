@@ -42,6 +42,18 @@ Optional — enable Google Jobs search:
 npx wrangler secret put SERPER_API_KEY
 ```
 
+Optional — enable **real** application email sending (off by default; without it,
+applications are prepared as a prefilled `mailto:` for the user to send):
+
+```bash
+npx wrangler secret put RESEND_API_KEY      # from resend.com
+npx wrangler secret put APPLY_FROM_EMAIL    # a Resend-verified sender address
+```
+
+> ⚠️ With these set and a user's **auto-apply** preference on, the Worker will
+> email applications to employers automatically. Leave them unset to keep a human
+> in the loop.
+
 ### Why this can't run fully offline
 
 `env.AI` (Workers AI) has **no local emulator**. `wrangler dev` opens a proxy session to
