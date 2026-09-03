@@ -10,6 +10,7 @@ export interface JobListing {
   source: string;
   jobType?: string;
   expiryDate?: string;
+  sector?: string;
 }
 
 export interface ScrapeSource {

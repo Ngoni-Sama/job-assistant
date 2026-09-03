@@ -22,6 +22,7 @@ export interface JobListing {
   source: string;
   jobType?: string; // e.g. "Full Time", "Contract"
   expiryDate?: string; // ISO yyyy-mm-dd, when known
+  sector?: string; // classified sector, e.g. "IT & Software", "Healthcare"
 }
 
 /** A user-configurable place to scrape jobs from. */

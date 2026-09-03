@@ -12,6 +12,7 @@ import { DEFAULT_SOURCES, isSupported, scrapeSource } from "./lib/scraping/regis
 import { searchGoogleJobs } from "./lib/scraping/google";
 import { fetchJobDetail } from "./lib/scraping/detail";
 import { isCurrent } from "./lib/utils/date";
+import { categorize } from "./lib/categorize";
 import { processCV } from "./lib/ai/extractor";
 import { matchJobToCV } from "./lib/ai/matcher";
 import { tailorApplication } from "./lib/ai/cvwriter";
@@ -276,6 +277,10 @@ async function runScrape(env: Env): Promise<{ jobs: JobListing[]; stats: ScrapeS
   )
     .filter((j) => isCurrent(j.expiryDate))
     .sort(byExpiry);
+
+  // Classify sector for every job (re-runs on existing entries too, so older
+  // cached jobs pick up sectors on the next scrape).
+  for (const job of merged) job.sector = categorize(job.title, job.description);
 
   const stats = buildStats(merged);
   await env.JOBS_CACHE.put(JOBS_KEY, JSON.stringify(merged));

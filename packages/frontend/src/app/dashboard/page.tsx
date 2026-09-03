@@ -39,6 +39,13 @@ export default function DashboardPage() {
         setStats(jobsRes.stats);
         setApplied(new Set(appliedRes.applied));
         setPrefs(prefsRes.prefs);
+        // First visit with an empty cache: scrape automatically so the user
+        // lands on jobs instead of an empty "click Refresh" state.
+        if (jobsRes.jobs.length === 0) {
+          const res = await api.scrape();
+          setJobs(res.jobs);
+          setStats(res.stats);
+        }
       } catch (e) {
         setError((e as Error).message);
       } finally {

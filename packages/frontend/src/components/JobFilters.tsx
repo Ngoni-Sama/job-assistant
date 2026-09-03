@@ -4,14 +4,17 @@ import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type { JobListing } from "@/lib/types";
 
-type Facet = "location" | "jobType" | "source";
+type Facet = "sector" | "location" | "jobType" | "source";
 type Selection = Record<Facet, Set<string>>;
 
 const FACET_LABELS: Record<Facet, string> = {
+  sector: "Sector",
   location: "Location",
   jobType: "Type",
   source: "Source",
 };
+
+const FACETS: Facet[] = ["sector", "location", "jobType", "source"];
 
 /** Count distinct values for a facet, most common first. */
 function facetCounts(jobs: JobListing[], facet: Facet): [string, number][] {
@@ -25,17 +28,14 @@ function facetCounts(jobs: JobListing[], facet: Facet): [string, number][] {
 
 export function useJobFilters(jobs: JobListing[]) {
   const [sel, setSel] = useState<Selection>({
+    sector: new Set(),
     location: new Set(),
     jobType: new Set(),
     source: new Set(),
   });
 
   const facets = useMemo(
-    () =>
-      (["location", "jobType", "source"] as Facet[]).map((f) => ({
-        facet: f,
-        options: facetCounts(jobs, f),
-      })),
+    () => FACETS.map((f) => ({ facet: f, options: facetCounts(jobs, f) })),
     [jobs],
   );
 
@@ -60,10 +60,10 @@ export function useJobFilters(jobs: JobListing[]) {
     });
 
   const clear = () =>
-    setSel({ location: new Set(), jobType: new Set(), source: new Set() });
+    setSel({ sector: new Set(), location: new Set(), jobType: new Set(), source: new Set() });
 
   const activeCount =
-    sel.location.size + sel.jobType.size + sel.source.size;
+    sel.sector.size + sel.location.size + sel.jobType.size + sel.source.size;
 
   return { filtered, facets, sel, toggle, clear, activeCount };
 }
