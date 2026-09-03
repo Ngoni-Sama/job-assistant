@@ -4,12 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Briefcase, Upload, LayoutDashboard, Settings, Shield } from "lucide-react";
+import { Briefcase, Upload, LayoutDashboard, Settings, Shield, Zap } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthButton } from "./AuthButton";
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/smart-match", label: "Smart Match", icon: Zap },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/upload", label: "Upload CV", icon: Upload },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -36,12 +37,12 @@ export function Nav() {
   return (
     <header className="glass sticky top-0 z-30 border-x-0 border-t-0">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/dashboard" className="flex items-center gap-2 font-bold text-brand-700">
+        <Link href="/" className="flex items-center gap-2 font-bold text-brand-700">
           <Briefcase className="h-5 w-5" />
-          Job Assistant
+          <span className="hidden sm:inline">Job Assistant</span>
         </Link>
-        <div className="flex items-center gap-3">
-          <nav className="flex gap-1">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <nav className="flex gap-0.5 sm:gap-1">
             {items.map(({ href, label, icon: Icon }) => {
               const active = pathname === href;
               return (
