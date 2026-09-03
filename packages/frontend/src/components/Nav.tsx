@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Briefcase, Upload, LayoutDashboard, Settings } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { Briefcase, Upload, LayoutDashboard, Settings, Shield } from "lucide-react";
+import { api } from "@/lib/api";
 import { AuthButton } from "./AuthButton";
 
 const links = [
@@ -14,23 +17,41 @@ const links = [
 
 export function Nav() {
   const pathname = usePathname();
+  const { status } = useSession();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (status !== "authenticated") {
+      setIsAdmin(false);
+      return;
+    }
+    api
+      .getMe()
+      .then((me) => setIsAdmin(me.isAdmin))
+      .catch(() => setIsAdmin(false));
+  }, [status]);
+
+  const items = isAdmin ? [...links, { href: "/admin", label: "Admin", icon: Shield }] : links;
+
   return (
-    <header className="border-b bg-white">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <Link href="/dashboard" className="flex items-center gap-2 font-bold text-brand-600">
+    <header className="glass sticky top-0 z-30 border-x-0 border-t-0">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        <Link href="/dashboard" className="flex items-center gap-2 font-bold text-brand-700">
           <Briefcase className="h-5 w-5" />
           Job Assistant
         </Link>
         <div className="flex items-center gap-3">
           <nav className="flex gap-1">
-            {links.map(({ href, label, icon: Icon }) => {
+            {items.map(({ href, label, icon: Icon }) => {
               const active = pathname === href;
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
-                    active ? "bg-brand-50 text-brand-700" : "text-gray-600 hover:bg-gray-100"
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors ${
+                    active
+                      ? "bg-white/80 text-brand-700 shadow-sm"
+                      : "text-gray-600 hover:bg-white/50"
                   }`}
                 >
                   <Icon className="h-4 w-4" />

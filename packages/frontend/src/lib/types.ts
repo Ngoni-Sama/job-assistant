@@ -55,6 +55,23 @@ export interface Prefs {
   categories: string[];
 }
 
+export interface AppConfig {
+  aiProvider: "workers-ai" | "openai";
+  openaiApiKey?: string;
+  openaiModel: string;
+  features: {
+    vacancymail: boolean;
+    jobszimbabwe: boolean;
+    googleJobs: boolean;
+    autoApplyAllowed: boolean;
+  };
+}
+
+export interface Me {
+  userId: string;
+  isAdmin: boolean;
+}
+
 export interface JobScore {
   jobId: string;
   score: number;

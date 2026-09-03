@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSession, signIn } from "next-auth/react";
 import { api } from "@/lib/api";
 import type { Application, JobListing } from "@/lib/types";
 import { JobTile } from "@/components/JobTile";
@@ -8,6 +9,7 @@ import { ApplyModal } from "@/components/ApplyModal";
 import { JobFilters, useJobFilters } from "@/components/JobFilters";
 
 export default function JobsPage() {
+  const { status } = useSession();
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -36,6 +38,7 @@ export default function JobsPage() {
   );
 
   async function apply(job: JobListing) {
+    if (status !== "authenticated") return signIn("google");
     setPreparingId(job.id);
     setError("");
     try {

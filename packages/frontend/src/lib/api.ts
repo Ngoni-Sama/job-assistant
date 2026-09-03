@@ -1,7 +1,9 @@
 import type {
+  AppConfig,
   Application,
   JobListing,
   JobScore,
+  Me,
   Prefs,
   ScrapeSource,
   ScrapeStats,
@@ -77,6 +79,10 @@ export const api = {
       body: form,
     });
   },
+  getMe: () => req<Me>("/api/me"),
+  getAdminConfig: () => req<{ config: AppConfig }>("/api/admin/config"),
+  saveAdminConfig: (patch: Partial<AppConfig>) =>
+    req<{ config: AppConfig }>("/api/admin/config", jsonBody(patch)),
   getPrefs: () => req<{ prefs: Prefs }>("/api/prefs"),
   setPrefs: (prefs: Partial<Prefs>) => req<{ prefs: Prefs }>("/api/prefs", jsonBody(prefs)),
   getApplied: () => req<{ applied: string[] }>("/api/applied"),

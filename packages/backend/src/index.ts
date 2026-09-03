@@ -17,6 +17,7 @@ import { processCV } from "./lib/ai/extractor";
 import { matchJobToCV } from "./lib/ai/matcher";
 import { tailorApplication } from "./lib/ai/cvwriter";
 import { sendApplication } from "./lib/email";
+import { getConfig, saveConfig, type AppConfig } from "./lib/ai/provider";
 
 const JOBS_KEY = "jobs:all";
 const STATS_KEY = "jobs:stats";
@@ -118,6 +119,35 @@ export default {
         return json({ scores });
       }
 
+      // Who am I + am I an admin?
+      if (path === "/api/me" && request.method === "GET") {
+        return json({ userId, isAdmin: isAdmin(env, userId) });
+      }
+
+      // --- Admin config (AI provider, API keys, feature flags) ---
+      if (path === "/api/admin/config") {
+        if (!isAdmin(env, userId)) return json({ error: "Forbidden" }, { status: 403 });
+        if (request.method === "GET") {
+          return json({ config: maskConfig(await getConfig(env)) });
+        }
+        if (request.method === "POST") {
+          const patch = (await request.json()) as Partial<AppConfig>;
+          const current = await getConfig(env);
+          const next: AppConfig = {
+            ...current,
+            ...patch,
+            features: { ...current.features, ...(patch.features ?? {}) },
+            // Keep the existing key when the client sends back the masked value.
+            openaiApiKey:
+              patch.openaiApiKey && !patch.openaiApiKey.includes("•")
+                ? patch.openaiApiKey
+                : current.openaiApiKey,
+          };
+          await saveConfig(env, next);
+          return json({ config: maskConfig(next) });
+        }
+      }
+
       // --- Preferences (auto-apply + categories) ---
       if (path === "/api/prefs" && request.method === "GET") {
         return json({ prefs: await getPrefs(env, userId) });
@@ -165,8 +195,9 @@ export default {
         await env.JOBS_CACHE.put(appKey(userId, job.id), JSON.stringify(application));
 
         const prefs = await getPrefs(env, userId);
+        const { features } = await getConfig(env);
         let autoSent = null;
-        if (prefs.autoApply && application.to) {
+        if (prefs.autoApply && features.autoApplyAllowed && application.to) {
           autoSent = await doSend(env, userId, application);
         }
         return json({ application, autoSent });
@@ -204,6 +235,35 @@ async function getSources(env: Env): Promise<ScrapeSource[]> {
   if (stored && stored.length) return stored;
   await env.JOBS_CACHE.put(SOURCES_KEY, JSON.stringify(DEFAULT_SOURCES));
   return DEFAULT_SOURCES;
+}
+
+/** Map a source URL to its admin feature flag; unknown hosts are always allowed. */
+function featureEnabled(url: string, features: AppConfig["features"]): boolean {
+  const host = (() => {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  })();
+  if (host === "vacancymail.co.zw") return features.vacancymail;
+  if (host === "jobszimbabwe.co.zw") return features.jobszimbabwe;
+  return true;
+}
+
+function isAdmin(env: Env, userId: string): boolean {
+  if (userId === "demo") return false;
+  const admins = (env.ADMIN_EMAILS ?? "").split(",").map((s) => s.trim().toLowerCase());
+  return admins.includes(userId.toLowerCase());
+}
+
+/** Never return the raw OpenAI key to the client — mask all but the last 4. */
+function maskConfig(config: AppConfig): AppConfig {
+  const key = config.openaiApiKey;
+  return {
+    ...config,
+    openaiApiKey: key ? `${"•".repeat(8)}${key.slice(-4)}` : undefined,
+  };
 }
 
 const prefsKey = (userId: string) => `prefs:${userId}`;
@@ -246,7 +306,10 @@ async function doSend(env: Env, userId: string, application: Application) {
  * sort by soonest expiry, then cache the list plus summary stats.
  */
 async function runScrape(env: Env): Promise<{ jobs: JobListing[]; stats: ScrapeStats }> {
-  const sources = (await getSources(env)).filter((s) => s.enabled);
+  const { features } = await getConfig(env);
+  const sources = (await getSources(env))
+    .filter((s) => s.enabled)
+    .filter((s) => featureEnabled(s.url, features));
   const collected: JobListing[] = [];
 
   for (const source of sources) {
@@ -257,8 +320,8 @@ async function runScrape(env: Env): Promise<{ jobs: JobListing[]; stats: ScrapeS
     }
   }
 
-  // Optional Google Jobs augmentation when a Serper key is configured.
-  if (env.SERPER_API_KEY) {
+  // Optional Google Jobs augmentation when enabled and a Serper key is configured.
+  if (features.googleJobs && env.SERPER_API_KEY) {
     try {
       collected.push(
         ...(await searchGoogleJobs("software developer", "Zimbabwe", env.SERPER_API_KEY)),

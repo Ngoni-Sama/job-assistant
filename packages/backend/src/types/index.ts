@@ -8,6 +8,7 @@ export interface Env {
   SERPER_API_KEY?: string;
   RESEND_API_KEY?: string; // optional — enables real application email sending
   APPLY_FROM_EMAIL?: string; // verified sender for Resend
+  ADMIN_EMAILS?: string; // comma-separated allowlist of admin user emails
 }
 
 export interface JobListing {

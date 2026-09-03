@@ -33,4 +33,7 @@ crons = ["0 */6 * * *"]
 
 [vars]
 DEFAULT_SCRAPE_URL = "https://vacancymail.co.zw/jobs/"
+# Comma-separated admin emails (match the Google sign-in email). Admins see the
+# config panel (AI provider, API keys, feature flags).
+ADMIN_EMAILS = "1ngoni.maphosa@gmail.com"
 # SERPER_API_KEY is set via: npx wrangler secret put SERPER_API_KEY

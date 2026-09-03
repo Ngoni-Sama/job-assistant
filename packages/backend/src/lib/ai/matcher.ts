@@ -1,6 +1,5 @@
 import type { Env, JobListing, JobScore } from "../../types";
-
-const MODEL = "@cf/meta/llama-3.1-8b-instruct";
+import { chat } from "./provider";
 
 /** Scores a single job against the CV markdown and returns a structured result. */
 export async function matchJobToCV(
@@ -27,16 +26,16 @@ export async function matchJobToCV(
 
   let raw = "";
   try {
-    const res = (await env.AI.run(MODEL, {
-      messages: [
+    raw = await chat(
+      env,
+      [
         { role: "system", content: system },
         { role: "user", content: user },
       ],
-      max_tokens: 512,
-    })) as { response?: string };
-    raw = res.response ?? "";
+      512,
+    );
   } catch (err) {
-    console.error("matcher AI.run failed", err);
+    console.error("matcher chat failed", err);
   }
 
   return normalize(raw, job.id);

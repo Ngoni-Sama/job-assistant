@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCw, Sparkles, Star, Zap } from "lucide-react";
+import { useSession, signIn } from "next-auth/react";
+import { RefreshCw, Sparkles, Star, Zap, LogIn, FileUp } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Application, JobListing, JobScore, Prefs, ScrapeStats, StoredCV } from "@/lib/types";
 import { JobTile } from "@/components/JobTile";
@@ -9,6 +10,9 @@ import { ApplyModal } from "@/components/ApplyModal";
 import { JobFilters, useJobFilters } from "@/components/JobFilters";
 
 export default function DashboardPage() {
+  const { status } = useSession();
+  const authed = status === "authenticated";
+
   const [cv, setCv] = useState<StoredCV | null>(null);
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [stats, setStats] = useState<ScrapeStats | null>(null);
@@ -26,25 +30,31 @@ export default function DashboardPage() {
   const filters = useJobFilters(jobs);
 
   useEffect(() => {
+    if (status === "loading") return;
     (async () => {
+      setLoading(true);
       try {
-        const [cvRes, jobsRes, appliedRes, prefsRes] = await Promise.all([
-          api.getCV(),
-          api.getJobs(),
-          api.getApplied(),
-          api.getPrefs(),
-        ]);
-        setCv(cvRes.cv);
+        const jobsRes = await api.getJobs();
         setJobs(jobsRes.jobs);
         setStats(jobsRes.stats);
-        setApplied(new Set(appliedRes.applied));
-        setPrefs(prefsRes.prefs);
-        // First visit with an empty cache: scrape automatically so the user
-        // lands on jobs instead of an empty "click Refresh" state.
         if (jobsRes.jobs.length === 0) {
           const res = await api.scrape();
           setJobs(res.jobs);
           setStats(res.stats);
+        }
+        // Per-account data only when signed in — never show a shared CV.
+        if (authed) {
+          const [cvRes, appliedRes, prefsRes] = await Promise.all([
+            api.getCV(),
+            api.getApplied(),
+            api.getPrefs(),
+          ]);
+          setCv(cvRes.cv);
+          setApplied(new Set(appliedRes.applied));
+          setPrefs(prefsRes.prefs);
+        } else {
+          setCv(null);
+          setApplied(new Set());
         }
       } catch (e) {
         setError((e as Error).message);
@@ -52,7 +62,7 @@ export default function DashboardPage() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [status, authed]);
 
   async function refresh() {
     setLoading(true);
@@ -81,9 +91,10 @@ export default function DashboardPage() {
     }
   }
 
-  async function apply(job: JobListing) {
+  async function optimise(job: JobListing) {
+    if (!authed) return signIn("google");
     if (!cv) {
-      setError("Upload your CV first to generate an application.");
+      setError("Upload your CV first to generate a tailored application.");
       return;
     }
     setPreparingId(job.id);
@@ -91,13 +102,8 @@ export default function DashboardPage() {
     try {
       const { application, autoSent } = await api.prepareApplication(job.id);
       if (autoSent) {
-        // Auto-apply is on — it was sent (or queued) without confirmation.
         setApplied((prev) => new Set(prev).add(job.id));
-        setToast(
-          autoSent.sent
-            ? `Auto-applied to ${job.title} ✅`
-            : `Prepared ${job.title} — auto-send not configured, open to send.`,
-        );
+        setToast(autoSent.sent ? `Auto-applied to ${job.title} ✅` : `Prepared ${job.title}.`);
       } else {
         setActive(application);
       }
@@ -121,58 +127,77 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-sm text-gray-500">
-            {cv ? (
-              <>
-                CV: <span className="font-medium">{cv.fileName}</span> · {jobs.length} current jobs
-                {prefs.autoApply && (
-                  <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
-                    Auto-apply ON
-                  </span>
-                )}
-              </>
-            ) : (
-              <>
-                No CV yet —{" "}
-                <a href="/upload" className="text-brand-600 underline">
-                  upload one
-                </a>{" "}
-                to enable matching &amp; applications.
-              </>
-            )}
-          </p>
+          {authed ? (
+            <p className="text-sm text-gray-600">
+              {cv ? (
+                <>
+                  CV: <span className="font-medium">{cv.fileName}</span> · {jobs.length} current jobs
+                  {prefs.autoApply && (
+                    <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                      Auto-apply ON
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  No CV yet —{" "}
+                  <a href="/upload" className="text-brand-700 underline">
+                    upload one
+                  </a>{" "}
+                  to enable matching &amp; applications.
+                </>
+              )}
+            </p>
+          ) : (
+            <p className="text-sm text-gray-600">
+              Browsing {jobs.length} jobs. Sign in to upload your CV and get AI-tailored applications.
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
-          {prefs.categories.length > 0 && (
+          {authed && prefs.categories.length > 0 && (
             <button
               onClick={() => setMyJobsOnly((v) => !v)}
-              className={`flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm ${
-                myJobsOnly ? "border-brand-600 bg-brand-50 text-brand-700" : "hover:bg-gray-50"
+              className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-sm ${
+                myJobsOnly ? "bg-brand-600 text-white" : "glass"
               }`}
             >
               <Star className="h-4 w-4" /> My categories
             </button>
           )}
-          <button
-            onClick={refresh}
-            className="flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm hover:bg-gray-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
-          </button>
-          <button
-            onClick={runMatch}
-            disabled={!cv || matching || jobs.length === 0}
-            className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-2 text-sm text-white hover:bg-brand-700 disabled:opacity-50"
-          >
-            <Sparkles className={`h-4 w-4 ${matching ? "animate-pulse" : ""}`} />
-            {matching ? "Matching…" : "Match to my CV"}
-          </button>
+          {authed ? (
+            <button
+              onClick={runMatch}
+              disabled={matching || jobs.length === 0}
+              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm text-white shadow-md disabled:opacity-50"
+            >
+              <Sparkles className={`h-4 w-4 ${matching ? "animate-pulse" : ""}`} />
+              {matching ? "Matching…" : "Match to my CV"}
+            </button>
+          ) : (
+            <button
+              onClick={() => signIn("google")}
+              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm text-white shadow-md"
+            >
+              <LogIn className="h-4 w-4" /> Sign in
+            </button>
+          )}
         </div>
       </div>
 
-      {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+      {!authed && (
+        <div className="glass flex items-center gap-3 rounded-2xl p-4 text-sm text-gray-700">
+          <FileUp className="h-5 w-5 text-brand-600" />
+          <span>
+            Your CV and applications are private to your account. <strong>Sign in</strong> to upload a
+            CV, get match scores, and generate tailored CVs per job.
+          </span>
+        </div>
+      )}
+
+      {error && <div className="rounded-2xl bg-red-50/80 p-3 text-sm text-red-700 backdrop-blur">{error}</div>}
       {toast && (
-        <div className="flex items-center gap-2 rounded-md bg-green-50 p-3 text-sm text-green-700">
+        <div className="flex items-center gap-2 rounded-2xl bg-green-50/80 p-3 text-sm text-green-700 backdrop-blur">
           <Zap className="h-4 w-4" /> {toast}
         </div>
       )}
@@ -182,14 +207,8 @@ export default function DashboardPage() {
       {loading ? (
         <p className="text-gray-500">Loading…</p>
       ) : visible.length === 0 ? (
-        <div className="rounded-lg border bg-white p-8 text-center text-gray-500">
-          {jobs.length === 0 ? (
-            <>
-              No jobs cached yet. Click <strong>Refresh</strong> to scrape.
-            </>
-          ) : (
-            <>No jobs match the current filters.</>
-          )}
+        <div className="glass rounded-2xl p-8 text-center text-gray-500">
+          {jobs.length === 0 ? "Scanning job boards…" : "No jobs match the current filters."}
         </div>
       ) : (
         <>
@@ -204,20 +223,23 @@ export default function DashboardPage() {
                 score={scores[job.id]}
                 applied={applied.has(job.id)}
                 preparing={preparingId === job.id}
-                onApply={apply}
+                onApply={optimise}
               />
             ))}
           </div>
         </>
       )}
 
+      {/* Floating refresh action */}
+      <button onClick={refresh} className="fab bottom-6 right-6" title="Refresh jobs">
+        <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+      </button>
+
       {active && (
         <ApplyModal
           application={active}
           onClose={() => setActive(null)}
-          onSent={(jobId) => {
-            setApplied((prev) => new Set(prev).add(jobId));
-          }}
+          onSent={(jobId) => setApplied((prev) => new Set(prev).add(jobId))}
         />
       )}
     </div>

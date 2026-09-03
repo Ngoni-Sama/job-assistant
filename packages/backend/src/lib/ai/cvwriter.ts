@@ -1,6 +1,5 @@
 import type { Env, JobDetail, JobListing } from "../../types";
-
-const MODEL = "@cf/meta/llama-3.1-8b-instruct";
+import { chat } from "./provider";
 
 export interface TailoredApplication {
   summary: string; // tailored professional summary added on top of the CV
@@ -39,16 +38,16 @@ export async function tailorApplication(
 
   let raw = "";
   try {
-    const res = (await env.AI.run(MODEL, {
-      messages: [
+    raw = await chat(
+      env,
+      [
         { role: "system", content: system },
         { role: "user", content: user },
       ],
-      max_tokens: 600,
-    })) as { response?: string };
-    raw = res.response ?? "";
+      600,
+    );
   } catch (err) {
-    console.error("cvwriter AI.run failed", err);
+    console.error("cvwriter chat failed", err);
   }
 
   const { summary, coverNote } = parse(raw, job);
