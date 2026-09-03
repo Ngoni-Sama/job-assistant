@@ -11,8 +11,45 @@ import { fetchHtml, firstGroup, hash, text } from "./shared";
  *   <span class="job-location">…<a><em>Harare</em></a></span>
  *   <time class="entry-date" datetime="2026-09-02T…">
  */
-export async function scrapeJobsZimbabwe(startUrl: string): Promise<JobListing[]> {
-  return parseJobsZimbabwe(await fetchHtml(startUrl));
+/**
+ * Scrape jobszimbabwe across multiple pages. WordPress paginates via
+ * `.../page/N/`; the pagination bar exposes a very high max (hundreds of post
+ * pages), so we cap with `maxPages` to stay respectful and bounded.
+ */
+export async function scrapeJobsZimbabwe(
+  startUrl: string,
+  maxPages = 5,
+): Promise<JobListing[]> {
+  const firstHtml = await fetchHtml(startUrl);
+  const lastPage = Math.min(detectMaxPage(firstHtml), maxPages);
+
+  const all = parseJobsZimbabwe(firstHtml);
+  const base = pageBase(startUrl);
+  for (let page = 2; page <= lastPage; page++) {
+    try {
+      all.push(...parseJobsZimbabwe(await fetchHtml(`${base}page/${page}/`)));
+    } catch (err) {
+      console.error(`jobszimbabwe page ${page} failed`, err);
+      break; // stop paging on first failure
+    }
+  }
+  return all;
+}
+
+/** Highest `/page/N/` referenced in the pagination bar; default 1. */
+function detectMaxPage(html: string): number {
+  let max = 1;
+  const re = /\/page\/(\d+)\//gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) max = Math.max(max, Number(m[1]));
+  return max;
+}
+
+/** Origin + path with a guaranteed trailing slash, ready to append `page/N/`. */
+function pageBase(url: string): string {
+  const u = new URL(url);
+  const path = u.pathname.endsWith("/") ? u.pathname : `${u.pathname}/`;
+  return `${u.origin}${path}`;
 }
 
 export function parseJobsZimbabwe(html: string): JobListing[] {

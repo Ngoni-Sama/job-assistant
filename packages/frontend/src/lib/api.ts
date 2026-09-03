@@ -2,8 +2,23 @@ import type { JobListing, JobScore, ScrapeSource, ScrapeStats, StoredCV } from "
 
 // Defaults to the live Worker so the deployed frontend works without extra
 // config. For local dev, set NEXT_PUBLIC_API_URL=http://localhost:8787.
-const BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "https://job-assistant.ma360-ngoni.workers.dev";
+const FALLBACK_API = "https://job-assistant.ma360-ngoni.workers.dev";
+
+/**
+ * Normalise the configured API base. Guards the common misconfiguration of
+ * setting NEXT_PUBLIC_API_URL without a scheme (e.g. "job-assistant.…workers.dev"),
+ * which the browser would otherwise treat as a path relative to the current
+ * origin — producing 404s like vercel.app/job-assistant.…/api/upload-cv.
+ */
+function normalizeBase(raw: string | undefined): string {
+  const value = raw?.trim();
+  if (!value) return FALLBACK_API;
+  const withScheme = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  return withScheme.replace(/\/+$/, ""); // drop trailing slash
+}
+
+export const apiBase = normalizeBase(process.env.NEXT_PUBLIC_API_URL);
+const BASE = apiBase;
 
 // Demo single-user id; swap for real auth (NextAuth) in production.
 const USER_ID = "demo";

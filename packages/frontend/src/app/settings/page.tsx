@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Globe, AlertTriangle } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, apiBase } from "@/lib/api";
 import type { ScrapeSource } from "@/lib/types";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "https://job-assistant.ma360-ngoni.workers.dev";
+const API_URL = apiBase;
 
 export default function SettingsPage() {
   const [sources, setSources] = useState<ScrapeSource[]>([]);

@@ -153,14 +153,20 @@ async function runScrape(env: Env): Promise<{ jobs: JobListing[]; stats: ScrapeS
     }
   }
 
-  const current = collected.filter((j) => isCurrent(j.expiryDate));
-  const deduped = Array.from(new Map(current.map((j) => [j.id, j])).values());
-  deduped.sort(byExpiry);
+  // Merge fresh results into the existing cache rather than replacing it, so a
+  // partial/empty scrape (a source failing) never wipes the list. Newly scraped
+  // entries win on id collisions; only expired jobs are pruned.
+  const existing = (await env.JOBS_CACHE.get<JobListing[]>(JOBS_KEY, "json")) ?? [];
+  const merged = Array.from(
+    new Map([...existing, ...collected].map((j) => [j.id, j])).values(),
+  )
+    .filter((j) => isCurrent(j.expiryDate))
+    .sort(byExpiry);
 
-  const stats = buildStats(deduped);
-  await env.JOBS_CACHE.put(JOBS_KEY, JSON.stringify(deduped));
+  const stats = buildStats(merged);
+  await env.JOBS_CACHE.put(JOBS_KEY, JSON.stringify(merged));
   await env.JOBS_CACHE.put(STATS_KEY, JSON.stringify(stats));
-  return { jobs: deduped, stats };
+  return { jobs: merged, stats };
 }
 
 /** Soonest-expiring first; undated jobs last. */
