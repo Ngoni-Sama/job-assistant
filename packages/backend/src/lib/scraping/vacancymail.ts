@@ -22,11 +22,24 @@ export async function scrapeVacancyMail(url: string): Promise<JobListing[]> {
   return parseListings(html);
 }
 
-/** Split the listing page into per-job cards and extract fields. */
+/**
+ * Split the listing page into per-job cards and extract fields.
+ *
+ * Card markup (vacancymail, verified 2026-09-02):
+ *   <a href="/jobs/..." class="job-listing">
+ *     <div class="job-listing-description">
+ *       <h3 class="job-listing-title">…</h3>
+ *       <h4 class="job-listing-company">…</h4>
+ *       <p class="job-listing-text">…</p>
+ *     <div class="job-listing-footer"><ul>
+ *       <li><i class="icon-material-outline-location-on"></i> Location</li>
+ *       <li><i class="icon-material-outline-access-time"></i> Expires dd Mon yyyy</li>
+ *       <li><i class="icon-material-outline-business-center"></i> Job type</li>
+ *       <li><i class="icon-material-outline-account-balance-wallet"></i> Salary</li>
+ */
 export function parseListings(html: string): JobListing[] {
   const jobs: JobListing[] = [];
-  // Listing cards are anchor blocks under the jobs feed.
-  const cardRegex = /<a[^>]*class="[^"]*job-listing[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
+  const cardRegex = /<a[^>]*class="[^"]*\bjob-listing\b[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
   let match: RegExpExecArray | null;
 
   while ((match = cardRegex.exec(html)) !== null) {
@@ -34,22 +47,37 @@ export function parseListings(html: string): JobListing[] {
     const inner = match[1];
 
     const href = firstGroup(card, /href="([^"]+)"/i);
-    const title = text(firstGroup(inner, /<h[34][^>]*>([\s\S]*?)<\/h[34]>/i));
+    const title = text(firstGroup(inner, /class="[^"]*job-listing-title[^"]*"[^>]*>([\s\S]*?)<\/h3>/i));
     if (!title) continue;
 
     jobs.push({
       id: `vm-${hash(href || title)}`,
       title,
-      company: text(firstGroup(inner, /class="[^"]*job-company[^"]*"[^>]*>([\s\S]*?)</i)) || "N/A",
-      location: text(firstGroup(inner, /class="[^"]*location[^"]*"[^>]*>([\s\S]*?)</i)) || "Zimbabwe",
-      postedDate: text(firstGroup(inner, /class="[^"]*posted[^"]*"[^>]*>([\s\S]*?)</i)),
-      description: text(firstGroup(inner, /<p[^>]*>([\s\S]*?)<\/p>/i)),
+      company:
+        text(firstGroup(inner, /class="[^"]*job-listing-company(?!-)[^"]*"[^>]*>([\s\S]*?)<\/h4>/i)) ||
+        "N/A",
+      location: footerField(inner, "location-on") || "Zimbabwe",
+      postedDate: footerField(inner, "access-time"),
+      description: text(firstGroup(inner, /class="[^"]*job-listing-text[^"]*"[^>]*>([\s\S]*?)<\/p>/i)),
       requirements: [],
       applyLink: absolute(href),
       source: "vacancymail.co.zw",
     });
   }
   return jobs;
+}
+
+/**
+ * Extract a footer <li> value identified by its Material icon suffix.
+ * Isolates each <li>, finds the one carrying the icon class, and strips tags —
+ * more robust than a single anchored regex against the whitespace-heavy markup.
+ */
+function footerField(inner: string, iconSuffix: string): string {
+  const items = inner.match(/<li>[\s\S]*?<\/li>/gi) ?? [];
+  for (const li of items) {
+    if (li.includes(`icon-material-outline-${iconSuffix}`)) return text(li);
+  }
+  return "";
 }
 
 function firstGroup(input: string, re: RegExp): string {
@@ -63,7 +91,8 @@ function text(raw: string): string {
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
-    .replace(/&#8217;|&rsquo;/g, "'")
+    .replace(/&#x27;|&#39;|&#8217;|&rsquo;|&apos;/g, "'")
+    .replace(/&quot;/g, '"')
     .replace(/\s+/g, " ")
     .trim();
 }
