@@ -18,6 +18,22 @@ export interface JobListing {
   requirements: string[];
   applyLink: string;
   source: string;
+  jobType?: string; // e.g. "Full Time", "Contract"
+  expiryDate?: string; // ISO yyyy-mm-dd, when known
+}
+
+/** A user-configurable place to scrape jobs from. */
+export interface ScrapeSource {
+  url: string;
+  label: string;
+  enabled: boolean;
+}
+
+export interface ScrapeStats {
+  total: number;
+  byLocation: Record<string, number>;
+  bySource: Record<string, number>;
+  scrapedAt: string;
 }
 
 export interface JobScore {

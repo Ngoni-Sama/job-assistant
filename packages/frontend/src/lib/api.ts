@@ -1,6 +1,9 @@
-import type { JobListing, JobScore, StoredCV } from "./types";
+import type { JobListing, JobScore, ScrapeSource, ScrapeStats, StoredCV } from "./types";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
+// Defaults to the live Worker so the deployed frontend works without extra
+// config. For local dev, set NEXT_PUBLIC_API_URL=http://localhost:8787.
+const BASE =
+  process.env.NEXT_PUBLIC_API_URL ?? "https://job-assistant.ma360-ngoni.workers.dev";
 
 // Demo single-user id; swap for real auth (NextAuth) in production.
 const USER_ID = "demo";
@@ -17,9 +20,18 @@ async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+const jsonBody = (data: unknown): RequestInit => ({
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(data),
+});
+
 export const api = {
-  getJobs: () => req<{ jobs: JobListing[] }>("/api/jobs"),
-  scrape: () => req<{ count: number; jobs: JobListing[] }>("/api/scrape", { method: "POST" }),
+  getJobs: () => req<{ jobs: JobListing[]; stats: ScrapeStats | null }>("/api/jobs"),
+  scrape: () =>
+    req<{ count: number; jobs: JobListing[]; stats: ScrapeStats }>("/api/scrape", {
+      method: "POST",
+    }),
   getCV: () => req<{ cv: StoredCV | null }>("/api/cv"),
   matchAll: () => req<{ scores: JobScore[] }>("/api/match-all", { method: "POST" }),
   uploadCV: (file: File) => {
@@ -30,4 +42,12 @@ export const api = {
       body: form,
     });
   },
+  getSources: () => req<{ sources: ScrapeSource[] }>("/api/sources"),
+  addSource: (url: string, label?: string) =>
+    req<{ sources: ScrapeSource[]; supported: boolean }>("/api/sources", jsonBody({ url, label })),
+  removeSource: (url: string) =>
+    req<{ sources: ScrapeSource[] }>("/api/sources", {
+      ...jsonBody({ url }),
+      method: "DELETE",
+    }),
 };

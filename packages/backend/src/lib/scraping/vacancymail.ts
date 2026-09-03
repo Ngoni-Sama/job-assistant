@@ -1,41 +1,65 @@
 import type { JobListing } from "../../types";
+import { parseExpiry } from "../utils/date";
+import { fetchHtml, firstGroup, hash, text } from "./shared";
+
+const HOST = "https://vacancymail.co.zw";
 
 /**
- * Scrapes job listings from vacancymail.co.zw.
+ * Scrapes job listings from vacancymail.co.zw across multiple pages.
  *
- * NOTE: HTML scraping is inherently brittle — selectors below are best-effort
- * against the current markup and will need updating if the site changes. Prefer
- * an official API where one exists. Always respect the site's robots.txt / ToS
- * and keep request volume low.
+ * Pages are addressed via `?page=N`; the pagination bar exposes the highest
+ * page number. We walk from page 1 up to `min(detectedMax, maxPages)` to keep
+ * request volume (and Worker subrequests) bounded and the site respected.
+ *
+ * NOTE: HTML scraping is brittle — selectors are best-effort against the markup
+ * verified 2026-09-02 and will need updating if the site changes.
  */
-export async function scrapeVacancyMail(url: string): Promise<JobListing[]> {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (compatible; JobAssistant/0.1; +https://github.com/Ngoni-Sama/job-assistant)",
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`vacancymail returned ${res.status}`);
+export async function scrapeVacancyMail(
+  startUrl: string,
+  maxPages = 8,
+): Promise<JobListing[]> {
+  const base = new URL(startUrl);
+  const firstHtml = await fetchHtml(startUrl);
+
+  const detected = detectMaxPage(firstHtml);
+  const lastPage = Math.min(detected, maxPages);
+
+  const all = parseListings(firstHtml);
+  for (let page = 2; page <= lastPage; page++) {
+    base.searchParams.set("page", String(page));
+    try {
+      all.push(...parseListings(await fetchHtml(base.toString())));
+    } catch (err) {
+      console.error(`vacancymail page ${page} failed`, err);
+      break; // stop paging on the first failure
+    }
   }
-  const html = await res.text();
-  return parseListings(html);
+  return all;
+}
+
+/** Read the highest `?page=N` from the pagination bar; default 1. */
+export function detectMaxPage(html: string): number {
+  let max = 1;
+  const re = /[?&]page=(\d+)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    max = Math.max(max, Number(m[1]));
+  }
+  return max;
 }
 
 /**
- * Split the listing page into per-job cards and extract fields.
+ * Split a listing page into per-job cards and extract fields.
  *
- * Card markup (vacancymail, verified 2026-09-02):
+ * Card markup (verified 2026-09-02):
  *   <a href="/jobs/..." class="job-listing">
- *     <div class="job-listing-description">
- *       <h3 class="job-listing-title">…</h3>
- *       <h4 class="job-listing-company">…</h4>
- *       <p class="job-listing-text">…</p>
+ *     <h3 class="job-listing-title">…</h3>
+ *     <h4 class="job-listing-company">…</h4>
+ *     <p  class="job-listing-text">…</p>
  *     <div class="job-listing-footer"><ul>
  *       <li><i class="icon-material-outline-location-on"></i> Location</li>
  *       <li><i class="icon-material-outline-access-time"></i> Expires dd Mon yyyy</li>
  *       <li><i class="icon-material-outline-business-center"></i> Job type</li>
- *       <li><i class="icon-material-outline-account-balance-wallet"></i> Salary</li>
  */
 export function parseListings(html: string): JobListing[] {
   const jobs: JobListing[] = [];
@@ -50,6 +74,7 @@ export function parseListings(html: string): JobListing[] {
     const title = text(firstGroup(inner, /class="[^"]*job-listing-title[^"]*"[^>]*>([\s\S]*?)<\/h3>/i));
     if (!title) continue;
 
+    const expiryRaw = footerField(inner, "access-time");
     jobs.push({
       id: `vm-${hash(href || title)}`,
       title,
@@ -57,7 +82,9 @@ export function parseListings(html: string): JobListing[] {
         text(firstGroup(inner, /class="[^"]*job-listing-company(?!-)[^"]*"[^>]*>([\s\S]*?)<\/h4>/i)) ||
         "N/A",
       location: footerField(inner, "location-on") || "Zimbabwe",
-      postedDate: footerField(inner, "access-time"),
+      postedDate: expiryRaw,
+      expiryDate: parseExpiry(expiryRaw),
+      jobType: footerField(inner, "business-center") || undefined,
       description: text(firstGroup(inner, /class="[^"]*job-listing-text[^"]*"[^>]*>([\s\S]*?)<\/p>/i)),
       requirements: [],
       applyLink: absolute(href),
@@ -70,7 +97,7 @@ export function parseListings(html: string): JobListing[] {
 /**
  * Extract a footer <li> value identified by its Material icon suffix.
  * Isolates each <li>, finds the one carrying the icon class, and strips tags —
- * more robust than a single anchored regex against the whitespace-heavy markup.
+ * robust against the markup's heavy whitespace.
  */
 function footerField(inner: string, iconSuffix: string): string {
   const items = inner.match(/<li>[\s\S]*?<\/li>/gi) ?? [];
@@ -80,31 +107,7 @@ function footerField(inner: string, iconSuffix: string): string {
   return "";
 }
 
-function firstGroup(input: string, re: RegExp): string {
-  const m = input.match(re);
-  return m ? m[1] : "";
-}
-
-/** Strip tags + collapse whitespace + decode a few common entities. */
-function text(raw: string): string {
-  return raw
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&#x27;|&#39;|&#8217;|&rsquo;|&apos;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function absolute(href: string): string {
-  if (!href) return "https://vacancymail.co.zw/jobs/";
-  return href.startsWith("http") ? href : `https://vacancymail.co.zw${href}`;
-}
-
-/** Small stable hash for deterministic job ids (avoids duplicates across runs). */
-function hash(input: string): string {
-  let h = 5381;
-  for (let i = 0; i < input.length; i++) h = (h * 33) ^ input.charCodeAt(i);
-  return (h >>> 0).toString(36);
+  if (!href) return `${HOST}/jobs/`;
+  return href.startsWith("http") ? href : `${HOST}${href}`;
 }

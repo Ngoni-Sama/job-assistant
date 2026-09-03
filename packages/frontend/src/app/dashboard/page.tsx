@@ -3,16 +3,20 @@
 import { useEffect, useState } from "react";
 import { RefreshCw, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
-import type { JobListing, JobScore, StoredCV } from "@/lib/types";
+import type { JobListing, JobScore, ScrapeStats, StoredCV } from "@/lib/types";
 import { JobCard } from "@/components/JobCard";
+import { JobFilters, useJobFilters } from "@/components/JobFilters";
 
 export default function DashboardPage() {
   const [cv, setCv] = useState<StoredCV | null>(null);
   const [jobs, setJobs] = useState<JobListing[]>([]);
+  const [stats, setStats] = useState<ScrapeStats | null>(null);
   const [scores, setScores] = useState<Record<string, JobScore>>({});
   const [loading, setLoading] = useState(true);
   const [matching, setMatching] = useState(false);
   const [error, setError] = useState("");
+
+  const filters = useJobFilters(jobs);
 
   useEffect(() => {
     (async () => {
@@ -20,6 +24,7 @@ export default function DashboardPage() {
         const [cvRes, jobsRes] = await Promise.all([api.getCV(), api.getJobs()]);
         setCv(cvRes.cv);
         setJobs(jobsRes.jobs);
+        setStats(jobsRes.stats);
       } catch (e) {
         setError((e as Error).message);
       } finally {
@@ -32,8 +37,9 @@ export default function DashboardPage() {
     setLoading(true);
     setError("");
     try {
-      const { jobs } = await api.scrape();
-      setJobs(jobs);
+      const res = await api.scrape();
+      setJobs(res.jobs);
+      setStats(res.stats);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -54,7 +60,7 @@ export default function DashboardPage() {
     }
   }
 
-  const sorted = [...jobs].sort(
+  const sorted = [...filters.filtered].sort(
     (a, b) => (scores[b.id]?.score ?? -1) - (scores[a.id]?.score ?? -1),
   );
 
@@ -65,9 +71,17 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-sm text-gray-500">
             {cv ? (
-              <>CV: <span className="font-medium">{cv.fileName}</span> · {jobs.length} jobs cached</>
+              <>
+                CV: <span className="font-medium">{cv.fileName}</span> · {jobs.length} current jobs
+              </>
             ) : (
-              <>No CV yet — <a href="/upload" className="text-brand-600 underline">upload one</a> to enable matching.</>
+              <>
+                No CV yet —{" "}
+                <a href="/upload" className="text-brand-600 underline">
+                  upload one
+                </a>{" "}
+                to enable matching.
+              </>
             )}
           </p>
         </div>
@@ -91,18 +105,31 @@ export default function DashboardPage() {
 
       {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
+      {jobs.length > 0 && <JobFilters {...filters} />}
+
       {loading ? (
         <p className="text-gray-500">Loading…</p>
       ) : sorted.length === 0 ? (
         <div className="rounded-lg border bg-white p-8 text-center text-gray-500">
-          No jobs cached yet. Click <strong>Refresh jobs</strong> to scrape.
+          {jobs.length === 0 ? (
+            <>
+              No jobs cached yet. Click <strong>Refresh jobs</strong> to scrape.
+            </>
+          ) : (
+            <>No jobs match the selected filters.</>
+          )}
         </div>
       ) : (
-        <div className="space-y-4">
-          {sorted.map((job) => (
-            <JobCard key={job.id} job={job} score={scores[job.id]} />
-          ))}
-        </div>
+        <>
+          <p className="text-sm text-gray-500">
+            Showing {sorted.length} of {jobs.length} jobs
+          </p>
+          <div className="space-y-4">
+            {sorted.map((job) => (
+              <JobCard key={job.id} job={job} score={scores[job.id]} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

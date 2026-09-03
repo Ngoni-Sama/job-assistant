@@ -18,6 +18,11 @@ export function JobCard({ job, score }: { job: JobListing; score?: JobScore }) {
             <span className="flex items-center gap-1">
               <MapPin className="h-3.5 w-3.5" /> {job.location}
             </span>
+            {job.jobType && (
+              <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs text-brand-700">
+                {job.jobType}
+              </span>
+            )}
             {job.postedDate && (
               <span className="flex items-center gap-1">
                 <Clock className="h-3.5 w-3.5" /> {job.postedDate}
