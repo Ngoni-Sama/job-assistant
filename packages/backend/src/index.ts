@@ -1,14 +1,26 @@
-import type { Env, JobListing, ScrapeSource, ScrapeStats, StoredCV } from "./types";
+import type {
+  Application,
+  Env,
+  JobListing,
+  Prefs,
+  ScrapeSource,
+  ScrapeStats,
+  StoredCV,
+} from "./types";
 import { json, preflight } from "./lib/utils/cors";
 import { DEFAULT_SOURCES, isSupported, scrapeSource } from "./lib/scraping/registry";
 import { searchGoogleJobs } from "./lib/scraping/google";
+import { fetchJobDetail } from "./lib/scraping/detail";
 import { isCurrent } from "./lib/utils/date";
 import { processCV } from "./lib/ai/extractor";
 import { matchJobToCV } from "./lib/ai/matcher";
+import { tailorApplication } from "./lib/ai/cvwriter";
+import { sendApplication } from "./lib/email";
 
 const JOBS_KEY = "jobs:all";
 const STATS_KEY = "jobs:stats";
 const SOURCES_KEY = "scrape:sources";
+const DEFAULT_PREFS: Prefs = { autoApply: false, categories: [] };
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -105,6 +117,73 @@ export default {
         return json({ scores });
       }
 
+      // --- Preferences (auto-apply + categories) ---
+      if (path === "/api/prefs" && request.method === "GET") {
+        return json({ prefs: await getPrefs(env, userId) });
+      }
+      if (path === "/api/prefs" && request.method === "POST") {
+        const body = (await request.json()) as Partial<Prefs>;
+        const prefs: Prefs = {
+          autoApply: body.autoApply ?? (await getPrefs(env, userId)).autoApply,
+          categories: body.categories ?? (await getPrefs(env, userId)).categories,
+        };
+        await env.JOBS_CACHE.put(prefsKey(userId), JSON.stringify(prefs));
+        return json({ prefs });
+      }
+
+      // Which jobs the user has applied to
+      if (path === "/api/applied" && request.method === "GET") {
+        return json({ applied: await getApplied(env, userId) });
+      }
+
+      // Prepare an application: detect How-to-Apply + tailor CV.
+      // Auto-sends when the user's autoApply preference is on and email is known.
+      if (path === "/api/apply/prepare" && request.method === "POST") {
+        const { jobId } = (await request.json()) as { jobId?: string };
+        const cv = await env.JOBS_CACHE.get<StoredCV>(`cv:${userId}`, "json");
+        if (!cv) return json({ error: "No CV uploaded yet" }, { status: 400 });
+        const job = (await getJobs(env)).find((j) => j.id === jobId);
+        if (!job) return json({ error: "Job not found" }, { status: 404 });
+
+        const detail = await fetchJobDetail(job.applyLink);
+        const tailored = await tailorApplication(cv.markdown, job, detail, env);
+
+        const application: Application = {
+          jobId: job.id,
+          jobTitle: job.title,
+          company: job.company,
+          to: detail.applyEmail,
+          phone: detail.applyPhone,
+          deadline: detail.deadline,
+          applyText: detail.applyText,
+          subject: `Application: ${job.title}${job.company !== "N/A" ? ` — ${job.company}` : ""}`,
+          coverNote: tailored.coverNote,
+          tailoredCV: tailored.tailoredCV,
+          generatedAt: new Date().toISOString(),
+        };
+        await env.JOBS_CACHE.put(appKey(userId, job.id), JSON.stringify(application));
+
+        const prefs = await getPrefs(env, userId);
+        let autoSent = null;
+        if (prefs.autoApply && application.to) {
+          autoSent = await doSend(env, userId, application);
+        }
+        return json({ application, autoSent });
+      }
+
+      // Send a previously prepared application (user-confirmed).
+      if (path === "/api/apply/send" && request.method === "POST") {
+        const { jobId } = (await request.json()) as { jobId?: string };
+        const application = await env.JOBS_CACHE.get<Application>(
+          appKey(userId, jobId ?? ""),
+          "json",
+        );
+        if (!application) {
+          return json({ error: "Prepare the application first" }, { status: 400 });
+        }
+        return json({ result: await doSend(env, userId, application) });
+      }
+
       return json({ error: "Not found" }, { status: 404 });
     } catch (err) {
       console.error(err);
@@ -124,6 +203,41 @@ async function getSources(env: Env): Promise<ScrapeSource[]> {
   if (stored && stored.length) return stored;
   await env.JOBS_CACHE.put(SOURCES_KEY, JSON.stringify(DEFAULT_SOURCES));
   return DEFAULT_SOURCES;
+}
+
+const prefsKey = (userId: string) => `prefs:${userId}`;
+const appKey = (userId: string, jobId: string) => `application:${userId}:${jobId}`;
+const appliedKey = (userId: string) => `applied:${userId}`;
+
+async function getJobs(env: Env): Promise<JobListing[]> {
+  return (await env.JOBS_CACHE.get<JobListing[]>(JOBS_KEY, "json")) ?? [];
+}
+
+async function getPrefs(env: Env, userId: string): Promise<Prefs> {
+  return (await env.JOBS_CACHE.get<Prefs>(prefsKey(userId), "json")) ?? DEFAULT_PREFS;
+}
+
+async function getApplied(env: Env, userId: string): Promise<string[]> {
+  return (await env.JOBS_CACHE.get<string[]>(appliedKey(userId), "json")) ?? [];
+}
+
+/** Send an application, record the outcome, and mark the job applied. */
+async function doSend(env: Env, userId: string, application: Application) {
+  const result = await sendApplication(application, env);
+
+  application.sent = result.sent;
+  application.method = result.method;
+  if (result.sent) application.sentAt = new Date().toISOString();
+  await env.JOBS_CACHE.put(appKey(userId, application.jobId), JSON.stringify(application));
+
+  // Record as applied once dispatched by email (manual mailto is recorded when
+  // the user confirms send too, so the UI can reflect intent).
+  const applied = await getApplied(env, userId);
+  if (!applied.includes(application.jobId)) {
+    applied.push(application.jobId);
+    await env.JOBS_CACHE.put(appliedKey(userId), JSON.stringify(applied));
+  }
+  return result;
 }
 
 /**

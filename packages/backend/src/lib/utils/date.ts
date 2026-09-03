@@ -10,7 +10,11 @@ const MONTHS: Record<string, number> = {
  */
 export function parseExpiry(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
-  const s = raw.replace(/expires/i, "").trim();
+  // Drop "Expires"/"before" prefixes and ordinal suffixes ("7th" -> "7").
+  const s = raw
+    .replace(/expires|before/gi, "")
+    .replace(/(\d+)(st|nd|rd|th)/gi, "$1")
+    .trim();
 
   // ISO datetime (e.g. jobszimbabwe <time datetime="2026-09-02T21:19:44+02:00">)
   const iso = s.match(/(\d{4})-(\d{2})-(\d{2})/);

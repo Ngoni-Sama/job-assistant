@@ -1,4 +1,13 @@
-import type { JobListing, JobScore, ScrapeSource, ScrapeStats, StoredCV } from "./types";
+import type {
+  Application,
+  JobListing,
+  JobScore,
+  Prefs,
+  ScrapeSource,
+  ScrapeStats,
+  SendResult,
+  StoredCV,
+} from "./types";
 
 // Defaults to the live Worker so the deployed frontend works without extra
 // config. For local dev, set NEXT_PUBLIC_API_URL=http://localhost:8787.
@@ -57,6 +66,16 @@ export const api = {
       body: form,
     });
   },
+  getPrefs: () => req<{ prefs: Prefs }>("/api/prefs"),
+  setPrefs: (prefs: Partial<Prefs>) => req<{ prefs: Prefs }>("/api/prefs", jsonBody(prefs)),
+  getApplied: () => req<{ applied: string[] }>("/api/applied"),
+  prepareApplication: (jobId: string) =>
+    req<{ application: Application; autoSent: SendResult | null }>(
+      "/api/apply/prepare",
+      jsonBody({ jobId }),
+    ),
+  sendApplication: (jobId: string) =>
+    req<{ result: SendResult }>("/api/apply/send", jsonBody({ jobId })),
   getSources: () => req<{ sources: ScrapeSource[] }>("/api/sources"),
   addSource: (url: string, label?: string) =>
     req<{ sources: ScrapeSource[]; supported: boolean }>("/api/sources", jsonBody({ url, label })),

@@ -6,6 +6,8 @@ export interface Env {
   CV_BUCKET?: R2Bucket; // optional — only bound when R2 is enabled
   DEFAULT_SCRAPE_URL: string;
   SERPER_API_KEY?: string;
+  RESEND_API_KEY?: string; // optional — enables real application email sending
+  APPLY_FROM_EMAIL?: string; // verified sender for Resend
 }
 
 export interface JobListing {
@@ -34,6 +36,40 @@ export interface ScrapeStats {
   byLocation: Record<string, number>;
   bySource: Record<string, number>;
   scrapedAt: string;
+}
+
+/** Parsed "How to Apply" info from a job's detail page. */
+export interface JobDetail {
+  description: string;
+  applyText: string;
+  applyEmail?: string;
+  applyPhone?: string;
+  deadline?: string; // raw phrase, e.g. "7th September 2026"
+  deadlineDate?: string; // ISO when parseable
+}
+
+/** A prepared application awaiting send/confirmation. */
+export interface Application {
+  jobId: string;
+  jobTitle: string;
+  company: string;
+  to?: string; // application email, when detected
+  phone?: string;
+  deadline?: string;
+  applyText: string; // raw "How to Apply" instructions
+  subject: string;
+  coverNote: string;
+  tailoredCV: string;
+  generatedAt: string;
+  sent?: boolean;
+  sentAt?: string;
+  method?: "email" | "manual"; // how it was (or must be) delivered
+}
+
+/** Per-user preferences. */
+export interface Prefs {
+  autoApply: boolean;
+  categories: string[]; // job types the user cares about
 }
 
 export interface JobScore {

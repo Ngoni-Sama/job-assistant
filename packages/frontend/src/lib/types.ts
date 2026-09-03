@@ -25,6 +25,35 @@ export interface ScrapeStats {
   scrapedAt: string;
 }
 
+export interface Application {
+  jobId: string;
+  jobTitle: string;
+  company: string;
+  to?: string;
+  phone?: string;
+  deadline?: string;
+  applyText: string;
+  subject: string;
+  coverNote: string;
+  tailoredCV: string;
+  generatedAt: string;
+  sent?: boolean;
+  sentAt?: string;
+  method?: "email" | "manual";
+}
+
+export interface SendResult {
+  sent: boolean;
+  method: "email" | "manual";
+  mailto?: string;
+  reason?: string;
+}
+
+export interface Prefs {
+  autoApply: boolean;
+  categories: string[];
+}
+
 export interface JobScore {
   jobId: string;
   score: number;
