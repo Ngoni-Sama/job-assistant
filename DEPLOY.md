@@ -98,6 +98,37 @@ for local development but too open for production. Once you know your Vercel URL
 
 ---
 
+## Continuous deployment (push → auto-deploy)
+
+`.github/workflows/deploy.yml` deploys on every push to `main`: the **Worker** to
+Cloudflare and the **frontend** to Vercel. Each job only runs when its package (or
+a root `package.json`/lockfile) changed.
+
+### One-time setup — add GitHub repo secrets
+
+Repo → **Settings → Secrets and variables → Actions → New repository secret**:
+
+| Secret | Where to get it |
+|--------|-----------------|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens → *Edit Cloudflare Workers* template |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard URL / Workers overview (`1e90e6b9…`) |
+| `VERCEL_TOKEN` | Vercel → Account Settings → Tokens |
+| `VERCEL_ORG_ID` | `packages/frontend/.vercel/project.json` after `vercel link` (`orgId`) |
+| `VERCEL_PROJECT_ID` | same file (`projectId`) |
+
+The frontend job **skips itself** if `VERCEL_TOKEN` is absent — so you can instead
+use Vercel's own Git integration and delete the `deploy-frontend` job.
+
+### Simpler alternative for the frontend (no secrets)
+
+In the Vercel dashboard: **Add New → Project → import this GitHub repo**, set
+**Root Directory = `packages/frontend`**. Vercel then auto-deploys every push with
+zero Actions config. If you do this, delete the `deploy-frontend` job from the
+workflow so it isn't done twice.
+
+> Cloudflare has no equivalent "connect a repo" auto-deploy for this setup, so the
+> Worker always goes through GitHub Actions (the `deploy-worker` job).
+
 ## Deploy checklist
 
 - [ ] `wrangler login` done
