@@ -3,6 +3,13 @@ main = "src/index.ts"
 compatibility_date = "2024-12-18"
 compatibility_flags = ["nodejs_compat"]
 
+# ===== TEST-ONLY HARDCODE — review before real launch =====
+# Account ID is an identifier (not a secret), so it's safe to commit. This lets
+# CI/CD skip the CLOUDFLARE_ACCOUNT_ID secret. Fine to leave, or remove and set
+# the CLOUDFLARE_ACCOUNT_ID GitHub secret instead.
+account_id = "1e90e6b99306ccd54c9a9eecf6793b02"
+# ==========================================================
+
 # Workers AI — PDF→Markdown and CV↔job matching
 [ai]
 binding = "AI"

@@ -1,0 +1,25 @@
+name: CI
+
+# Catches broken code before it can merge/deploy. Runs on PRs and on pushes to
+# any branch except main (main pushes are handled by deploy.yml, which typechecks
+# the backend before deploying).
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck backend Worker
+        run: npm run typecheck --workspace=packages/backend
+      - name: Build frontend
+        run: npm run build --workspace=packages/frontend

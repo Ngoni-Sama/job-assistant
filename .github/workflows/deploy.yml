@@ -44,8 +44,10 @@ jobs:
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
+          # accountId is read from wrangler.toml (account_id). Only the API TOKEN
+          # is a real secret — it must stay in GitHub Secrets, NOT hardcoded here.
+          # This repo is PUBLIC; a token committed to it is compromised instantly.
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: packages/backend
 
   deploy-frontend:

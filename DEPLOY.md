@@ -111,10 +111,14 @@ Repo → **Settings → Secrets and variables → Actions → New repository sec
 | Secret | Where to get it |
 |--------|-----------------|
 | `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens → *Edit Cloudflare Workers* template |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard URL / Workers overview (`1e90e6b9…`) |
 | `VERCEL_TOKEN` | Vercel → Account Settings → Tokens |
 | `VERCEL_ORG_ID` | `packages/frontend/.vercel/project.json` after `vercel link` (`orgId`) |
 | `VERCEL_PROJECT_ID` | same file (`projectId`) |
+
+> `CLOUDFLARE_ACCOUNT_ID` is no longer needed — it's committed (non-secret) in
+> `wrangler.toml`. `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` aren't secret either; you
+> may inline them in `deploy.yml` if you prefer. The two **tokens** must stay as
+> secrets — never commit them (this repo is public).
 
 The frontend job **skips itself** if `VERCEL_TOKEN` is absent — so you can instead
 use Vercel's own Git integration and delete the `deploy-frontend` job.
