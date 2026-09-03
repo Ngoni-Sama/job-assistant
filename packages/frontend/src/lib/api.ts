@@ -29,13 +29,24 @@ function normalizeBase(raw: string | undefined): string {
 export const apiBase = normalizeBase(process.env.NEXT_PUBLIC_API_URL);
 const BASE = apiBase;
 
-// Demo single-user id; swap for real auth (NextAuth) in production.
-const USER_ID = "demo";
+// The user id sent to the backend. Signed-in users are keyed by their Google
+// email; signed-out users share the "demo" space. Read fresh per request so it
+// tracks sign-in/out without needing a page reload.
+async function currentUserId(): Promise<string> {
+  try {
+    const { getSession } = await import("next-auth/react");
+    const session = await getSession();
+    return session?.user?.email ?? "demo";
+  } catch {
+    return "demo";
+  }
+}
 
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const userId = await currentUserId();
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { "x-user-id": USER_ID, ...(init.headers ?? {}) },
+    headers: { "x-user-id": userId, ...(init.headers ?? {}) },
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
