@@ -8,6 +8,7 @@ export const COSTS = {
   quickMatch: 10, // full batch analysis of all listings
   optimise: 3, // prepare/tailor one application
   matchAll: 5, // score all cached jobs
+  unlockContact: 20, // employer reveals one candidate's contact details
 } as const;
 
 const key = (userId: string) => `credits:${userId}`;

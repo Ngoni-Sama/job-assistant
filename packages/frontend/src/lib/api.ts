@@ -97,6 +97,14 @@ export const api = {
   registerEmployer: (company: string, contactPerson: string) =>
     req<{ employer: Employer }>("/api/employer", jsonBody({ company, contactPerson })),
   getCandidates: () => req<{ sectors: Record<string, CandidateCard[]> }>("/api/candidates"),
+  getShortlist: () =>
+    req<{ shortlist: CandidateCard[]; unlocked: Record<string, string> }>("/api/employer/shortlist"),
+  shortlistCandidate: (candidate: CandidateCard) =>
+    req<{ shortlist: CandidateCard[] }>("/api/employer/shortlist", jsonBody({ candidate })),
+  removeShortlist: (id: string) =>
+    req<{ shortlist: CandidateCard[] }>("/api/employer/shortlist", { ...jsonBody({ id }), method: "DELETE" }),
+  unlockCandidate: (candidateId: string) =>
+    req<{ email: string; balance: number }>("/api/employer/unlock", jsonBody({ candidateId })),
   getAdminEmployers: () => req<{ employers: Employer[] }>("/api/admin/employers"),
   setEmployerStatus: (userId: string, status: Employer["status"]) =>
     req<{ employers: Employer[] }>("/api/admin/employers", jsonBody({ userId, status })),

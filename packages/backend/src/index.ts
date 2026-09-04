@@ -338,6 +338,62 @@ export default {
         return json({ sectors: await listCandidatesBySector(env) });
       }
 
+      // Employer shortlist (swipe-right). Approved employers only.
+      if (path === "/api/employer/shortlist") {
+        const employer = await getEmployer(env, userId);
+        if (employer?.status !== "approved") {
+          return json({ error: "Approved employer account required" }, { status: 403 });
+        }
+        const skey = `shortlist:${userId}`;
+        if (request.method === "GET") {
+          const shortlist = (await env.JOBS_CACHE.get<CandidateCard[]>(skey, "json")) ?? [];
+          const unlocked = (await env.JOBS_CACHE.get<Record<string, string>>(`unlocked:${userId}`, "json")) ?? {};
+          return json({ shortlist, unlocked });
+        }
+        if (request.method === "POST") {
+          const { candidate } = (await request.json()) as { candidate?: CandidateCard };
+          if (!candidate?.id) return json({ error: "candidate required" }, { status: 400 });
+          const list = (await env.JOBS_CACHE.get<CandidateCard[]>(skey, "json")) ?? [];
+          if (!list.some((c) => c.id === candidate.id)) list.push(candidate);
+          await env.JOBS_CACHE.put(skey, JSON.stringify(list));
+          return json({ shortlist: list });
+        }
+        if (request.method === "DELETE") {
+          const { id } = (await request.json()) as { id?: string };
+          const list = ((await env.JOBS_CACHE.get<CandidateCard[]>(skey, "json")) ?? []).filter(
+            (c) => c.id !== id,
+          );
+          await env.JOBS_CACHE.put(skey, JSON.stringify(list));
+          return json({ shortlist: list });
+        }
+      }
+
+      // Unlock a candidate's contact — costs credits. Approved employers only.
+      if (path === "/api/employer/unlock" && request.method === "POST") {
+        const employer = await getEmployer(env, userId);
+        if (employer?.status !== "approved") {
+          return json({ error: "Approved employer account required" }, { status: 403 });
+        }
+        const { candidateId: cid } = (await request.json()) as { candidateId?: string };
+        if (!cid) return json({ error: "candidateId required" }, { status: 400 });
+
+        const ukey = `unlocked:${userId}`;
+        const unlocked = (await env.JOBS_CACHE.get<Record<string, string>>(ukey, "json")) ?? {};
+        // Already unlocked — return without charging again.
+        if (unlocked[cid]) return json({ email: unlocked[cid], balance: await getCredits(env, userId) });
+
+        const email = await env.JOBS_CACHE.get(`cidmap:${cid}`);
+        if (!email) return json({ error: "Candidate not found" }, { status: 404 });
+
+        const paid = await charge(env, userId, COSTS.unlockContact);
+        if (!paid.ok) {
+          return json({ error: "Not enough credits", balance: paid.balance, cost: COSTS.unlockContact }, { status: 402 });
+        }
+        unlocked[cid] = email;
+        await env.JOBS_CACHE.put(ukey, JSON.stringify(unlocked));
+        return json({ email, balance: paid.balance });
+      }
+
       // Admin: list + approve/reject employer applications.
       if (path === "/api/admin/employers") {
         if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
@@ -541,8 +597,11 @@ async function listCandidatesBySector(env: Env): Promise<Record<string, Candidat
     const p = await env.JOBS_CACHE.get<Profile>(k.name, "json");
     if (!p || p.availability === "not_looking") continue;
     const sector = p.sector || "Other";
+    const cid = candidateId(email);
+    // Map the hashed id back to the email so unlock can resolve it later.
+    await env.JOBS_CACHE.put(`cidmap:${cid}`, email);
     (grouped[sector] ??= []).push({
-      id: candidateId(email),
+      id: cid,
       name: p.name || "Candidate",
       headline: p.headline,
       sector,

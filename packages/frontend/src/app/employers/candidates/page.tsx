@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
   Users,
@@ -11,6 +12,8 @@ import {
   Languages,
   Lock,
   BadgeCheck,
+  Mail,
+  Zap,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { CandidateCard } from "@/lib/types";
@@ -18,6 +21,8 @@ import type { CandidateCard } from "@/lib/types";
 export default function CandidateBrowsePage() {
   const { status } = useSession();
   const [sectors, setSectors] = useState<Record<string, CandidateCard[]>>({});
+  const [unlocked, setUnlocked] = useState<Record<string, string>>({});
+  const [unlocking, setUnlocking] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -30,12 +35,27 @@ export default function CandidateBrowsePage() {
       }
       return;
     }
-    api
-      .getCandidates()
-      .then((r) => setSectors(r.sectors))
+    Promise.all([api.getCandidates(), api.getShortlist().catch(() => ({ unlocked: {} }))])
+      .then(([c, s]) => {
+        setSectors(c.sectors);
+        setUnlocked((s as { unlocked: Record<string, string> }).unlocked ?? {});
+      })
       .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false));
   }, [status]);
+
+  async function unlock(id: string) {
+    setUnlocking(id);
+    setError("");
+    try {
+      const { email } = await api.unlockCandidate(id);
+      setUnlocked((u) => ({ ...u, [id]: email }));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setUnlocking(null);
+    }
+  }
 
   const sectorList = useMemo(
     () => Object.entries(sectors).sort((a, b) => b[1].length - a[1].length),
@@ -69,9 +89,16 @@ export default function CandidateBrowsePage() {
         <h1 className="text-2xl font-bold">
           {selected} <span className="text-gray-400">({cards.length})</span>
         </h1>
+        {error && <div className="rounded-2xl bg-red-50/80 p-3 text-sm text-red-700">{error}</div>}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {cards.map((c) => (
-            <CandidateTile key={c.id} c={c} />
+            <CandidateTile
+              key={c.id}
+              c={c}
+              email={unlocked[c.id]}
+              unlocking={unlocking === c.id}
+              onUnlock={() => unlock(c.id)}
+            />
           ))}
         </div>
       </div>
@@ -81,9 +108,17 @@ export default function CandidateBrowsePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold">
-          <Users className="h-6 w-6 text-brand-600" /> Browse candidates
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            <Users className="h-6 w-6 text-brand-600" /> Browse candidates
+          </h1>
+          <Link
+            href="/employers/swipe"
+            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-md"
+          >
+            <Zap className="h-4 w-4" /> Swipe mode
+          </Link>
+        </div>
         <p className="text-sm text-gray-500">Available talent grouped by sector.</p>
       </div>
 
@@ -114,7 +149,17 @@ export default function CandidateBrowsePage() {
   );
 }
 
-function CandidateTile({ c }: { c: CandidateCard }) {
+function CandidateTile({
+  c,
+  email,
+  unlocking,
+  onUnlock,
+}: {
+  c: CandidateCard;
+  email?: string;
+  unlocking?: boolean;
+  onUnlock: () => void;
+}) {
   return (
     <div className="glass flex flex-col rounded-2xl p-5">
       <div className="flex items-center gap-3">
@@ -166,12 +211,22 @@ function CandidateTile({ c }: { c: CandidateCard }) {
         </div>
       )}
 
-      <button
-        disabled
-        className="mt-4 flex items-center justify-center gap-1 rounded-full bg-gray-100 px-3 py-2 text-sm text-gray-400"
-      >
-        <Lock className="h-3.5 w-3.5" /> Unlock contact (coming soon)
-      </button>
+      {email ? (
+        <a
+          href={`mailto:${email}`}
+          className="mt-4 flex items-center justify-center gap-1 rounded-full bg-green-50 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-100"
+        >
+          <Mail className="h-3.5 w-3.5" /> {email}
+        </a>
+      ) : (
+        <button
+          onClick={onUnlock}
+          disabled={unlocking}
+          className="mt-4 flex items-center justify-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+        >
+          <Lock className="h-3.5 w-3.5" /> {unlocking ? "Unlocking…" : "Unlock contact · 20 credits"}
+        </button>
+      )}
     </div>
   );
 }
