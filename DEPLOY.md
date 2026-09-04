@@ -100,38 +100,38 @@ for local development but too open for production. Once you know your Vercel URL
 
 ## Continuous deployment (push → auto-deploy)
 
-`.github/workflows/deploy.yml` deploys on every push to `main`: the **Worker** to
-Cloudflare and the **frontend** to Vercel. Each job only runs when its package (or
-a root `package.json`/lockfile) changed.
+Two independent mechanisms — set each up once, then `git push` deploys both:
 
-### One-time setup — add GitHub repo secrets
+### 1. Worker → GitHub Actions (one secret)
+
+`.github/workflows/deploy.yml` deploys the Worker on every push to `main` that
+touches `packages/backend`. Add **one** GitHub secret:
 
 Repo → **Settings → Secrets and variables → Actions → New repository secret**:
 
 | Secret | Where to get it |
 |--------|-----------------|
 | `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens → *Edit Cloudflare Workers* template |
-| `VERCEL_TOKEN` | Vercel → Account Settings → Tokens |
-| `VERCEL_ORG_ID` | `packages/frontend/.vercel/project.json` after `vercel link` (`orgId`) |
-| `VERCEL_PROJECT_ID` | same file (`projectId`) |
 
-> `CLOUDFLARE_ACCOUNT_ID` is no longer needed — it's committed (non-secret) in
-> `wrangler.toml`. `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` aren't secret either; you
-> may inline them in `deploy.yml` if you prefer. The two **tokens** must stay as
-> secrets — never commit them (this repo is public).
+`accountId` and the KV id are committed (non-secret) in `wrangler.toml`, so the
+API token is the only secret needed. Never commit it — this repo is public.
 
-The frontend job **skips itself** if `VERCEL_TOKEN` is absent — so you can instead
-use Vercel's own Git integration and delete the `deploy-frontend` job.
+> Worker **secrets** (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+> `RESEND_API_KEY`, `SERPER_API_KEY`) are stored on Cloudflare and **persist
+> across deploys** — auto-deploy won't wipe them. Set them once with
+> `wrangler secret put`.
 
-### Simpler alternative for the frontend (no secrets)
+### 2. Frontend → Vercel Git integration (no secrets)
 
-In the Vercel dashboard: **Add New → Project → import this GitHub repo**, set
-**Root Directory = `packages/frontend`**. Vercel then auto-deploys every push with
-zero Actions config. If you do this, delete the `deploy-frontend` job from the
-workflow so it isn't done twice.
+In the Vercel dashboard: open the **job-assistant** project → **Settings → Git**
+→ **Connect** the `Ngoni-Sama/job-assistant` GitHub repo, with **Root Directory =
+`packages/frontend`**. Vercel then auto-builds and deploys every push to `main` —
+zero GitHub secrets, and it picks up the Production env vars you already set.
 
-> Cloudflare has no equivalent "connect a repo" auto-deploy for this setup, so the
-> Worker always goes through GitHub Actions (the `deploy-worker` job).
+> Cloudflare has no equivalent "connect a repo" for Workers, which is why the
+> Worker uses GitHub Actions instead.
+
+**After both are set up: `git push` → Worker and frontend redeploy automatically.**
 
 ## Deploy checklist
 

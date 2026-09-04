@@ -1,36 +1,24 @@
-name: Deploy
+name: Deploy Worker
 
-# Push to main -> deploy whatever changed. Backend goes to Cloudflare Workers,
-# frontend to Vercel. Each job only runs when its package (or a root file) changed.
+# Auto-deploys the Cloudflare Worker on every push to main that touches the
+# backend. The FRONTEND is deployed by Vercel's own Git integration (connect the
+# repo once in the Vercel dashboard, Root Directory = packages/frontend) — no
+# secrets needed for that. See DEPLOY.md.
+#
+# Required GitHub secret: CLOUDFLARE_API_TOKEN (Edit Cloudflare Workers template).
+# accountId + KV id are committed in wrangler.toml, so that's the only secret.
 on:
   push:
     branches: [main]
+    paths:
+      - "packages/backend/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch: # allow manual runs from the Actions tab
 
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            backend:
-              - 'packages/backend/**'
-              - 'package.json'
-              - 'package-lock.json'
-            frontend:
-              - 'packages/frontend/**'
-              - 'package.json'
-              - 'package-lock.json'
-
   deploy-worker:
-    needs: changes
-    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,35 +32,5 @@ jobs:
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
-          # accountId is read from wrangler.toml (account_id). Only the API TOKEN
-          # is a real secret — it must stay in GitHub Secrets, NOT hardcoded here.
-          # This repo is PUBLIC; a token committed to it is compromised instantly.
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: packages/backend
-
-  deploy-frontend:
-    needs: changes
-    if: ${{ needs.changes.outputs.frontend == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      # If you connect the repo in Vercel's dashboard instead, delete this job —
-      # Vercel's Git integration will auto-deploy and this becomes redundant.
-      - name: Deploy to Vercel
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: |
-          if [ -z "$VERCEL_TOKEN" ]; then
-            echo "VERCEL_TOKEN not set — skipping (using Vercel's own Git integration instead)."
-            exit 0
-          fi
-          npm i -g vercel@latest
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-          vercel build --prod --token="$VERCEL_TOKEN"
-          vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
