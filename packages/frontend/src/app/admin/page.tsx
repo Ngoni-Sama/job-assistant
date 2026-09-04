@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useSession, signIn } from "next-auth/react";
-import { Shield, Save, KeyRound, ToggleLeft, Database, Users, UserPlus, Trash2 } from "lucide-react";
+import { Shield, Save, KeyRound, ToggleLeft, Database, Users, UserPlus, Trash2, Building2, Check, X } from "lucide-react";
 import { api } from "@/lib/api";
-import type { AppConfig } from "@/lib/types";
+import type { AppConfig, Employer } from "@/lib/types";
 
 export default function AdminPage() {
   const { status } = useSession();
@@ -12,6 +12,7 @@ export default function AdminPage() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [invited, setInvited] = useState<string[]>([]);
   const [bootstrap, setBootstrap] = useState<string[]>([]);
+  const [employers, setEmployers] = useState<Employer[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [keyInput, setKeyInput] = useState("");
   const [saving, setSaving] = useState(false);
@@ -32,6 +33,7 @@ export default function AdminPage() {
           const a = await api.getAdmins();
           setInvited(a.invited);
           setBootstrap(a.bootstrap);
+          setEmployers((await api.getAdminEmployers()).employers);
         }
       } catch (e) {
         setError((e as Error).message);
@@ -59,6 +61,15 @@ export default function AdminPage() {
     try {
       const res = await api.removeAdmin(email);
       setInvited(res.invited);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function setEmployer(userId: string, status: Employer["status"]) {
+    try {
+      const res = await api.setEmployerStatus(userId, status);
+      setEmployers(res.employers);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -202,6 +213,61 @@ export default function AdminPage() {
           {feature("googleJobs", "Google Jobs (Serper)", "Needs SERPER_API_KEY secret")}
           {feature("autoApplyAllowed", "Allow auto-apply", "Let users auto-send applications")}
         </div>
+      </section>
+
+      {/* Employer approvals */}
+      <section className="glass rounded-2xl p-6">
+        <h2 className="flex items-center gap-2 font-semibold">
+          <Building2 className="h-4 w-4" /> Employer approvals
+        </h2>
+        <p className="mt-1 text-sm text-gray-500">Review and approve companies before they can browse candidates.</p>
+        <ul className="mt-3 divide-y divide-white/40">
+          {employers.length === 0 ? (
+            <li className="py-3 text-sm text-gray-400">No employer applications yet.</li>
+          ) : (
+            employers.map((e) => (
+              <li key={e.userId} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{e.company}</p>
+                  <p className="truncate text-xs text-gray-500">
+                    {e.contactPerson} · {e.userId}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs ${
+                      e.status === "approved"
+                        ? "bg-green-100 text-green-700"
+                        : e.status === "rejected"
+                          ? "bg-red-100 text-red-600"
+                          : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {e.status}
+                  </span>
+                  {e.status !== "approved" && (
+                    <button
+                      onClick={() => setEmployer(e.userId, "approved")}
+                      className="rounded-md p-1.5 text-green-600 hover:bg-green-50"
+                      aria-label="Approve"
+                    >
+                      <Check className="h-4 w-4" />
+                    </button>
+                  )}
+                  {e.status !== "rejected" && (
+                    <button
+                      onClick={() => setEmployer(e.userId, "rejected")}
+                      className="rounded-md p-1.5 text-red-600 hover:bg-red-50"
+                      aria-label="Reject"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))
+          )}
+        </ul>
       </section>
 
       {/* Admins */}

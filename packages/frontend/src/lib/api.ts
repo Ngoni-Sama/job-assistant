@@ -1,7 +1,9 @@
 import type {
   AppConfig,
   Application,
+  CandidateCard,
   CreditPack,
+  Employer,
   JobListing,
   JobScore,
   Me,
@@ -91,6 +93,13 @@ export const api = {
   getAdminConfig: () => req<{ config: AppConfig }>("/api/admin/config"),
   saveAdminConfig: (patch: Partial<AppConfig>) =>
     req<{ config: AppConfig }>("/api/admin/config", jsonBody(patch)),
+  getEmployer: () => req<{ employer: Employer | null }>("/api/employer"),
+  registerEmployer: (company: string, contactPerson: string) =>
+    req<{ employer: Employer }>("/api/employer", jsonBody({ company, contactPerson })),
+  getCandidates: () => req<{ sectors: Record<string, CandidateCard[]> }>("/api/candidates"),
+  getAdminEmployers: () => req<{ employers: Employer[] }>("/api/admin/employers"),
+  setEmployerStatus: (userId: string, status: Employer["status"]) =>
+    req<{ employers: Employer[] }>("/api/admin/employers", jsonBody({ userId, status })),
   getAdmins: () => req<{ invited: string[]; bootstrap: string[] }>("/api/admin/admins"),
   addAdmin: (email: string) =>
     req<{ invited: string[]; bootstrap: string[] }>("/api/admin/admins", jsonBody({ email })),

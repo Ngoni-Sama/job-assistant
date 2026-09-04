@@ -1,5 +1,7 @@
 import type {
   Application,
+  CandidateCard,
+  Employer,
   Env,
   JobListing,
   Prefs,
@@ -41,6 +43,7 @@ const PROTECTED = new Set([
   "POST /api/match-all",
   "POST /api/quick-match",
   "POST /api/billing/checkout",
+  "POST /api/employer",
 ]);
 
 export default {
@@ -304,6 +307,56 @@ export default {
         return json({ profile: next });
       }
 
+      // --- Employer accounts ---
+      if (path === "/api/employer" && request.method === "GET") {
+        return json({ employer: await getEmployer(env, userId) });
+      }
+      if (path === "/api/employer" && request.method === "POST") {
+        const body = (await request.json()) as { company?: string; contactPerson?: string };
+        if (!body.company?.trim() || !body.contactPerson?.trim()) {
+          return json({ error: "Company and contact person are required" }, { status: 400 });
+        }
+        const existing = await getEmployer(env, userId);
+        const employer: Employer = {
+          userId,
+          company: body.company.trim().slice(0, 100),
+          contactPerson: body.contactPerson.trim().slice(0, 100),
+          status: existing?.status === "approved" ? "approved" : "pending",
+          createdAt: existing?.createdAt ?? new Date().toISOString(),
+        };
+        await env.JOBS_CACHE.put(employerKey(userId), JSON.stringify(employer));
+        return json({ employer });
+      }
+
+      // Candidate browse — approved employers only. Returns privacy-safe cards
+      // (no contact details) grouped by sector.
+      if (path === "/api/candidates" && request.method === "GET") {
+        const employer = await getEmployer(env, userId);
+        if (employer?.status !== "approved") {
+          return json({ error: "Approved employer account required" }, { status: 403 });
+        }
+        return json({ sectors: await listCandidatesBySector(env) });
+      }
+
+      // Admin: list + approve/reject employer applications.
+      if (path === "/api/admin/employers") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        if (request.method === "GET") {
+          return json({ employers: await listEmployers(env) });
+        }
+        if (request.method === "POST") {
+          const { userId: target, status } = (await request.json()) as {
+            userId?: string;
+            status?: Employer["status"];
+          };
+          const emp = target ? await getEmployer(env, target) : null;
+          if (!emp || !status) return json({ error: "Unknown employer" }, { status: 400 });
+          emp.status = status;
+          await env.JOBS_CACHE.put(employerKey(emp.userId), JSON.stringify(emp));
+          return json({ employers: await listEmployers(env) });
+        }
+      }
+
       // --- Preferences (auto-apply + categories) ---
       if (path === "/api/prefs" && request.method === "GET") {
         return json({ prefs: await getPrefs(env, userId) });
@@ -454,6 +507,54 @@ const DEFAULT_PROFILE: Profile = {
 
 async function getProfile(env: Env, userId: string): Promise<Profile> {
   return (await env.JOBS_CACHE.get<Profile>(profileKey(userId), "json")) ?? DEFAULT_PROFILE;
+}
+
+const employerKey = (userId: string) => `employer:${userId}`;
+
+async function getEmployer(env: Env, userId: string): Promise<Employer | null> {
+  return env.JOBS_CACHE.get<Employer>(employerKey(userId), "json");
+}
+
+async function listEmployers(env: Env): Promise<Employer[]> {
+  const { keys } = await env.JOBS_CACHE.list({ prefix: "employer:" });
+  const employers: Employer[] = [];
+  for (const k of keys) {
+    const e = await env.JOBS_CACHE.get<Employer>(k.name, "json");
+    if (e) employers.push(e);
+  }
+  return employers.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** Stable non-reversible id so employers can reference a candidate without their email. */
+function candidateId(email: string): string {
+  let h = 5381;
+  for (let i = 0; i < email.length; i++) h = (h * 33) ^ email.charCodeAt(i);
+  return `c${(h >>> 0).toString(36)}`;
+}
+
+/** Discoverable candidates (looking/open) grouped by sector — no contact details. */
+async function listCandidatesBySector(env: Env): Promise<Record<string, CandidateCard[]>> {
+  const { keys } = await env.JOBS_CACHE.list({ prefix: "profile:" });
+  const grouped: Record<string, CandidateCard[]> = {};
+  for (const k of keys) {
+    const email = k.name.slice("profile:".length);
+    const p = await env.JOBS_CACHE.get<Profile>(k.name, "json");
+    if (!p || p.availability === "not_looking") continue;
+    const sector = p.sector || "Other";
+    (grouped[sector] ??= []).push({
+      id: candidateId(email),
+      name: p.name || "Candidate",
+      headline: p.headline,
+      sector,
+      availability: p.availability,
+      location: p.location,
+      yearsExperience: p.yearsExperience,
+      skills: p.skills,
+      education: p.education,
+      languages: p.languages,
+    });
+  }
+  return grouped;
 }
 const appKey = (userId: string, jobId: string) => `application:${userId}:${jobId}`;
 const appliedKey = (userId: string) => `applied:${userId}`;

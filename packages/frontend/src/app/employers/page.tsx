@@ -1,6 +1,20 @@
 "use client";
 
-import { UserPlus, FileCheck2, ShieldCheck, Unlock, Building2, ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useSession, signIn } from "next-auth/react";
+import {
+  UserPlus,
+  FileCheck2,
+  ShieldCheck,
+  Unlock,
+  Building2,
+  ArrowRight,
+  Clock,
+  Users,
+} from "lucide-react";
+import { api } from "@/lib/api";
+import type { Employer } from "@/lib/types";
 
 const STEPS = [
   { icon: UserPlus, title: "Register", body: "Create an employer account and start your company profile." },
@@ -10,6 +24,42 @@ const STEPS = [
 ];
 
 export default function EmployersPage() {
+  const { status } = useSession();
+  const authed = status === "authenticated";
+  const [employer, setEmployer] = useState<Employer | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [company, setCompany] = useState("");
+  const [contact, setContact] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (status === "loading") return;
+    if (!authed) {
+      setLoaded(true);
+      return;
+    }
+    api
+      .getEmployer()
+      .then((r) => setEmployer(r.employer))
+      .catch((e) => setError((e as Error).message))
+      .finally(() => setLoaded(true));
+  }, [status, authed]);
+
+  async function register(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const r = await api.registerEmployer(company.trim(), contact.trim());
+      setEmployer(r.employer);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-14 pb-16">
       <section className="glass-strong rounded-3xl p-8 text-center md:p-12">
@@ -23,12 +73,61 @@ export default function EmployersPage() {
           Get verified, choose a package, and unlock the contact details of candidates who are
           actively available for work.
         </p>
-        <button
-          disabled
-          className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-3 font-medium text-white opacity-70"
-        >
-          Employer sign-up — coming soon <ArrowRight className="h-4 w-4" />
-        </button>
+
+        {/* Auth / status-aware CTA */}
+        <div className="mx-auto mt-6 max-w-md">
+          {!loaded ? null : !authed ? (
+            <button
+              onClick={() => signIn("google")}
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-3 font-medium text-white"
+            >
+              Sign in to register <ArrowRight className="h-4 w-4" />
+            </button>
+          ) : employer?.status === "approved" ? (
+            <Link
+              href="/employers/candidates"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-3 font-medium text-white"
+            >
+              <Users className="h-4 w-4" /> Browse candidates
+            </Link>
+          ) : employer?.status === "pending" ? (
+            <div className="glass rounded-2xl p-4 text-sm text-amber-700">
+              <Clock className="mx-auto mb-1 h-5 w-5" />
+              <strong>{employer.company}</strong> is under review. We approve companies within 1–2
+              business days.
+            </div>
+          ) : employer?.status === "rejected" ? (
+            <div className="glass rounded-2xl p-4 text-sm text-red-700">
+              Your application wasn’t approved. Contact support to appeal.
+            </div>
+          ) : (
+            <form onSubmit={register} className="glass rounded-2xl p-4 text-left">
+              <p className="mb-3 text-center text-sm font-medium">Register your company</p>
+              <input
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                placeholder="Company name"
+                required
+                className="mb-2 w-full rounded-md border px-3 py-2 text-sm"
+              />
+              <input
+                value={contact}
+                onChange={(e) => setContact(e.target.value)}
+                placeholder="Contact person"
+                required
+                className="mb-3 w-full rounded-md border px-3 py-2 text-sm"
+              />
+              <button
+                type="submit"
+                disabled={busy}
+                className="w-full rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                {busy ? "Submitting…" : "Submit for vetting"}
+              </button>
+            </form>
+          )}
+          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        </div>
       </section>
 
       <section className="space-y-6">
@@ -47,11 +146,6 @@ export default function EmployersPage() {
             </div>
           ))}
         </div>
-      </section>
-
-      <section className="glass rounded-3xl p-8 text-center text-sm text-gray-500">
-        The full employer experience — candidate sector tiles, swipe-to-shortlist, profile cards and
-        messaging — is in active development. Check back soon.
       </section>
     </div>
   );

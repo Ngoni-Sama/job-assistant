@@ -79,6 +79,31 @@ export interface Prefs {
 
 export type Availability = "looking" | "open" | "not_looking";
 
+export type EmployerStatus = "pending" | "approved" | "rejected";
+
+/** Employer account — must be admin-approved before browsing candidates. */
+export interface Employer {
+  userId: string; // the employer's email
+  company: string;
+  contactPerson: string;
+  status: EmployerStatus;
+  createdAt: string;
+}
+
+/** Privacy-safe candidate card for the employer browse (no contact details). */
+export interface CandidateCard {
+  id: string; // hashed id — not the email
+  name: string;
+  headline: string;
+  sector: string;
+  availability: Availability;
+  location?: string;
+  yearsExperience?: number;
+  skills?: string[];
+  education?: string;
+  languages?: string[];
+}
+
 /** Candidate profile — powers discoverability in the (future) employer view. */
 export interface Profile {
   availability: Availability;

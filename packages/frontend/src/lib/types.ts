@@ -97,6 +97,29 @@ export interface CreditPack {
 
 export type Availability = "looking" | "open" | "not_looking";
 
+export type EmployerStatus = "pending" | "approved" | "rejected";
+
+export interface Employer {
+  userId: string;
+  company: string;
+  contactPerson: string;
+  status: EmployerStatus;
+  createdAt: string;
+}
+
+export interface CandidateCard {
+  id: string;
+  name: string;
+  headline: string;
+  sector: string;
+  availability: Availability;
+  location?: string;
+  yearsExperience?: number;
+  skills?: string[];
+  education?: string;
+  languages?: string[];
+}
+
 export interface Profile {
   availability: Availability;
   headline: string;
