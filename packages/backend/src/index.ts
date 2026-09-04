@@ -38,7 +38,8 @@ export default {
 
     try {
       if (path === "/" || path === "/api/health") {
-        return json({ ok: true, service: "job-assistant" });
+        // `version` is a deploy marker — bump it to confirm auto-deploy shipped.
+        return json({ ok: true, service: "job-assistant", version: "2026-09-03.1" });
       }
 
       // --- Billing / credits ---
