@@ -37,6 +37,31 @@ export function ApplyModal({
     }
   }
 
+  // Send from the signed-in user's Gmail (server route uses their access token).
+  async function sendViaGmail() {
+    setSending(true);
+    setError("");
+    try {
+      const res = await fetch("/api/gmail/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: application.to,
+          subject: application.subject,
+          body: `${application.coverNote}\n\n---\n\n${application.tailoredCV}`,
+        }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Gmail send failed");
+      setResult({ sent: true, method: "email" });
+      onSent(application.jobId);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
@@ -52,7 +77,10 @@ export function ApplyModal({
             <p className="flex items-center gap-2">
               <Mail className="h-4 w-4 text-gray-400" />
               {application.to ? (
-                <span className="font-medium">{application.to}</span>
+                <span>
+                  <span className="font-medium">{application.to}</span>
+                  <span className="text-xs text-gray-500"> · sends from your Gmail</span>
+                </span>
               ) : (
                 <span className="text-amber-700">No email detected — send manually via “View”.</span>
               )}
@@ -108,17 +136,27 @@ export function ApplyModal({
               )}
             </div>
           ) : (
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               <button onClick={onClose} className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50">
                 Cancel
               </button>
-              <button
-                onClick={send}
-                disabled={sending}
-                className="flex items-center gap-1 rounded-md bg-brand-600 px-4 py-2 text-sm text-white hover:bg-brand-700 disabled:opacity-50"
-              >
-                <Send className="h-4 w-4" /> {sending ? "Sending…" : "Send application"}
-              </button>
+              {application.to ? (
+                <button
+                  onClick={sendViaGmail}
+                  disabled={sending}
+                  className="flex items-center gap-1 rounded-md bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+                >
+                  <Mail className="h-4 w-4" /> {sending ? "Sending…" : "Send from my Gmail"}
+                </button>
+              ) : (
+                <button
+                  onClick={send}
+                  disabled={sending}
+                  className="flex items-center gap-1 rounded-md bg-brand-600 px-4 py-2 text-sm text-white hover:bg-brand-700 disabled:opacity-50"
+                >
+                  <Send className="h-4 w-4" /> {sending ? "Preparing…" : "Prepare to send"}
+                </button>
+              )}
             </div>
           )}
         </div>
