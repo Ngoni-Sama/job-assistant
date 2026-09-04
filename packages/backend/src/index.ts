@@ -3,6 +3,7 @@ import type {
   Env,
   JobListing,
   Prefs,
+  Profile,
   ScrapeSource,
   ScrapeStats,
   StoredCV,
@@ -247,6 +248,24 @@ export default {
         return json({ history: await getQuickHistory(env, userId) });
       }
 
+      // --- Candidate profile (availability + headline + sector) ---
+      if (path === "/api/profile" && request.method === "GET") {
+        return json({ profile: await getProfile(env, userId) });
+      }
+      if (path === "/api/profile" && request.method === "POST") {
+        if (userId === "demo") return json({ error: "Sign in to update your profile" }, { status: 401 });
+        const patch = (await request.json()) as Partial<Profile>;
+        const current = await getProfile(env, userId);
+        const next: Profile = {
+          availability: patch.availability ?? current.availability,
+          headline: (patch.headline ?? current.headline).slice(0, 120),
+          sector: patch.sector ?? current.sector,
+          updatedAt: new Date().toISOString(),
+        };
+        await env.JOBS_CACHE.put(profileKey(userId), JSON.stringify(next));
+        return json({ profile: next });
+      }
+
       // --- Preferences (auto-apply + categories) ---
       if (path === "/api/prefs" && request.method === "GET") {
         return json({ prefs: await getPrefs(env, userId) });
@@ -386,6 +405,18 @@ function maskConfig(config: AppConfig): AppConfig {
 }
 
 const prefsKey = (userId: string) => `prefs:${userId}`;
+const profileKey = (userId: string) => `profile:${userId}`;
+
+const DEFAULT_PROFILE: Profile = {
+  availability: "not_looking",
+  headline: "",
+  sector: "",
+  updatedAt: "",
+};
+
+async function getProfile(env: Env, userId: string): Promise<Profile> {
+  return (await env.JOBS_CACHE.get<Profile>(profileKey(userId), "json")) ?? DEFAULT_PROFILE;
+}
 const appKey = (userId: string, jobId: string) => `application:${userId}:${jobId}`;
 const appliedKey = (userId: string) => `applied:${userId}`;
 const quickKey = (userId: string) => `quickmatch:${userId}`;

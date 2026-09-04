@@ -95,6 +95,15 @@ export interface CreditPack {
   priceCents: number;
 }
 
+export type Availability = "looking" | "open" | "not_looking";
+
+export interface Profile {
+  availability: Availability;
+  headline: string;
+  sector: string;
+  updatedAt: string;
+}
+
 export interface JobScore {
   jobId: string;
   score: number;

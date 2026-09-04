@@ -9,9 +9,11 @@ const THRESHOLD = 110; // px drag before a swipe counts
 export function SwipeDeck({
   jobs,
   onDecision,
+  locked = false,
 }: {
   jobs: JobListing[];
   onDecision: (job: JobListing, liked: boolean) => void;
+  locked?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
@@ -23,7 +25,7 @@ export function SwipeDeck({
 
   const decide = useCallback(
     (liked: boolean) => {
-      if (!current || exiting) return;
+      if (!current || exiting || locked) return;
       setExiting(liked ? "right" : "left");
       onDecision(current, liked);
       setTimeout(() => {
@@ -46,7 +48,7 @@ export function SwipeDeck({
   }, [decide]);
 
   function onPointerDown(e: React.PointerEvent) {
-    if (exiting) return;
+    if (exiting || locked) return;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     startRef.current = { x: e.clientX, y: e.clientY };
     setDrag({ x: 0, y: 0, active: true });

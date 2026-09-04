@@ -12,7 +12,7 @@ const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/smart-match", label: "Smart Match", icon: Zap },
   { href: "/quick-match", label: "Quick Match", icon: Wand2 },
-  { href: "/jobs", label: "Jobs", icon: Briefcase },
+  { href: "/jobs", label: "My Jobs", icon: Briefcase },
   { href: "/upload", label: "Upload CV", icon: Upload },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

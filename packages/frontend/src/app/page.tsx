@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useSession, signIn } from "next-auth/react";
 import {
   Sparkles,
@@ -10,14 +11,68 @@ import {
   GraduationCap,
   FileCheck2,
   MousePointerClick,
+  Search,
+  Briefcase,
+  Building2,
 } from "lucide-react";
 
 export default function LandingPage() {
   const { status } = useSession();
   const authed = status === "authenticated";
+  const [keyword, setKeyword] = useState("");
+  const [city, setCity] = useState("");
 
   return (
     <div className="space-y-16 pb-20">
+      {/* Talent marketplace band */}
+      <section className="glass-strong rounded-3xl p-8 text-center md:p-10">
+        <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+          Showcase your talent. Get discovered.
+        </h2>
+        <p className="mx-auto mt-2 max-w-xl text-gray-600">
+          Build your professional profile, show you’re available for work, and let verified
+          employers come to you.
+        </p>
+        <div className="mx-auto mt-5 flex max-w-2xl flex-col gap-2 sm:flex-row">
+          <div className="glass flex flex-1 items-center gap-2 rounded-full px-4 py-2">
+            <Search className="h-4 w-4 text-gray-400" />
+            <input
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder="Job title, skill or keyword"
+              className="w-full bg-transparent text-sm outline-none"
+            />
+          </div>
+          <div className="glass flex flex-1 items-center gap-2 rounded-full px-4 py-2">
+            <input
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="City e.g. Cape Town"
+              className="w-full bg-transparent text-sm outline-none"
+            />
+          </div>
+          <Link
+            href={`/jobs?q=${encodeURIComponent(keyword)}`}
+            className="rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-2.5 text-sm font-medium text-white"
+          >
+            Search
+          </Link>
+        </div>
+        <div className="mt-5 flex flex-wrap justify-center gap-3">
+          <button
+            onClick={() => (authed ? (window.location.href = "/dashboard") : signIn("google"))}
+            className="flex items-center gap-2 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-medium text-white"
+          >
+            <Briefcase className="h-4 w-4" /> I’m looking for work
+          </button>
+          <Link
+            href="/employers"
+            className="glass flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium text-gray-700"
+          >
+            <Building2 className="h-4 w-4" /> I’m hiring
+          </Link>
+        </div>
+      </section>
       {/* Hero */}
       <section className="relative overflow-hidden rounded-3xl">
         <div className="glass-strong grid items-center gap-8 rounded-3xl p-8 md:grid-cols-2 md:p-12">

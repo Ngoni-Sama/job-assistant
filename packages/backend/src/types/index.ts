@@ -77,6 +77,16 @@ export interface Prefs {
   categories: string[]; // job types the user cares about
 }
 
+export type Availability = "looking" | "open" | "not_looking";
+
+/** Candidate profile — powers discoverability in the (future) employer view. */
+export interface Profile {
+  availability: Availability;
+  headline: string;
+  sector: string;
+  updatedAt: string;
+}
+
 export interface JobScore {
   jobId: string;
   score: number;

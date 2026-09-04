@@ -1,15 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Globe, AlertTriangle, Zap } from "lucide-react";
+import { Plus, Trash2, Globe, AlertTriangle, Zap, Radar } from "lucide-react";
 import { api, apiBase } from "@/lib/api";
-import type { Prefs, ScrapeSource } from "@/lib/types";
+import type { Availability, Prefs, Profile, ScrapeSource } from "@/lib/types";
 
 const API_URL = apiBase;
+
+const AVAILABILITY: { value: Availability; label: string; desc: string }[] = [
+  { value: "looking", label: "Actively looking", desc: "Visible to verified employers hiring now." },
+  { value: "open", label: "Open to offers", desc: "Discoverable, but not urgently searching." },
+  { value: "not_looking", label: "Not looking", desc: "Hidden from employer search." },
+];
 
 export default function SettingsPage() {
   const [sources, setSources] = useState<ScrapeSource[]>([]);
   const [prefs, setPrefs] = useState<Prefs>({ autoApply: false, categories: [] });
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [url, setUrl] = useState("");
   const [label, setLabel] = useState("");
@@ -19,16 +26,27 @@ export default function SettingsPage() {
   const [warn, setWarn] = useState("");
 
   useEffect(() => {
-    Promise.all([api.getSources(), api.getPrefs(), api.getJobs()])
-      .then(([s, p, j]) => {
+    Promise.all([api.getSources(), api.getPrefs(), api.getJobs(), api.getProfile()])
+      .then(([s, p, j, pr]) => {
         setSources(s.sources);
         setPrefs(p.prefs);
+        setProfile(pr.profile);
         const types = [...new Set(j.jobs.map((job) => job.jobType).filter(Boolean))] as string[];
         setCategoryOptions(types.sort());
       })
       .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false));
   }, []);
+
+  async function saveProfile(patch: Partial<Profile>) {
+    setProfile((prev) => (prev ? { ...prev, ...patch } : prev));
+    try {
+      const res = await api.saveProfile(patch);
+      setProfile(res.profile);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
 
   async function savePrefs(next: Partial<Prefs>) {
     const optimistic = { ...prefs, ...next };
@@ -86,6 +104,44 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
+
+      <section className="rounded-lg border bg-white p-6">
+        <h2 className="flex items-center gap-2 font-semibold">
+          <Radar className="h-4 w-4 text-brand-600" /> Availability
+        </h2>
+        <p className="mt-1 text-sm text-gray-500">
+          Let verified employers find you when you’re open to work.
+        </p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {AVAILABILITY.map((a) => {
+            const active = profile?.availability === a.value;
+            return (
+              <button
+                key={a.value}
+                onClick={() => saveProfile({ availability: a.value })}
+                className={`rounded-xl border p-3 text-left transition-colors ${
+                  active ? "border-brand-600 bg-brand-50" : "hover:border-brand-300"
+                }`}
+              >
+                <span className={`text-sm font-medium ${active ? "text-brand-700" : ""}`}>
+                  {a.label}
+                </span>
+                <span className="mt-0.5 block text-xs text-gray-500">{a.desc}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-4">
+          <label className="text-xs font-medium text-gray-500">Headline (shown on your profile)</label>
+          <input
+            value={profile?.headline ?? ""}
+            onChange={(e) => setProfile((p) => (p ? { ...p, headline: e.target.value } : p))}
+            onBlur={(e) => saveProfile({ headline: e.target.value })}
+            placeholder="e.g. Registered Nurse · 5 years · Harare"
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          />
+        </div>
+      </section>
 
       <section className="rounded-lg border bg-white p-6">
         <h2 className="font-semibold">Applications</h2>

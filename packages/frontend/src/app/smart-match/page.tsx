@@ -2,22 +2,29 @@
 
 import { useEffect, useState } from "react";
 import { useSession, signIn } from "next-auth/react";
-import { Zap, Heart, Sparkles } from "lucide-react";
+import { Zap, Heart, Sparkles, Lock } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Application, JobListing } from "@/lib/types";
 import { SwipeDeck } from "@/components/SwipeDeck";
 import { ApplyModal } from "@/components/ApplyModal";
 
 const LIKED_KEY = "smartmatch:liked";
+const PREFS_KEY = "smartmatch:prefs"; // captured guest swipes {jobId, liked}
+const GUEST_LIMIT = 3; // free swipes before sign-in is required
 
 export default function SmartMatchPage() {
   const { status } = useSession();
+  const authed = status === "authenticated";
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [liked, setLiked] = useState<JobListing[]>([]);
+  const [guestSwipes, setGuestSwipes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<Application | null>(null);
   const [preparingId, setPreparingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+
+  // Gate guests after GUEST_LIMIT swipes — their picks are still captured.
+  const locked = !authed && guestSwipes >= GUEST_LIMIT;
 
   useEffect(() => {
     api
@@ -32,6 +39,15 @@ export default function SmartMatchPage() {
   }, []);
 
   function onDecision(job: JobListing, isLiked: boolean) {
+    // Always capture the preference (liked or skipped) so it survives sign-in.
+    try {
+      const prefs = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "[]");
+      prefs.push({ jobId: job.id, liked: isLiked, at: Date.now() });
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    } catch {
+      /* ignore */
+    }
+    if (!authed) setGuestSwipes((n) => n + 1);
     if (!isLiked) return;
     setLiked((prev) => {
       const next = prev.some((j) => j.id === job.id) ? prev : [...prev, job];
@@ -73,7 +89,26 @@ export default function SmartMatchPage() {
       {loading ? (
         <p className="text-center text-gray-500">Loading jobs…</p>
       ) : (
-        <SwipeDeck jobs={jobs} onDecision={onDecision} />
+        <div className="relative">
+          <SwipeDeck jobs={jobs} onDecision={onDecision} locked={locked} />
+          {locked && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-white/70 backdrop-blur-sm">
+              <div className="glass-strong mx-4 max-w-xs rounded-2xl p-6 text-center">
+                <Lock className="mx-auto h-8 w-8 text-brand-600" />
+                <h3 className="mt-2 font-bold">Sign in to keep swiping</h3>
+                <p className="mt-1 text-sm text-gray-600">
+                  We saved your {guestSwipes} picks — sign in and pick up right where you left off.
+                </p>
+                <button
+                  onClick={() => signIn("google")}
+                  className="mt-4 w-full rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white"
+                >
+                  Continue with Google
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {liked.length > 0 && (
