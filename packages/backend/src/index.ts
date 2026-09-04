@@ -18,7 +18,7 @@ import { processCV } from "./lib/ai/extractor";
 import { matchJobToCV } from "./lib/ai/matcher";
 import { tailorApplication } from "./lib/ai/cvwriter";
 import { sendApplication } from "./lib/email";
-import { getConfig, saveConfig, chat, type AppConfig } from "./lib/ai/provider";
+import { getConfig, saveConfig, type AppConfig } from "./lib/ai/provider";
 import { quickMatch, type QuickMatchRun } from "./lib/ai/quickmatch";
 import { extractProfile } from "./lib/ai/profileextract";
 import { charge, getCredits, addCredits, COSTS } from "./lib/credits";
@@ -55,38 +55,6 @@ export default {
       if (path === "/" || path === "/api/health") {
         // `version` is a deploy marker — bump it to confirm auto-deploy shipped.
         return json({ ok: true, service: "job-assistant", version: "2026-09-04.1" });
-      }
-
-      // TEMP diagnostic: probe which Workers AI models are live on this account.
-      if (path === "/api/ai-test" && request.method === "GET") {
-        const models = [
-          "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-          "@cf/meta/llama-3.1-8b-instruct-fast",
-          "@cf/meta/llama-3.1-8b-instruct",
-          "@cf/meta/llama-4-scout-17b-16e-instruct",
-          "@cf/meta/llama-3-8b-instruct",
-          "@cf/mistralai/mistral-small-3.1-24b-instruct",
-          "@cf/qwen/qwen2.5-coder-32b-instruct",
-        ];
-        const out: Record<string, unknown> = {};
-        for (const m of models) {
-          try {
-            const r = (await env.AI.run(m as never, {
-              messages: [{ role: "user", content: "Reply with the single word OK" }],
-              max_tokens: 5,
-            })) as { response?: string };
-            out[m] = { ok: true, response: (r.response ?? "").slice(0, 40) };
-          } catch (e) {
-            out[m] = { ok: false, error: (e as Error).message.slice(0, 120) };
-          }
-        }
-        let chatTest: unknown;
-        try {
-          chatTest = { ok: true, response: await chat(env, [{ role: "user", content: "Reply with the single word OK" }], 5) };
-        } catch (e) {
-          chatTest = { ok: false, error: (e as Error).message.slice(0, 160) };
-        }
-        return json({ config: (await getConfig(env)).aiProvider, chat: chatTest, models: out });
       }
 
       // Data isolation: signed-out ("demo") callers may READ public data but must
