@@ -90,6 +90,14 @@ export const api = {
   getAdminConfig: () => req<{ config: AppConfig }>("/api/admin/config"),
   saveAdminConfig: (patch: Partial<AppConfig>) =>
     req<{ config: AppConfig }>("/api/admin/config", jsonBody(patch)),
+  getAdmins: () => req<{ invited: string[]; bootstrap: string[] }>("/api/admin/admins"),
+  addAdmin: (email: string) =>
+    req<{ invited: string[]; bootstrap: string[] }>("/api/admin/admins", jsonBody({ email })),
+  removeAdmin: (email: string) =>
+    req<{ invited: string[]; bootstrap: string[] }>("/api/admin/admins", {
+      ...jsonBody({ email }),
+      method: "DELETE",
+    }),
   getPrefs: () => req<{ prefs: Prefs }>("/api/prefs"),
   setPrefs: (prefs: Partial<Prefs>) => req<{ prefs: Prefs }>("/api/prefs", jsonBody(prefs)),
   getApplied: () => req<{ applied: string[] }>("/api/applied"),

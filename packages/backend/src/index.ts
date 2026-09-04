@@ -165,12 +165,12 @@ export default {
 
       // Who am I + am I an admin?
       if (path === "/api/me" && request.method === "GET") {
-        return json({ userId, isAdmin: isAdmin(env, userId) });
+        return json({ userId, isAdmin: await isAdmin(env, userId) });
       }
 
       // --- Admin config (AI provider, API keys, feature flags) ---
       if (path === "/api/admin/config") {
-        if (!isAdmin(env, userId)) return json({ error: "Forbidden" }, { status: 403 });
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
         if (request.method === "GET") {
           return json({ config: maskConfig(await getConfig(env)) });
         }
@@ -189,6 +189,34 @@ export default {
           };
           await saveConfig(env, next);
           return json({ config: maskConfig(next) });
+        }
+      }
+
+      // --- Admin allowlist: invite / remove other admins ---
+      if (path === "/api/admin/admins") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        if (request.method === "GET") {
+          const invited = (await env.JOBS_CACHE.get<string[]>(ADMINS_KEY, "json")) ?? [];
+          return json({ invited, bootstrap: bootstrapAdmins(env) });
+        }
+        if (request.method === "POST") {
+          const { email } = (await request.json()) as { email?: string };
+          const clean = email?.trim();
+          if (!clean || !clean.includes("@")) {
+            return json({ error: "A valid email is required" }, { status: 400 });
+          }
+          const invited = (await env.JOBS_CACHE.get<string[]>(ADMINS_KEY, "json")) ?? [];
+          if (!invited.some((e) => e.toLowerCase() === clean.toLowerCase())) invited.push(clean);
+          await env.JOBS_CACHE.put(ADMINS_KEY, JSON.stringify(invited));
+          return json({ invited, bootstrap: bootstrapAdmins(env) });
+        }
+        if (request.method === "DELETE") {
+          const { email } = (await request.json()) as { email?: string };
+          const invited = ((await env.JOBS_CACHE.get<string[]>(ADMINS_KEY, "json")) ?? []).filter(
+            (e) => e.toLowerCase() !== (email ?? "").trim().toLowerCase(),
+          );
+          await env.JOBS_CACHE.put(ADMINS_KEY, JSON.stringify(invited));
+          return json({ invited, bootstrap: bootstrapAdmins(env) });
         }
       }
 
@@ -329,10 +357,23 @@ function featureEnabled(url: string, features: AppConfig["features"]): boolean {
   return true;
 }
 
-function isAdmin(env: Env, userId: string): boolean {
+const ADMINS_KEY = "config:admins";
+
+/** Emails hardcoded in ADMIN_EMAILS — permanent "bootstrap" admins. */
+function bootstrapAdmins(env: Env): string[] {
+  return (env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Admin = a bootstrap admin (env) OR an invited admin (editable KV list). */
+async function isAdmin(env: Env, userId: string): Promise<boolean> {
   if (userId === "demo") return false;
-  const admins = (env.ADMIN_EMAILS ?? "").split(",").map((s) => s.trim().toLowerCase());
-  return admins.includes(userId.toLowerCase());
+  const email = userId.toLowerCase();
+  if (bootstrapAdmins(env).some((e) => e.toLowerCase() === email)) return true;
+  const invited = (await env.JOBS_CACHE.get<string[]>(ADMINS_KEY, "json")) ?? [];
+  return invited.some((e) => e.toLowerCase() === email);
 }
 
 /** Never return the raw OpenAI key to the client — mask all but the last 4. */
