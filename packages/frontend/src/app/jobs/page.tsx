@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSession, signIn } from "next-auth/react";
+import { Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Application, JobListing } from "@/lib/types";
 import { JobTile } from "@/components/JobTile";
@@ -10,8 +11,11 @@ import { JobFilters, useJobFilters } from "@/components/JobFilters";
 
 export default function JobsPage() {
   const { status } = useSession();
+  const authed = status === "authenticated";
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [applied, setApplied] = useState<Set<string>>(new Set());
+  const [mySector, setMySector] = useState("");
+  const [forYou, setForYou] = useState(false);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [preparingId, setPreparingId] = useState<string | null>(null);
@@ -19,23 +23,32 @@ export default function JobsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    Promise.all([api.getJobs(), api.getApplied()])
-      .then(([j, a]) => {
-        setJobs(j.jobs);
-        setApplied(new Set(a.applied));
-      })
+    api
+      .getJobs()
+      .then((j) => setJobs(j.jobs))
       .finally(() => setLoading(false));
-  }, []);
+    // Per-user data only when signed in (avoids 401 noise for guests).
+    if (authed) {
+      api.getApplied().then((a) => setApplied(new Set(a.applied))).catch(() => {});
+      api
+        .getProfile()
+        .then((p) => {
+          setMySector(p.profile.sector || "");
+          if (p.profile.sector) setForYou(true); // default to For You when we know the sector
+        })
+        .catch(() => {});
+    }
+  }, [authed]);
 
   const filters = useJobFilters(jobs);
 
-  const results = useMemo(
-    () =>
-      filters.filtered.filter((j) =>
-        `${j.title} ${j.company} ${j.location}`.toLowerCase().includes(query.toLowerCase()),
-      ),
-    [filters.filtered, query],
-  );
+  const results = useMemo(() => {
+    let list = filters.filtered;
+    if (forYou && mySector) list = list.filter((j) => j.sector === mySector);
+    return list.filter((j) =>
+      `${j.title} ${j.company} ${j.location}`.toLowerCase().includes(query.toLowerCase()),
+    );
+  }, [filters.filtered, forYou, mySector, query]);
 
   async function apply(job: JobListing) {
     if (status !== "authenticated") return signIn("google");
@@ -54,7 +67,19 @@ export default function JobsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">All Jobs</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">My Jobs</h1>
+        {mySector && (
+          <button
+            onClick={() => setForYou((v) => !v)}
+            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium ${
+              forYou ? "bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-md" : "glass"
+            }`}
+          >
+            <Sparkles className="h-4 w-4" /> For You · {mySector}
+          </button>
+        )}
+      </div>
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
