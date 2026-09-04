@@ -20,6 +20,7 @@ import { tailorApplication } from "./lib/ai/cvwriter";
 import { sendApplication } from "./lib/email";
 import { getConfig, saveConfig, type AppConfig } from "./lib/ai/provider";
 import { quickMatch, type QuickMatchRun } from "./lib/ai/quickmatch";
+import { extractProfile } from "./lib/ai/profileextract";
 import { charge, getCredits, addCredits, COSTS } from "./lib/credits";
 import { PACKS, createCheckoutSession, verifyWebhook } from "./lib/stripe";
 
@@ -27,6 +28,20 @@ const JOBS_KEY = "jobs:all";
 const STATS_KEY = "jobs:stats";
 const SOURCES_KEY = "scrape:sources";
 const DEFAULT_PREFS: Prefs = { autoApply: false, categories: [] };
+
+/** Write / paid-action routes that require a signed-in user (not "demo"). */
+const PROTECTED = new Set([
+  "POST /api/upload-cv",
+  "POST /api/prefs",
+  "POST /api/profile",
+  "POST /api/profile/from-cv",
+  "POST /api/apply/prepare",
+  "POST /api/apply/send",
+  "POST /api/match",
+  "POST /api/match-all",
+  "POST /api/quick-match",
+  "POST /api/billing/checkout",
+]);
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -39,7 +54,15 @@ export default {
     try {
       if (path === "/" || path === "/api/health") {
         // `version` is a deploy marker — bump it to confirm auto-deploy shipped.
-        return json({ ok: true, service: "job-assistant", version: "2026-09-03.1" });
+        return json({ ok: true, service: "job-assistant", version: "2026-09-04.1" });
+      }
+
+      // Data isolation: signed-out ("demo") callers may READ public data but must
+      // not write per-user data or run paid AI actions — otherwise everyone
+      // signed-out would share one "demo" space. Reads stay open (they return the
+      // demo space, which stays empty because writes are blocked here).
+      if (userId === "demo" && PROTECTED.has(`${request.method} ${path}`)) {
+        return json({ error: "Please sign in to continue" }, { status: 401 });
       }
 
       // --- Billing / credits ---
@@ -263,6 +286,20 @@ export default {
           sector: patch.sector ?? current.sector,
           updatedAt: new Date().toISOString(),
         };
+        await env.JOBS_CACHE.put(profileKey(userId), JSON.stringify(next));
+        return json({ profile: next });
+      }
+      // Auto-fill the profile from the user's uploaded CV via AI.
+      if (path === "/api/profile/from-cv" && request.method === "POST") {
+        const cv = await env.JOBS_CACHE.get<StoredCV>(`cv:${userId}`, "json");
+        if (!cv) return json({ error: "Upload a CV first" }, { status: 400 });
+        const paid = await charge(env, userId, COSTS.optimise);
+        if (!paid.ok) {
+          return json({ error: "Not enough credits", balance: paid.balance }, { status: 402 });
+        }
+        const extracted = await extractProfile(cv.markdown, env);
+        const current = await getProfile(env, userId);
+        const next: Profile = { ...current, ...extracted, updatedAt: new Date().toISOString() };
         await env.JOBS_CACHE.put(profileKey(userId), JSON.stringify(next));
         return json({ profile: next });
       }

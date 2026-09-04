@@ -84,6 +84,12 @@ export interface Profile {
   availability: Availability;
   headline: string;
   sector: string;
+  name?: string;
+  location?: string;
+  yearsExperience?: number;
+  skills?: string[];
+  education?: string;
+  languages?: string[];
   updatedAt: string;
 }
 

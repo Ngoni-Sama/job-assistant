@@ -101,6 +101,8 @@ export const api = {
     }),
   getProfile: () => req<{ profile: Profile }>("/api/profile"),
   saveProfile: (patch: Partial<Profile>) => req<{ profile: Profile }>("/api/profile", jsonBody(patch)),
+  autofillProfile: () =>
+    req<{ profile: Profile }>("/api/profile/from-cv", { method: "POST" }),
   getPrefs: () => req<{ prefs: Prefs }>("/api/prefs"),
   setPrefs: (prefs: Partial<Prefs>) => req<{ prefs: Prefs }>("/api/prefs", jsonBody(prefs)),
   getApplied: () => req<{ applied: string[] }>("/api/applied"),
