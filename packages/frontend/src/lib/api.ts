@@ -5,6 +5,7 @@ import type {
   JobScore,
   Me,
   Prefs,
+  QuickMatchRun,
   ScrapeSource,
   ScrapeStats,
   SendResult,
@@ -80,6 +81,8 @@ export const api = {
     });
   },
   getMe: () => req<Me>("/api/me"),
+  runQuickMatch: () => req<{ run: QuickMatchRun }>("/api/quick-match", { method: "POST" }),
+  getQuickMatchHistory: () => req<{ history: QuickMatchRun[] }>("/api/quick-match/history"),
   getAdminConfig: () => req<{ config: AppConfig }>("/api/admin/config"),
   saveAdminConfig: (patch: Partial<AppConfig>) =>
     req<{ config: AppConfig }>("/api/admin/config", jsonBody(patch)),

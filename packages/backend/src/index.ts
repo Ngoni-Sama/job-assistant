@@ -18,6 +18,7 @@ import { matchJobToCV } from "./lib/ai/matcher";
 import { tailorApplication } from "./lib/ai/cvwriter";
 import { sendApplication } from "./lib/email";
 import { getConfig, saveConfig, type AppConfig } from "./lib/ai/provider";
+import { quickMatch, type QuickMatchRun } from "./lib/ai/quickmatch";
 
 const JOBS_KEY = "jobs:all";
 const STATS_KEY = "jobs:stats";
@@ -148,6 +149,26 @@ export default {
         }
       }
 
+      // --- Quick Match AI: analyse all listings vs the user's CV, save to history ---
+      if (path === "/api/quick-match" && request.method === "POST") {
+        const cv = await env.JOBS_CACHE.get<StoredCV>(`cv:${userId}`, "json");
+        if (!cv) return json({ error: "Upload a CV first to run Quick Match" }, { status: 400 });
+        const jobs = await getJobs(env);
+        if (jobs.length === 0) return json({ error: "No jobs cached yet" }, { status: 400 });
+
+        const run = await quickMatch(cv.markdown, jobs, env);
+
+        // Prepend to history, keep the most recent 10 runs.
+        const history = await getQuickHistory(env, userId);
+        history.unshift(run);
+        await env.JOBS_CACHE.put(quickKey(userId), JSON.stringify(history.slice(0, 10)));
+        return json({ run });
+      }
+
+      if (path === "/api/quick-match/history" && request.method === "GET") {
+        return json({ history: await getQuickHistory(env, userId) });
+      }
+
       // --- Preferences (auto-apply + categories) ---
       if (path === "/api/prefs" && request.method === "GET") {
         return json({ prefs: await getPrefs(env, userId) });
@@ -269,6 +290,11 @@ function maskConfig(config: AppConfig): AppConfig {
 const prefsKey = (userId: string) => `prefs:${userId}`;
 const appKey = (userId: string, jobId: string) => `application:${userId}:${jobId}`;
 const appliedKey = (userId: string) => `applied:${userId}`;
+const quickKey = (userId: string) => `quickmatch:${userId}`;
+
+async function getQuickHistory(env: Env, userId: string): Promise<QuickMatchRun[]> {
+  return (await env.JOBS_CACHE.get<QuickMatchRun[]>(quickKey(userId), "json")) ?? [];
+}
 
 async function getJobs(env: Env): Promise<JobListing[]> {
   return (await env.JOBS_CACHE.get<JobListing[]>(JOBS_KEY, "json")) ?? [];

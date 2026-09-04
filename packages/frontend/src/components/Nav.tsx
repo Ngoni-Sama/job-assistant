@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Briefcase, Upload, LayoutDashboard, Settings, Shield, Zap } from "lucide-react";
+import { Briefcase, Upload, LayoutDashboard, Settings, Shield, Zap, Wand2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthButton } from "./AuthButton";
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/smart-match", label: "Smart Match", icon: Zap },
+  { href: "/quick-match", label: "Quick Match", icon: Wand2 },
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/upload", label: "Upload CV", icon: Upload },
   { href: "/settings", label: "Settings", icon: Settings },

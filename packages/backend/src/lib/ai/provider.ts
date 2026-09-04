@@ -20,6 +20,10 @@ export const DEFAULT_CONFIG: AppConfig = {
 
 const CONFIG_KEY = "config:app";
 
+// Current Workers AI model. The older @cf/meta/llama-3.1-8b-instruct was
+// deprecated 2026-05-30; keep this ID pointed at a supported model.
+const WORKERS_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+
 export async function getConfig(env: Env): Promise<AppConfig> {
   const stored = await env.JOBS_CACHE.get<AppConfig>(CONFIG_KEY, "json");
   return stored ? { ...DEFAULT_CONFIG, ...stored } : DEFAULT_CONFIG;
@@ -42,7 +46,7 @@ export async function chat(env: Env, messages: ChatMessage[], maxTokens = 600): 
     return openaiChat(cfg.openaiApiKey, cfg.openaiModel, messages, maxTokens);
   }
 
-  const res = (await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+  const res = (await env.AI.run(WORKERS_AI_MODEL, {
     messages,
     max_tokens: maxTokens,
   })) as { response?: string };

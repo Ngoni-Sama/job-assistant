@@ -72,6 +72,22 @@ export interface Me {
   isAdmin: boolean;
 }
 
+export interface QuickMatchResult {
+  jobId: string;
+  title: string;
+  company: string;
+  location: string;
+  score: number;
+  reason: string;
+}
+
+export interface QuickMatchRun {
+  id: string;
+  createdAt: string;
+  analyzedCount: number;
+  results: QuickMatchResult[];
+}
+
 export interface JobScore {
   jobId: string;
   score: number;
