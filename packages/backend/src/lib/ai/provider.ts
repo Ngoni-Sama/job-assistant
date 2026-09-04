@@ -42,8 +42,14 @@ export type ChatMessage = { role: "system" | "user" | "assistant"; content: stri
 export async function chat(env: Env, messages: ChatMessage[], maxTokens = 600): Promise<string> {
   const cfg = await getConfig(env);
 
+  // Prefer OpenAI when configured, but NEVER let a bad key break the product —
+  // fall back to Workers AI if the OpenAI call fails for any reason.
   if (cfg.aiProvider === "openai" && cfg.openaiApiKey) {
-    return openaiChat(cfg.openaiApiKey, cfg.openaiModel, messages, maxTokens);
+    try {
+      return await openaiChat(cfg.openaiApiKey, cfg.openaiModel, messages, maxTokens);
+    } catch (err) {
+      console.error("OpenAI failed — falling back to Workers AI", err);
+    }
   }
 
   const res = (await env.AI.run(WORKERS_AI_MODEL, {

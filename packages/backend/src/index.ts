@@ -18,7 +18,7 @@ import { processCV } from "./lib/ai/extractor";
 import { matchJobToCV } from "./lib/ai/matcher";
 import { tailorApplication } from "./lib/ai/cvwriter";
 import { sendApplication } from "./lib/email";
-import { getConfig, saveConfig, type AppConfig } from "./lib/ai/provider";
+import { getConfig, saveConfig, chat, type AppConfig } from "./lib/ai/provider";
 import { quickMatch, type QuickMatchRun } from "./lib/ai/quickmatch";
 import { extractProfile } from "./lib/ai/profileextract";
 import { charge, getCredits, addCredits, COSTS } from "./lib/credits";
@@ -80,7 +80,13 @@ export default {
             out[m] = { ok: false, error: (e as Error).message.slice(0, 120) };
           }
         }
-        return json({ config: (await getConfig(env)).aiProvider, models: out });
+        let chatTest: unknown;
+        try {
+          chatTest = { ok: true, response: await chat(env, [{ role: "user", content: "Reply with the single word OK" }], 5) };
+        } catch (e) {
+          chatTest = { ok: false, error: (e as Error).message.slice(0, 160) };
+        }
+        return json({ config: (await getConfig(env)).aiProvider, chat: chatTest, models: out });
       }
 
       // Data isolation: signed-out ("demo") callers may READ public data but must
