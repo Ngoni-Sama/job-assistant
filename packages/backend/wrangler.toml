@@ -36,4 +36,7 @@ DEFAULT_SCRAPE_URL = "https://vacancymail.co.zw/jobs/"
 # Comma-separated admin emails (match the Google sign-in email). Admins see the
 # config panel (AI provider, API keys, feature flags).
 ADMIN_EMAILS = "1ngoni.maphosa@gmail.com"
+# Frontend origin used for Stripe Checkout success/cancel redirects.
+APP_URL = "https://job-assistant-frontend-tau.vercel.app"
+# STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET are set via `wrangler secret put`.
 # SERPER_API_KEY is set via: npx wrangler secret put SERPER_API_KEY

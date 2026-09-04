@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Briefcase, Upload, LayoutDashboard, Settings, Shield, Zap, Wand2 } from "lucide-react";
+import { Briefcase, Upload, LayoutDashboard, Settings, Shield, Zap, Wand2, Coins } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthButton } from "./AuthButton";
 
@@ -21,16 +21,16 @@ export function Nav() {
   const pathname = usePathname();
   const { status } = useSession();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [credits, setCredits] = useState<number | null>(null);
 
   useEffect(() => {
     if (status !== "authenticated") {
       setIsAdmin(false);
+      setCredits(null);
       return;
     }
-    api
-      .getMe()
-      .then((me) => setIsAdmin(me.isAdmin))
-      .catch(() => setIsAdmin(false));
+    api.getMe().then((me) => setIsAdmin(me.isAdmin)).catch(() => setIsAdmin(false));
+    api.getCredits().then((c) => setCredits(c.balance)).catch(() => setCredits(null));
   }, [status]);
 
   const items = isAdmin ? [...links, { href: "/admin", label: "Admin", icon: Shield }] : links;
@@ -62,6 +62,15 @@ export function Nav() {
               );
             })}
           </nav>
+          {credits !== null && (
+            <Link
+              href="/billing"
+              className="flex items-center gap-1 rounded-full bg-amber-100/80 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-200/80"
+              title="Credits — buy more"
+            >
+              <Coins className="h-3.5 w-3.5" /> {credits}
+            </Link>
+          )}
           <AuthButton />
         </div>
       </div>

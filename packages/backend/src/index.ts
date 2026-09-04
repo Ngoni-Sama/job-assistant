@@ -19,6 +19,8 @@ import { tailorApplication } from "./lib/ai/cvwriter";
 import { sendApplication } from "./lib/email";
 import { getConfig, saveConfig, type AppConfig } from "./lib/ai/provider";
 import { quickMatch, type QuickMatchRun } from "./lib/ai/quickmatch";
+import { charge, getCredits, addCredits, COSTS } from "./lib/credits";
+import { PACKS, createCheckoutSession, verifyWebhook } from "./lib/stripe";
 
 const JOBS_KEY = "jobs:all";
 const STATS_KEY = "jobs:stats";
@@ -36,6 +38,40 @@ export default {
     try {
       if (path === "/" || path === "/api/health") {
         return json({ ok: true, service: "job-assistant" });
+      }
+
+      // --- Billing / credits ---
+      // Stripe webhook: fulfils credit purchases. Server-to-server (no x-user-id).
+      if (path === "/api/billing/webhook" && request.method === "POST") {
+        const sig = request.headers.get("stripe-signature") ?? "";
+        const raw = await request.text();
+        const event = await verifyWebhook(env, raw, sig);
+        if (!event) return json({ error: "Invalid signature" }, { status: 400 });
+        if (event.type === "checkout.session.completed") {
+          const s = (event.data as { object: Record<string, unknown> }).object;
+          const buyer = (s.client_reference_id as string) ||
+            ((s.metadata as Record<string, string>)?.userId ?? "");
+          const credits = Number((s.metadata as Record<string, string>)?.credits ?? 0);
+          if (buyer && credits > 0) await addCredits(env, buyer, credits);
+        }
+        return json({ received: true });
+      }
+
+      if (path === "/api/credits" && request.method === "GET") {
+        return json({ balance: await getCredits(env, userId), costs: COSTS });
+      }
+      if (path === "/api/billing/packs" && request.method === "GET") {
+        return json({ packs: PACKS });
+      }
+      if (path === "/api/billing/checkout" && request.method === "POST") {
+        if (userId === "demo") return json({ error: "Sign in to buy credits" }, { status: 401 });
+        const { packId } = (await request.json()) as { packId?: string };
+        try {
+          const url = await createCheckoutSession(env, userId, packId ?? "");
+          return json({ url });
+        } catch (err) {
+          return json({ error: (err as Error).message }, { status: 502 });
+        }
       }
 
       // Upload + process a CV (PDF → Markdown)
@@ -112,6 +148,13 @@ export default {
         if (!cv) return json({ error: "No CV uploaded yet" }, { status: 400 });
         const jobs = (await env.JOBS_CACHE.get<JobListing[]>(JOBS_KEY, "json")) ?? [];
 
+        const paidMatch = await charge(env, userId, COSTS.matchAll);
+        if (!paidMatch.ok) {
+          return json(
+            { error: "Not enough credits to match all jobs", balance: paidMatch.balance, cost: COSTS.matchAll },
+            { status: 402 },
+          );
+        }
         const scores = [];
         for (const job of jobs.slice(0, 15)) {
           scores.push(await matchJobToCV(cv.markdown, job, env));
@@ -156,6 +199,13 @@ export default {
         const jobs = await getJobs(env);
         if (jobs.length === 0) return json({ error: "No jobs cached yet" }, { status: 400 });
 
+        const paid = await charge(env, userId, COSTS.quickMatch);
+        if (!paid.ok) {
+          return json(
+            { error: "Not enough credits for Quick Match", balance: paid.balance, cost: COSTS.quickMatch },
+            { status: 402 },
+          );
+        }
         const run = await quickMatch(cv.markdown, jobs, env);
 
         // Prepend to history, keep the most recent 10 runs.
@@ -197,6 +247,13 @@ export default {
         const job = (await getJobs(env)).find((j) => j.id === jobId);
         if (!job) return json({ error: "Job not found" }, { status: 404 });
 
+        const paidPrep = await charge(env, userId, COSTS.optimise);
+        if (!paidPrep.ok) {
+          return json(
+            { error: "Not enough credits to optimise a CV", balance: paidPrep.balance, cost: COSTS.optimise },
+            { status: 402 },
+          );
+        }
         const detail = await fetchJobDetail(job.applyLink);
         const tailored = await tailorApplication(cv.markdown, job, detail, env);
 

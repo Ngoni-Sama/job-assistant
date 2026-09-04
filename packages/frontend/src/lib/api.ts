@@ -1,6 +1,7 @@
 import type {
   AppConfig,
   Application,
+  CreditPack,
   JobListing,
   JobScore,
   Me,
@@ -81,6 +82,9 @@ export const api = {
     });
   },
   getMe: () => req<Me>("/api/me"),
+  getCredits: () => req<{ balance: number; costs: Record<string, number> }>("/api/credits"),
+  getPacks: () => req<{ packs: CreditPack[] }>("/api/billing/packs"),
+  checkout: (packId: string) => req<{ url: string }>("/api/billing/checkout", jsonBody({ packId })),
   runQuickMatch: () => req<{ run: QuickMatchRun }>("/api/quick-match", { method: "POST" }),
   getQuickMatchHistory: () => req<{ history: QuickMatchRun[] }>("/api/quick-match/history"),
   getAdminConfig: () => req<{ config: AppConfig }>("/api/admin/config"),

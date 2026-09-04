@@ -9,6 +9,9 @@ export interface Env {
   RESEND_API_KEY?: string; // optional — enables real application email sending
   APPLY_FROM_EMAIL?: string; // verified sender for Resend
   ADMIN_EMAILS?: string; // comma-separated allowlist of admin user emails
+  STRIPE_SECRET_KEY?: string; // Stripe secret (sk_...) for Checkout
+  STRIPE_WEBHOOK_SECRET?: string; // Stripe webhook signing secret (whsec_...)
+  APP_URL?: string; // frontend origin for Checkout success/cancel URLs
 }
 
 export interface JobListing {

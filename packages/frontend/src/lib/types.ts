@@ -88,6 +88,13 @@ export interface QuickMatchRun {
   results: QuickMatchResult[];
 }
 
+export interface CreditPack {
+  id: string;
+  label: string;
+  credits: number;
+  priceCents: number;
+}
+
 export interface JobScore {
   jobId: string;
   score: number;
