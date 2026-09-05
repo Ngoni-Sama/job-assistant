@@ -11,6 +11,25 @@ export interface JobListing {
   jobType?: string;
   expiryDate?: string;
   sector?: string;
+  logo?: string;
+  salary?: string;
+  applyEmail?: string;
+}
+
+export interface JobDetailFull {
+  description: string;
+  applyText: string;
+  applyEmail?: string;
+  applyPhone?: string;
+  deadline?: string;
+  deadlineDate?: string;
+  logo?: string;
+  sections?: {
+    jobDescription?: string;
+    duties?: string;
+    qualifications?: string;
+    howToApply?: string;
+  };
 }
 
 export interface ScrapeSource {

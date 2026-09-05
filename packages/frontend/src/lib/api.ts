@@ -4,6 +4,7 @@ import type {
   CandidateCard,
   CreditPack,
   Employer,
+  JobDetailFull,
   JobListing,
   JobScore,
   Me,
@@ -70,6 +71,10 @@ const jsonBody = (data: unknown): RequestInit => ({
 
 export const api = {
   getJobs: () => req<{ jobs: JobListing[]; stats: ScrapeStats | null }>("/api/jobs"),
+  getJob: (id: string) =>
+    req<{ job: JobListing; detail: JobDetailFull; similar: JobListing[] }>(
+      `/api/job/${encodeURIComponent(id)}`,
+    ),
   scrape: () =>
     req<{ count: number; jobs: JobListing[]; stats: ScrapeStats }>("/api/scrape", {
       method: "POST",

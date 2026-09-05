@@ -27,6 +27,9 @@ export interface JobListing {
   jobType?: string; // e.g. "Full Time", "Contract"
   expiryDate?: string; // ISO yyyy-mm-dd, when known
   sector?: string; // classified sector, e.g. "IT & Software", "Healthcare"
+  logo?: string; // absolute company logo URL, when detected
+  salary?: string; // e.g. "TBA", "$500"
+  applyEmail?: string; // populated lazily when a detail page is viewed
 }
 
 /** A user-configurable place to scrape jobs from. */
@@ -51,6 +54,13 @@ export interface JobDetail {
   applyPhone?: string;
   deadline?: string; // raw phrase, e.g. "7th September 2026"
   deadlineDate?: string; // ISO when parseable
+  logo?: string;
+  sections?: {
+    jobDescription?: string;
+    duties?: string;
+    qualifications?: string;
+    howToApply?: string;
+  };
 }
 
 /** A prepared application awaiting send/confirmation. */

@@ -159,6 +159,37 @@ export default {
         return json({ jobs, stats });
       }
 
+      // Single job + full detail (sections, apply info). Detail is cached after
+      // the first fetch so repeat visits never re-scrape.
+      if (path.startsWith("/api/job/") && request.method === "GET") {
+        const id = decodeURIComponent(path.slice("/api/job/".length));
+        const jobs = await getJobs(env);
+        const job = jobs.find((j) => j.id === id);
+        if (!job) return json({ error: "Job not found" }, { status: 404 });
+
+        const detailKey = `jobdetail:${id}`;
+        let detail = await env.JOBS_CACHE.get<Awaited<ReturnType<typeof fetchJobDetail>>>(detailKey, "json");
+        if (!detail) {
+          try {
+            detail = await fetchJobDetail(job.applyLink);
+            await env.JOBS_CACHE.put(detailKey, JSON.stringify(detail), { expirationTtl: 60 * 60 * 24 * 7 });
+            // Lazily enrich the cached job so cards can show the email/logo.
+            if (detail.applyEmail || detail.logo) {
+              const idx = jobs.findIndex((j) => j.id === id);
+              if (idx > -1) {
+                jobs[idx] = { ...job, applyEmail: detail.applyEmail ?? job.applyEmail, logo: job.logo ?? detail.logo };
+                await env.JOBS_CACHE.put(JOBS_KEY, JSON.stringify(jobs));
+              }
+            }
+          } catch (err) {
+            console.error("job detail fetch failed", err);
+            detail = { description: job.description, applyText: "" };
+          }
+        }
+        const similar = jobs.filter((j) => j.id !== id && j.sector === job.sector).slice(0, 6);
+        return json({ job: jobs.find((j) => j.id === id) ?? job, detail, similar });
+      }
+
       // Score one job against the user's CV
       if (path === "/api/match" && request.method === "POST") {
         const { jobId } = (await request.json()) as { jobId?: string };

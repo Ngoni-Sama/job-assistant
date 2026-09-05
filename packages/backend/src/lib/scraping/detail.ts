@@ -28,6 +28,10 @@ export function parseDetail(html: string): JobDetail {
   const applyPhone = cleanPhone(firstMatch(applyText, /(\+?\d[\d\s-]{7,}\d)/));
   const deadline = firstMatch(applyText, /before\s+(.+?)(?:\.|$)/i, 1)?.trim();
 
+  const logoSrc = firstMatch(html, /class="[^"]*single-page-image[^"]*"[\s\S]*?<img[^>]*src="([^"]+)"/i, 1) ||
+    firstMatch(html, /<img[^>]*src="(\/media\/logo[^"]+)"/i, 1);
+  const logo = logoSrc ? (logoSrc.startsWith("http") ? logoSrc : `https://vacancymail.co.zw${logoSrc}`) : undefined;
+
   return {
     description,
     applyText,
@@ -35,7 +39,37 @@ export function parseDetail(html: string): JobDetail {
     applyPhone,
     deadline,
     deadlineDate: parseExpiry(deadline),
+    logo,
+    sections: extractSections(html),
   };
+}
+
+/** Extract the standard vacancymail sections by their h3 headings. */
+function extractSections(html: string): JobDetail["sections"] {
+  const end = html.search(/Similar Jobs/i);
+  const body = end > -1 ? html.slice(0, end) : html;
+  const map: [keyof NonNullable<JobDetail["sections"]>, string][] = [
+    ["jobDescription", "Job Description"],
+    ["duties", "Duties and Responsibilities"],
+    ["qualifications", "Qualifications and Experience"],
+    ["howToApply", "How to Apply"],
+  ];
+  const found = map
+    .map(([key, heading]) => ({
+      key,
+      idx: body.search(new RegExp(`<h[23][^>]*>\\s*${heading}`, "i")),
+    }))
+    .filter((x) => x.idx > -1)
+    .sort((a, b) => a.idx - b.idx);
+
+  const sections: NonNullable<JobDetail["sections"]> = {};
+  for (let i = 0; i < found.length; i++) {
+    const startTag = body.indexOf("</h", found[i].idx);
+    const start = body.indexOf(">", startTag) + 1;
+    const stop = i + 1 < found.length ? found[i + 1].idx : body.length;
+    sections[found[i].key] = text(body.slice(start, stop));
+  }
+  return sections;
 }
 
 function firstMatch(input: string, re: RegExp, group = 0): string | undefined {

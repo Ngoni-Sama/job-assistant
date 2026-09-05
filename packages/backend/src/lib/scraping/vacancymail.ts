@@ -75,6 +75,9 @@ export function parseListings(html: string): JobListing[] {
     if (!title) continue;
 
     const expiryRaw = footerField(inner, "access-time");
+    // Logo lives in the card; skip the site's own placeholder logo.
+    const logoSrc = firstGroup(inner, /job-listing-company-logo[\s\S]*?<img[^>]*src="([^"]+)"/i);
+    const logo = logoSrc && !/vacancymail\.co\.za/i.test(logoSrc) ? absolute(logoSrc) : undefined;
     jobs.push({
       id: `vm-${hash(href || title)}`,
       title,
@@ -85,6 +88,8 @@ export function parseListings(html: string): JobListing[] {
       postedDate: expiryRaw,
       expiryDate: parseExpiry(expiryRaw),
       jobType: footerField(inner, "business-center") || undefined,
+      salary: footerField(inner, "account-balance-wallet") || "TBA",
+      logo,
       description: text(firstGroup(inner, /class="[^"]*job-listing-text[^"]*"[^>]*>([\s\S]*?)<\/p>/i)),
       requirements: [],
       applyLink: absolute(href),

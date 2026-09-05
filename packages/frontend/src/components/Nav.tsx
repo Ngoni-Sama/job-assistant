@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Briefcase, Upload, LayoutDashboard, Settings, Shield, Zap, Wand2, Coins, User } from "lucide-react";
+import { Briefcase, Upload, LayoutDashboard, Settings, Shield, Zap, Wand2, Coins, User, Radar } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthButton } from "./AuthButton";
 
@@ -13,6 +13,7 @@ const links = [
   { href: "/smart-match", label: "Smart Match", icon: Zap },
   { href: "/quick-match", label: "Quick Match", icon: Wand2 },
   { href: "/jobs", label: "My Jobs", icon: Briefcase },
+  { href: "/nearby", label: "Nearby", icon: Radar },
   { href: "/profile", label: "Profile", icon: User },
   { href: "/upload", label: "Upload CV", icon: Upload },
   { href: "/settings", label: "Settings", icon: Settings },
