@@ -14,6 +14,7 @@ import {
   BadgeCheck,
   Mail,
   Zap,
+  MessageSquare,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { CandidateCard } from "@/lib/types";
@@ -54,6 +55,17 @@ export default function CandidateBrowsePage() {
       setError((e as Error).message);
     } finally {
       setUnlocking(null);
+    }
+  }
+
+  async function message(c: CandidateCard) {
+    const text = window.prompt(`Message to ${c.name}:`);
+    if (!text?.trim()) return;
+    try {
+      await api.messageCandidate(c.id, text.trim());
+      window.location.href = "/messages";
+    } catch (e) {
+      setError((e as Error).message);
     }
   }
 
@@ -98,6 +110,7 @@ export default function CandidateBrowsePage() {
               email={unlocked[c.id]}
               unlocking={unlocking === c.id}
               onUnlock={() => unlock(c.id)}
+              onMessage={() => message(c)}
             />
           ))}
         </div>
@@ -154,11 +167,13 @@ function CandidateTile({
   email,
   unlocking,
   onUnlock,
+  onMessage,
 }: {
   c: CandidateCard;
   email?: string;
   unlocking?: boolean;
   onUnlock: () => void;
+  onMessage: () => void;
 }) {
   return (
     <div className="glass flex flex-col rounded-2xl p-5">
@@ -211,22 +226,31 @@ function CandidateTile({
         </div>
       )}
 
-      {email ? (
-        <a
-          href={`mailto:${email}`}
-          className="mt-4 flex items-center justify-center gap-1 rounded-full bg-green-50 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-100"
-        >
-          <Mail className="h-3.5 w-3.5" /> {email}
-        </a>
-      ) : (
+      <div className="mt-4 flex gap-2">
+        {email ? (
+          <a
+            href={`mailto:${email}`}
+            className="flex flex-1 items-center justify-center gap-1 rounded-full bg-green-50 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-100"
+          >
+            <Mail className="h-3.5 w-3.5" /> {email}
+          </a>
+        ) : (
+          <button
+            onClick={onUnlock}
+            disabled={unlocking}
+            className="flex flex-1 items-center justify-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            <Lock className="h-3.5 w-3.5" /> {unlocking ? "…" : "Unlock · 20"}
+          </button>
+        )}
         <button
-          onClick={onUnlock}
-          disabled={unlocking}
-          className="mt-4 flex items-center justify-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+          onClick={onMessage}
+          className="flex items-center justify-center gap-1 rounded-full border border-white/50 bg-white/50 px-3 py-2 text-sm text-gray-700 hover:bg-white/70"
+          aria-label="Message"
         >
-          <Lock className="h-3.5 w-3.5" /> {unlocking ? "Unlocking…" : "Unlock contact · 20 credits"}
+          <MessageSquare className="h-3.5 w-3.5" />
         </button>
-      )}
+      </div>
     </div>
   );
 }

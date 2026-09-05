@@ -4,8 +4,11 @@ import type {
   Employer,
   Env,
   JobListing,
+  Message,
   Prefs,
   Profile,
+  Thread,
+  ThreadSummary,
   ScrapeSource,
   ScrapeStats,
   StoredCV,
@@ -399,6 +402,67 @@ export default {
         }
       }
 
+      // --- Messaging (employer ↔ candidate) ---
+      // Employer starts/continues a thread with a candidate (by hashed id).
+      if (path === "/api/messages" && request.method === "POST") {
+        const employer = await getEmployer(env, userId);
+        if (employer?.status !== "approved") {
+          return json({ error: "Approved employer account required" }, { status: 403 });
+        }
+        const { candidateId: cid, text } = (await request.json()) as {
+          candidateId?: string;
+          text?: string;
+        };
+        if (!cid || !text?.trim()) return json({ error: "candidateId and text required" }, { status: 400 });
+        const email = await env.JOBS_CACHE.get(`cidmap:${cid}`);
+        if (!email) return json({ error: "Candidate not found" }, { status: 404 });
+        const cProfile = await getProfile(env, email);
+        const thread = await appendMessage(env, {
+          employerUserId: userId,
+          employerCompany: employer.company,
+          candidateEmail: email,
+          candidateName: cProfile.name || "Candidate",
+          from: "employer",
+          text: text.trim(),
+        });
+        return json({ thread });
+      }
+
+      // Reply in a thread (either participant).
+      if (path === "/api/messages/reply" && request.method === "POST") {
+        if (userId === "demo") return json({ error: "Please sign in" }, { status: 401 });
+        const { threadId, text } = (await request.json()) as { threadId?: string; text?: string };
+        if (!threadId || !text?.trim()) return json({ error: "threadId and text required" }, { status: 400 });
+        const thread = await env.JOBS_CACHE.get<Thread>(`thread:${threadId}`, "json");
+        if (!thread) return json({ error: "Thread not found" }, { status: 404 });
+        const role = participantRole(thread, userId);
+        if (!role) return json({ error: "Not a participant" }, { status: 403 });
+        const updated = await appendMessage(env, {
+          employerUserId: thread.employerUserId,
+          employerCompany: thread.employerCompany,
+          candidateEmail: thread.candidateEmail,
+          candidateName: thread.candidateName,
+          from: role,
+          text: text.trim(),
+        });
+        return json({ thread: updated });
+      }
+
+      // List my threads (works for both roles).
+      if (path === "/api/threads" && request.method === "GET") {
+        if (userId === "demo") return json({ threads: [] });
+        return json({ threads: await listThreads(env, userId) });
+      }
+
+      // Full thread — participants only.
+      if (path.startsWith("/api/thread/") && request.method === "GET") {
+        const id = decodeURIComponent(path.slice("/api/thread/".length));
+        const thread = await env.JOBS_CACHE.get<Thread>(`thread:${id}`, "json");
+        if (!thread) return json({ error: "Thread not found" }, { status: 404 });
+        if (!participantRole(thread, userId)) return json({ error: "Not a participant" }, { status: 403 });
+        return json({ thread });
+      }
+
       // Unlock a candidate's contact — costs credits. Approved employers only.
       if (path === "/api/employer/unlock" && request.method === "POST") {
         const employer = await getEmployer(env, userId);
@@ -600,6 +664,81 @@ const employerKey = (userId: string) => `employer:${userId}`;
 
 async function getEmployer(env: Env, userId: string): Promise<Employer | null> {
   return env.JOBS_CACHE.get<Employer>(employerKey(userId), "json");
+}
+
+/** Deterministic thread id for an employer↔candidate pair. */
+function threadId(employerUserId: string, candidateEmail: string): string {
+  let h = 5381;
+  const s = `${employerUserId.toLowerCase()}|${candidateEmail.toLowerCase()}`;
+  for (let i = 0; i < s.length; i++) h = (h * 33) ^ s.charCodeAt(i);
+  return `t${(h >>> 0).toString(36)}`;
+}
+
+function participantRole(t: Thread, userId: string): Message["from"] | null {
+  const u = userId.toLowerCase();
+  if (t.employerUserId.toLowerCase() === u) return "employer";
+  if (t.candidateEmail.toLowerCase() === u) return "candidate";
+  return null;
+}
+
+/** Append a message, creating the thread + updating both participants' indexes. */
+async function appendMessage(
+  env: Env,
+  m: {
+    employerUserId: string;
+    employerCompany: string;
+    candidateEmail: string;
+    candidateName: string;
+    from: Message["from"];
+    text: string;
+  },
+): Promise<Thread> {
+  const id = threadId(m.employerUserId, m.candidateEmail);
+  const existing = await env.JOBS_CACHE.get<Thread>(`thread:${id}`, "json");
+  const thread: Thread = existing ?? {
+    id,
+    employerUserId: m.employerUserId,
+    employerCompany: m.employerCompany,
+    candidateEmail: m.candidateEmail,
+    candidateName: m.candidateName,
+    messages: [],
+    updatedAt: "",
+  };
+  thread.messages.push({ from: m.from, text: m.text, at: new Date().toISOString() });
+  thread.updatedAt = new Date().toISOString();
+  await env.JOBS_CACHE.put(`thread:${id}`, JSON.stringify(thread));
+  await addToIndex(env, `empthreads:${m.employerUserId}`, id);
+  await addToIndex(env, `candthreads:${m.candidateEmail}`, id);
+  return thread;
+}
+
+async function addToIndex(env: Env, key: string, id: string): Promise<void> {
+  const list = (await env.JOBS_CACHE.get<string[]>(key, "json")) ?? [];
+  if (!list.includes(id)) {
+    list.push(id);
+    await env.JOBS_CACHE.put(key, JSON.stringify(list));
+  }
+}
+
+async function listThreads(env: Env, userId: string): Promise<ThreadSummary[]> {
+  const empIds = (await env.JOBS_CACHE.get<string[]>(`empthreads:${userId}`, "json")) ?? [];
+  const candIds = (await env.JOBS_CACHE.get<string[]>(`candthreads:${userId}`, "json")) ?? [];
+  const ids = [...new Set([...empIds, ...candIds])];
+  const out: ThreadSummary[] = [];
+  for (const id of ids) {
+    const t = await env.JOBS_CACHE.get<Thread>(`thread:${id}`, "json");
+    if (!t) continue;
+    const role = participantRole(t, userId);
+    const last = t.messages[t.messages.length - 1];
+    out.push({
+      id: t.id,
+      withName: role === "employer" ? t.candidateName : t.employerCompany,
+      lastMessage: last?.text ?? "",
+      updatedAt: t.updatedAt,
+      unreadFrom: last && last.from !== role ? last.from : null,
+    });
+  }
+  return out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 async function listEmployers(env: Env): Promise<Employer[]> {

@@ -100,6 +100,32 @@ export interface Employer {
   createdAt: string;
 }
 
+export interface Message {
+  from: "employer" | "candidate";
+  text: string;
+  at: string;
+}
+
+/** A conversation between an employer and a candidate. */
+export interface Thread {
+  id: string;
+  employerUserId: string;
+  employerCompany: string;
+  candidateEmail: string;
+  candidateName: string;
+  messages: Message[];
+  updatedAt: string;
+}
+
+/** Thread summary for inbox lists. */
+export interface ThreadSummary {
+  id: string;
+  withName: string; // the other participant's display name
+  lastMessage: string;
+  updatedAt: string;
+  unreadFrom: Message["from"] | null;
+}
+
 /** Privacy-safe candidate card for the employer browse (no contact details). */
 export interface CandidateCard {
   id: string; // hashed id — not the email

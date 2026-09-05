@@ -7,6 +7,8 @@ import type {
   JobDetailFull,
   JobListing,
   JobScore,
+  Thread,
+  ThreadSummary,
   Me,
   Prefs,
   Profile,
@@ -110,6 +112,13 @@ export const api = {
     req<{ shortlist: CandidateCard[] }>("/api/employer/shortlist", { ...jsonBody({ id }), method: "DELETE" }),
   unlockCandidate: (candidateId: string) =>
     req<{ email: string; balance: number }>("/api/employer/unlock", jsonBody({ candidateId })),
+  messageCandidate: (candidateId: string, text: string) =>
+    req<{ thread: Thread }>("/api/messages", jsonBody({ candidateId, text })),
+  replyThread: (threadId: string, text: string) =>
+    req<{ thread: Thread }>("/api/messages/reply", jsonBody({ threadId, text })),
+  getThreads: () => req<{ threads: ThreadSummary[] }>("/api/threads"),
+  getThread: (threadId: string) =>
+    req<{ thread: Thread }>(`/api/thread/${encodeURIComponent(threadId)}`),
   getAdminEmployers: () => req<{ employers: Employer[] }>("/api/admin/employers"),
   setEmployerStatus: (userId: string, status: Employer["status"]) =>
     req<{ employers: Employer[] }>("/api/admin/employers", jsonBody({ userId, status })),

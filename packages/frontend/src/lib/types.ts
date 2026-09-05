@@ -126,6 +126,30 @@ export interface Employer {
   createdAt: string;
 }
 
+export interface Message {
+  from: "employer" | "candidate";
+  text: string;
+  at: string;
+}
+
+export interface Thread {
+  id: string;
+  employerUserId: string;
+  employerCompany: string;
+  candidateEmail: string;
+  candidateName: string;
+  messages: Message[];
+  updatedAt: string;
+}
+
+export interface ThreadSummary {
+  id: string;
+  withName: string;
+  lastMessage: string;
+  updatedAt: string;
+  unreadFrom: "employer" | "candidate" | null;
+}
+
 export interface CandidateCard {
   id: string;
   name: string;
