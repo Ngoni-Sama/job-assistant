@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Radar, MapPin, Info, ArrowRight } from "lucide-react";
+import { Radar, MapPin, Info, ArrowRight, LocateFixed } from "lucide-react";
 import { api } from "@/lib/api";
 import type { JobListing } from "@/lib/types";
 import { CompanyLogo } from "@/components/CompanyLogo";
@@ -11,12 +11,54 @@ export default function NearbyPage() {
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [city, setCity] = useState("");
   const [loading, setLoading] = useState(true);
+  const [locating, setLocating] = useState(false);
+  const [locNote, setLocNote] = useState("");
   const [selected, setSelected] = useState<JobListing | null>(null);
 
   useEffect(() => {
     api.getJobs().then((r) => setJobs(r.jobs)).finally(() => setLoading(false));
     api.getProfile().then((p) => setCity(p.profile.location || "Harare")).catch(() => setCity("Harare"));
   }, []);
+
+  function findLocation() {
+    if (!navigator.geolocation) {
+      setLocNote("Geolocation isn’t supported on this device.");
+      return;
+    }
+    setLocating(true);
+    setLocNote("");
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const res = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`,
+          );
+          const data = (await res.json()) as { city?: string; locality?: string; principalSubdivision?: string };
+          const detected = data.city || data.locality || data.principalSubdivision || "";
+          if (detected) {
+            setCity(detected);
+            setLocNote(`Detected: ${detected}`);
+          } else {
+            setLocNote("Couldn’t detect your city — enter it manually.");
+          }
+        } catch {
+          setLocNote("Location lookup failed — enter your city manually.");
+        } finally {
+          setLocating(false);
+        }
+      },
+      (err) => {
+        setLocating(false);
+        setLocNote(
+          err.code === err.PERMISSION_DENIED
+            ? "Location permission denied — enter your city manually."
+            : "Couldn’t get your location — enter your city manually.",
+        );
+      },
+      { timeout: 10000 },
+    );
+  }
 
   const nearby = useMemo(() => {
     if (!city.trim()) return jobs.slice(0, 12);
@@ -30,16 +72,27 @@ export default function NearbyPage() {
         <h1 className="flex items-center gap-2 text-2xl font-bold">
           <Radar className="h-6 w-6 text-brand-600" /> Jobs near me
         </h1>
-        <div className="glass flex items-center gap-2 rounded-full px-4 py-2">
-          <MapPin className="h-4 w-4 text-gray-400" />
-          <input
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder="City"
-            className="w-32 bg-transparent text-sm outline-none"
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={findLocation}
+            disabled={locating}
+            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-md disabled:opacity-60"
+          >
+            <LocateFixed className={`h-4 w-4 ${locating ? "animate-pulse" : ""}`} />
+            {locating ? "Locating…" : "Find my location"}
+          </button>
+          <div className="glass flex items-center gap-2 rounded-full px-4 py-2">
+            <MapPin className="h-4 w-4 text-gray-400" />
+            <input
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="City"
+              className="w-32 bg-transparent text-sm outline-none"
+            />
+          </div>
         </div>
       </div>
+      {locNote && <p className="text-sm text-gray-500">{locNote}</p>}
 
       <div className="glass-strong rounded-3xl p-6">
         {loading ? (
