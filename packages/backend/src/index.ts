@@ -30,7 +30,9 @@ import { charge, getCredits, addCredits, COSTS } from "./lib/credits";
 import { PACKS, createCheckoutSession, verifyWebhook } from "./lib/stripe";
 
 const JOBS_KEY = "jobs:all";
+const EXPIRED_KEY = "jobs:expired";
 const STATS_KEY = "jobs:stats";
+const MAX_ARCHIVE = 400; // cap the expired-jobs archive to bound storage
 const SOURCES_KEY = "scrape:sources";
 const DEFAULT_PREFS: Prefs = { autoApply: false, categories: [] };
 
@@ -155,18 +157,26 @@ export default {
         return json({ success: true, count: jobs.length, stats, jobs });
       }
 
-      // List cached jobs + stats
+      // List cached (current) jobs + stats
       if (path === "/api/jobs" && request.method === "GET") {
         const jobs = (await env.JOBS_CACHE.get<JobListing[]>(JOBS_KEY, "json")) ?? [];
         const stats = await env.JOBS_CACHE.get<ScrapeStats>(STATS_KEY, "json");
         return json({ jobs, stats });
       }
 
+      // The Archive — closed / past openings (kept, not deleted).
+      if (path === "/api/jobs/expired" && request.method === "GET") {
+        const jobs = (await env.JOBS_CACHE.get<JobListing[]>(EXPIRED_KEY, "json")) ?? [];
+        return json({ jobs });
+      }
+
       // Single job + full detail (sections, apply info). Detail is cached after
       // the first fetch so repeat visits never re-scrape.
       if (path.startsWith("/api/job/") && request.method === "GET") {
         const id = decodeURIComponent(path.slice("/api/job/".length));
-        const jobs = await getJobs(env);
+        const current = await getJobs(env);
+        const expiredPool = (await env.JOBS_CACHE.get<JobListing[]>(EXPIRED_KEY, "json")) ?? [];
+        const jobs = [...current, ...expiredPool];
         const job = jobs.find((j) => j.id === id);
         if (!job) return json({ error: "Job not found" }, { status: 404 });
 
@@ -176,12 +186,17 @@ export default {
           try {
             detail = await fetchJobDetail(job.applyLink);
             await env.JOBS_CACHE.put(detailKey, JSON.stringify(detail), { expirationTtl: 60 * 60 * 24 * 7 });
-            // Lazily enrich the cached job so cards can show the email/logo.
+            // Lazily enrich the CURRENT cached job so cards show email/logo
+            // (archived jobs are closed — no write-back).
             if (detail.applyEmail || detail.logo) {
-              const idx = jobs.findIndex((j) => j.id === id);
+              const idx = current.findIndex((j) => j.id === id);
               if (idx > -1) {
-                jobs[idx] = { ...job, applyEmail: detail.applyEmail ?? job.applyEmail, logo: job.logo ?? detail.logo };
-                await env.JOBS_CACHE.put(JOBS_KEY, JSON.stringify(jobs));
+                current[idx] = {
+                  ...current[idx],
+                  applyEmail: detail.applyEmail ?? current[idx].applyEmail,
+                  logo: current[idx].logo ?? detail.logo,
+                };
+                await env.JOBS_CACHE.put(JOBS_KEY, JSON.stringify(current));
               }
             }
           } catch (err) {
@@ -189,8 +204,12 @@ export default {
             detail = { description: job.description, applyText: "" };
           }
         }
+        const enriched =
+          detail.applyEmail || detail.logo
+            ? { ...job, applyEmail: job.applyEmail ?? detail.applyEmail, logo: job.logo ?? detail.logo }
+            : job;
         const similar = jobs.filter((j) => j.id !== id && j.sector === job.sector).slice(0, 6);
-        return json({ job: jobs.find((j) => j.id === id) ?? job, detail, similar });
+        return json({ job: enriched, detail, similar });
       }
 
       // Score one job against the user's CV
@@ -854,24 +873,52 @@ async function runScrape(env: Env): Promise<{ jobs: JobListing[]; stats: ScrapeS
     }
   }
 
-  // Merge fresh results into the existing cache rather than replacing it, so a
-  // partial/empty scrape (a source failing) never wipes the list. Newly scraped
-  // entries win on id collisions; only expired jobs are pruned.
-  const existing = (await env.JOBS_CACHE.get<JobListing[]>(JOBS_KEY, "json")) ?? [];
-  const merged = Array.from(
-    new Map([...existing, ...collected].map((j) => [j.id, j])).values(),
-  )
-    .filter((j) => isCurrent(j.expiryDate))
-    .sort(byExpiry);
+  // Merge fresh results with BOTH existing pools (current + archived expired),
+  // dedupe (same-id and cross-source), then re-partition. Expired jobs are kept
+  // in an archive rather than deleted.
+  const existingCurrent = (await env.JOBS_CACHE.get<JobListing[]>(JOBS_KEY, "json")) ?? [];
+  const existingExpired = (await env.JOBS_CACHE.get<JobListing[]>(EXPIRED_KEY, "json")) ?? [];
+  const deduped = dedupeJobs([...existingCurrent, ...existingExpired, ...collected]);
 
-  // Classify sector for every job (re-runs on existing entries too, so older
-  // cached jobs pick up sectors on the next scrape).
-  for (const job of merged) job.sector = categorize(job.title, job.description);
+  // Classify sector for every job (re-runs on older entries too).
+  for (const job of deduped) job.sector = categorize(job.title, job.description);
 
-  const stats = buildStats(merged);
-  await env.JOBS_CACHE.put(JOBS_KEY, JSON.stringify(merged));
+  const current = deduped.filter((j) => isCurrent(j.expiryDate)).sort(byExpiry);
+  const expired = deduped
+    .filter((j) => !isCurrent(j.expiryDate))
+    .sort((a, b) => (b.expiryDate ?? "").localeCompare(a.expiryDate ?? "")) // most-recently closed first
+    .slice(0, MAX_ARCHIVE);
+
+  const stats = buildStats(current);
+  await env.JOBS_CACHE.put(JOBS_KEY, JSON.stringify(current));
+  await env.JOBS_CACHE.put(EXPIRED_KEY, JSON.stringify(expired));
   await env.JOBS_CACHE.put(STATS_KEY, JSON.stringify(stats));
-  return { jobs: merged, stats };
+  return { jobs: current, stats };
+}
+
+/**
+ * Dedupe jobs: first by id, then across sources by a normalized title+company
+ * key (the same posting on vacancymail & jobszimbabwe has different ids). When
+ * two match, keep the "richer" record (logo/email/salary/description).
+ */
+function dedupeJobs(jobs: JobListing[]): JobListing[] {
+  const byId = Array.from(new Map(jobs.map((j) => [j.id, j])).values());
+  const seen = new Map<string, JobListing>();
+  for (const j of byId) {
+    const key = `${j.title} ${j.company}`.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const prev = seen.get(key);
+    if (!prev || richness(j) > richness(prev)) seen.set(key, j);
+  }
+  return Array.from(seen.values());
+}
+
+function richness(j: JobListing): number {
+  return (
+    (j.logo ? 1 : 0) +
+    (j.applyEmail ? 1 : 0) +
+    (j.salary && j.salary !== "TBA" ? 1 : 0) +
+    Math.min((j.description?.length ?? 0) / 200, 3)
+  );
 }
 
 /** Soonest-expiring first; undated jobs last. */

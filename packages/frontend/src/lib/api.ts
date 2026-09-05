@@ -77,6 +77,7 @@ export const api = {
     req<{ job: JobListing; detail: JobDetailFull; similar: JobListing[] }>(
       `/api/job/${encodeURIComponent(id)}`,
     ),
+  getExpiredJobs: () => req<{ jobs: JobListing[] }>("/api/jobs/expired"),
   scrape: () =>
     req<{ count: number; jobs: JobListing[]; stats: ScrapeStats }>("/api/scrape", {
       method: "POST",
