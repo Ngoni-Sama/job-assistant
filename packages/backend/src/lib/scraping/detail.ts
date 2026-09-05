@@ -14,9 +14,9 @@ export async function fetchJobDetail(url: string): Promise<JobDetail> {
  *     <p>Interested candidates to send their CVs to EMAIL or PHONE before DATE</p>
  */
 export function parseDetail(html: string): JobDetail {
-  const applyText = text(
-    firstGroup(html, /how to apply<\/h3>\s*([\s\S]*?)<\/div>/i),
-  );
+  const applyText = text(firstGroup(html, /how to apply<\/h3>\s*([\s\S]*?)<\/div>/i))
+    .replace(/\*\*/g, "")
+    .trim();
 
   // Full JD: content up to the "Similar Jobs" section, from the content column.
   const end = html.search(/Similar Jobs/i);
@@ -66,8 +66,18 @@ function extractSections(html: string): JobDetail["sections"] {
   for (let i = 0; i < found.length; i++) {
     const startTag = body.indexOf("</h", found[i].idx);
     const start = body.indexOf(">", startTag) + 1;
-    const stop = i + 1 < found.length ? found[i + 1].idx : body.length;
-    sections[found[i].key] = text(body.slice(start, stop));
+    const hardStop = i + 1 < found.length ? found[i + 1].idx : body.length;
+    let rest = body.slice(start, hardStop);
+    // Trim inter-section junk (the next section block, apply widgets, forms)
+    // so a section only contains its own content.
+    const cuts = [
+      /<div[^>]*class="[^"]*single-page-section/i,
+      /apply for this job|share this job|report this|<form/i,
+    ]
+      .map((re) => rest.search(re))
+      .filter((x) => x > -1);
+    if (cuts.length) rest = rest.slice(0, Math.min(...cuts));
+    sections[found[i].key] = text(rest).replace(/\*\*/g, "").trim();
   }
   return sections;
 }
