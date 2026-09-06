@@ -3,9 +3,21 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession, signIn } from "next-auth/react";
-import { Send, CheckCircle2, Clock, Mail, Lock, FileText } from "lucide-react";
+import { Send, CheckCircle2, Clock, Mail, Lock, FileText, FileDown } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Application } from "@/lib/types";
+import { cvToPdfBlob, cvToDocxBlob } from "@/lib/cvexport";
+
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "job";
+
+function download(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function ApplicationsPage() {
   const { status } = useSession();
@@ -81,13 +93,29 @@ export default function ApplicationsPage() {
                     <summary className="flex cursor-pointer items-center gap-1 text-xs text-brand-700">
                       <FileText className="h-3.5 w-3.5" /> Tailored CV
                     </summary>
-                    <pre className="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap rounded bg-gray-50 p-3 text-xs text-gray-700">
+                    <pre className="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap break-words rounded bg-gray-50 p-3 text-xs text-gray-700">
                       {a.tailoredCV}
                     </pre>
                   </details>
-                  <Link href={`/jobs/${encodeURIComponent(a.jobId)}`} className="inline-block text-xs text-brand-700 underline">
-                    View job →
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => download(cvToPdfBlob(a.tailoredCV), `CV-${slug(a.jobTitle)}.pdf`)}
+                      className="flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                    >
+                      <FileDown className="h-3.5 w-3.5" /> PDF
+                    </button>
+                    <button
+                      onClick={async () =>
+                        download(await cvToDocxBlob(a.tailoredCV), `CV-${slug(a.jobTitle)}.docx`)
+                      }
+                      className="flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                    >
+                      <FileDown className="h-3.5 w-3.5" /> Word
+                    </button>
+                    <Link href={`/jobs/${encodeURIComponent(a.jobId)}`} className="text-xs text-brand-700 underline">
+                      View job →
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>

@@ -43,6 +43,7 @@ export function ApplyModal({
   const [sent, setSent] = useState(false);
   const [mailto, setMailto] = useState("");
   const [error, setError] = useState("");
+  const [note, setNote] = useState("");
 
   // Load the original CV so the user can send it instead of the tailored one.
   useEffect(() => {
@@ -63,26 +64,46 @@ export function ApplyModal({
     return `${coverNote}\n\n— ${contact}${tail}`;
   }
 
+  const pdfAttachment = async () => ({
+    name: "CV.pdf",
+    type: "application/pdf",
+    data: await blobToBase64(cvToPdfBlob(cvText)),
+  });
+
+  async function loadOriginal() {
+    const f = originalFile ?? (await api.getCvFile());
+    if (!originalFile) setOriginalFile(f);
+    return f;
+  }
+
   async function getAttachment() {
     if (attach === "none") return null;
     if (attach === "original") {
-      const f = originalFile ?? (await api.getCvFile());
-      if (!originalFile) setOriginalFile(f);
-      return f;
+      try {
+        return await loadOriginal();
+      } catch {
+        setNote("No original CV on file yet (re-upload your CV to enable it) — attached a generated PDF instead.");
+        return pdfAttachment();
+      }
     }
-    if (attach === "pdf") return { name: "CV.pdf", type: "application/pdf", data: await blobToBase64(cvToPdfBlob(cvText)) };
+    if (attach === "pdf") return pdfAttachment();
     return { name: "CV.docx", type: DOCX_MIME, data: await blobToBase64(await cvToDocxBlob(cvText)) };
   }
 
   async function preview() {
     setPreviewing(true);
     setError("");
+    setNote("");
     try {
       let blob: Blob;
       if (attach === "original") {
-        const f = originalFile ?? (await api.getCvFile());
-        if (!originalFile) setOriginalFile(f);
-        blob = new Blob([Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0))], { type: f.type });
+        try {
+          const f = await loadOriginal();
+          blob = new Blob([Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0))], { type: f.type });
+        } catch {
+          setNote("No original CV on file yet — previewing a generated PDF instead.");
+          blob = cvToPdfBlob(cvText);
+        }
       } else if (attach === "docx") {
         blob = await cvToDocxBlob(cvText);
       } else {
@@ -224,6 +245,10 @@ export function ApplyModal({
                   : `Generates a ${attach.toUpperCase()} from the CV above and attaches it.`}
             </p>
           </div>
+
+          {note && (
+            <div className="rounded-lg bg-blue-50 p-3 text-sm text-blue-700">{note}</div>
+          )}
 
           {error && (
             <div className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
