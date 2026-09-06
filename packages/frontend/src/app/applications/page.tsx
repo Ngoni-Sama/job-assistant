@@ -38,6 +38,8 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [checking, setChecking] = useState(false);
+  const [checkMsg, setCheckMsg] = useState("");
 
   useEffect(() => {
     if (status === "loading") return;
@@ -59,6 +61,39 @@ export default function ApplicationsPage() {
     const next = !a.responded;
     patch(a.jobId, { responded: next });
     await api.markResponded(a.jobId, next).catch(() => {});
+  }
+
+  async function checkReplies() {
+    setChecking(true);
+    setCheckMsg("");
+    try {
+      const recipients = [...new Set(apps.filter((a) => a.sent && a.to).map((a) => a.to!))];
+      if (recipients.length === 0) {
+        setCheckMsg("No sent applications with an email to check.");
+        return;
+      }
+      const res = await fetch("/api/gmail/replies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipients }),
+      });
+      const data = (await res.json()) as { replied?: string[]; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Reply check failed");
+      const repliedSet = new Set((data.replied ?? []).map((e) => e.toLowerCase()));
+      let found = 0;
+      for (const a of apps) {
+        if (a.sent && a.to && repliedSet.has(a.to.toLowerCase()) && !a.responded) {
+          found++;
+          patch(a.jobId, { responded: true });
+          api.markResponded(a.jobId, true).catch(() => {});
+        }
+      }
+      setCheckMsg(found > 0 ? `Found ${found} new repl${found === 1 ? "y" : "ies"}! ✅` : "No new replies yet.");
+    } catch (e) {
+      setCheckMsg((e as Error).message);
+    } finally {
+      setChecking(false);
+    }
   }
 
   const shown = useMemo(() => {
@@ -89,9 +124,20 @@ export default function ApplicationsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <h1 className="flex items-center gap-2 text-2xl font-bold">
-        <Send className="h-6 w-6 text-brand-600" /> My applications
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="flex items-center gap-2 text-2xl font-bold">
+          <Send className="h-6 w-6 text-brand-600" /> My applications
+        </h1>
+        <button
+          onClick={checkReplies}
+          disabled={checking}
+          className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-md disabled:opacity-60"
+        >
+          <MessageCircle className={`h-4 w-4 ${checking ? "animate-pulse" : ""}`} />
+          {checking ? "Checking…" : "Check for replies"}
+        </button>
+      </div>
+      {checkMsg && <p className="text-sm text-gray-600">{checkMsg}</p>}
 
       {/* Filter tabs */}
       <div className="flex flex-wrap gap-1.5">

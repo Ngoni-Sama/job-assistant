@@ -98,8 +98,15 @@ export default function EmployersPage() {
               business days.
             </div>
           ) : employer?.status === "rejected" ? (
-            <div className="glass rounded-2xl p-4 text-sm text-red-700">
-              Your application wasn’t approved. Contact support to appeal.
+            <div className="glass rounded-2xl p-4 text-left text-sm text-red-700">
+              <p className="font-medium">Your application wasn’t approved.</p>
+              {employer.rejectReason && <p className="mt-1">Reason: {employer.rejectReason}</p>}
+              <button
+                onClick={() => setEmployer(null)}
+                className="mt-2 rounded-full bg-red-600 px-3 py-1.5 text-xs text-white"
+              >
+                Re-apply
+              </button>
             </div>
           ) : (
             <form onSubmit={register} className="glass rounded-2xl p-4 text-left">

@@ -67,8 +67,13 @@ export default function AdminPage() {
   }
 
   async function setEmployer(userId: string, status: Employer["status"]) {
+    let reason: string | undefined;
+    if (status === "rejected") {
+      reason = window.prompt("Reason for rejection (shown to the employer):") ?? undefined;
+      if (reason === undefined) return; // cancelled
+    }
     try {
-      const res = await api.setEmployerStatus(userId, status);
+      const res = await api.setEmployerStatus(userId, status, reason);
       setEmployers(res.employers);
     } catch (err) {
       setError((err as Error).message);

@@ -135,8 +135,8 @@ export const api = {
   getThread: (threadId: string) =>
     req<{ thread: Thread }>(`/api/thread/${encodeURIComponent(threadId)}`),
   getAdminEmployers: () => req<{ employers: Employer[] }>("/api/admin/employers"),
-  setEmployerStatus: (userId: string, status: Employer["status"]) =>
-    req<{ employers: Employer[] }>("/api/admin/employers", jsonBody({ userId, status })),
+  setEmployerStatus: (userId: string, status: Employer["status"], reason?: string) =>
+    req<{ employers: Employer[] }>("/api/admin/employers", jsonBody({ userId, status, reason })),
   getAdmins: () => req<{ invited: string[]; bootstrap: string[] }>("/api/admin/admins"),
   addAdmin: (email: string) =>
     req<{ invited: string[]; bootstrap: string[] }>("/api/admin/admins", jsonBody({ email })),

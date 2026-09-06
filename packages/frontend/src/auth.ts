@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 
 const GMAIL_SEND = "https://www.googleapis.com/auth/gmail.send";
+const GMAIL_READ = "https://www.googleapis.com/auth/gmail.readonly";
 
 /**
  * Auth.js (NextAuth v5) with Google + Gmail send.
@@ -18,7 +19,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       authorization: {
         params: {
-          scope: `openid email profile ${GMAIL_SEND}`,
+          scope: `openid email profile ${GMAIL_SEND} ${GMAIL_READ}`,
           access_type: "offline",
           prompt: "consent",
         },

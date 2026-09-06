@@ -126,6 +126,7 @@ export interface Employer {
   status: EmployerStatus;
   createdAt: string;
   documentName?: string;
+  rejectReason?: string;
 }
 
 export interface Message {

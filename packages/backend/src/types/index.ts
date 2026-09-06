@@ -100,6 +100,7 @@ export interface Employer {
   status: EmployerStatus;
   createdAt: string;
   documentName?: string; // uploaded vetting document (stored separately)
+  rejectReason?: string; // shown to the employer when rejected
 }
 
 export interface Message {

@@ -560,13 +560,15 @@ export default {
           return json({ employers: await listEmployers(env) });
         }
         if (request.method === "POST") {
-          const { userId: target, status } = (await request.json()) as {
+          const { userId: target, status, reason } = (await request.json()) as {
             userId?: string;
             status?: Employer["status"];
+            reason?: string;
           };
           const emp = target ? await getEmployer(env, target) : null;
           if (!emp || !status) return json({ error: "Unknown employer" }, { status: 400 });
           emp.status = status;
+          emp.rejectReason = status === "rejected" ? reason?.trim() || "Not approved." : undefined;
           await env.JOBS_CACHE.put(employerKey(emp.userId), JSON.stringify(emp));
           return json({ employers: await listEmployers(env) });
         }
