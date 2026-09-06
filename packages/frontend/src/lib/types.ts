@@ -60,6 +60,7 @@ export interface Application {
   sent?: boolean;
   sentAt?: string;
   method?: "email" | "manual";
+  responded?: boolean;
 }
 
 export interface SendResult {

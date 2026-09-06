@@ -32,9 +32,11 @@ export function ApplyModal({
   const [email, setEmail] = useState(session?.user?.email ?? "");
   const [phone, setPhone] = useState(application.phone ?? "");
   const [coverNote, setCoverNote] = useState(application.coverNote);
-  const [useOriginal, setUseOriginal] = useState(false);
+  // Default to the candidate's OWN CV — the AI rewrite is opt-in.
+  const [useOriginal, setUseOriginal] = useState(true);
   const [originalCv, setOriginalCv] = useState<string>("");
   const [cvText, setCvText] = useState(application.tailoredCV);
+  const isPortal = !application.to; // no email detected = job-portal link
 
   const [attach, setAttach] = useState<Attach>("pdf");
   const [originalFile, setOriginalFile] = useState<{ name: string; type: string; data: string } | null>(null);
@@ -45,9 +47,16 @@ export function ApplyModal({
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
 
-  // Load the original CV so the user can send it instead of the tailored one.
+  // Load the original CV (the default) — AI-tailored is opt-in.
   useEffect(() => {
-    api.getCV().then((r) => setOriginalCv(r.cv?.markdown ?? "")).catch(() => {});
+    api
+      .getCV()
+      .then((r) => {
+        const md = r.cv?.markdown ?? "";
+        setOriginalCv(md);
+        if (md) setCvText(md); // default view = your own CV
+      })
+      .catch(() => {});
     if (!name && session?.user?.name) setName(session.user.name);
     if (!email && session?.user?.email) setEmail(session.user.email);
   }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -156,6 +165,17 @@ export function ApplyModal({
             <p className="flex items-center gap-1.5 text-sm text-amber-700">
               <CalendarClock className="h-4 w-4" /> Deadline: {application.deadline}
             </p>
+          )}
+
+          {isPortal && (
+            <div className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                No application email was found — this looks like a <strong>job-portal link</strong>. You’ll
+                likely need to <strong>apply on their site</strong>. Download your CV below, then use{" "}
+                <strong>Source</strong> on the job to apply directly. (If you do know the email, enter it above.)
+              </span>
+            </div>
           )}
 
           {/* Recipient + your contact */}

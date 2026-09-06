@@ -79,6 +79,7 @@ export interface Application {
   sent?: boolean;
   sentAt?: string;
   method?: "email" | "manual"; // how it was (or must be) delivered
+  responded?: boolean; // employer replied (user-marked)
 }
 
 /** Per-user preferences. */

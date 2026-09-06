@@ -647,6 +647,34 @@ export default {
         return json({ result: await doSend(env, userId, application) });
       }
 
+      // Retract an application from tracking (the email itself can't be recalled).
+      if (path === "/api/apply/unsend" && request.method === "POST") {
+        if (userId === "demo") return json({ error: "Please sign in" }, { status: 401 });
+        const { jobId } = (await request.json()) as { jobId?: string };
+        const app = await env.JOBS_CACHE.get<Application>(appKey(userId, jobId ?? ""), "json");
+        if (app) {
+          app.sent = false;
+          app.sentAt = undefined;
+          app.method = undefined;
+          await env.JOBS_CACHE.put(appKey(userId, app.jobId), JSON.stringify(app));
+        }
+        const applied = (await getApplied(env, userId)).filter((id) => id !== jobId);
+        await env.JOBS_CACHE.put(appliedKey(userId), JSON.stringify(applied));
+        return json({ ok: true });
+      }
+
+      // Mark whether the employer has replied (manual).
+      if (path === "/api/apply/responded" && request.method === "POST") {
+        if (userId === "demo") return json({ error: "Please sign in" }, { status: 401 });
+        const { jobId, responded } = (await request.json()) as { jobId?: string; responded?: boolean };
+        const app = await env.JOBS_CACHE.get<Application>(appKey(userId, jobId ?? ""), "json");
+        if (app) {
+          app.responded = !!responded;
+          await env.JOBS_CACHE.put(appKey(userId, app.jobId), JSON.stringify(app));
+        }
+        return json({ ok: true });
+      }
+
       return json({ error: "Not found" }, { status: 404 });
     } catch (err) {
       console.error(err);

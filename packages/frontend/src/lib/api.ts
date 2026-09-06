@@ -115,6 +115,9 @@ export const api = {
       `/api/admin/employer-doc?userId=${encodeURIComponent(userId)}`,
     ),
   getApplications: () => req<{ applications: Application[] }>("/api/applications"),
+  unsendApplication: (jobId: string) => req<{ ok: boolean }>("/api/apply/unsend", jsonBody({ jobId })),
+  markResponded: (jobId: string, responded: boolean) =>
+    req<{ ok: boolean }>("/api/apply/responded", jsonBody({ jobId, responded })),
   getCandidates: () => req<{ sectors: Record<string, CandidateCard[]> }>("/api/candidates"),
   getShortlist: () =>
     req<{ shortlist: CandidateCard[]; unlocked: Record<string, string> }>("/api/employer/shortlist"),
