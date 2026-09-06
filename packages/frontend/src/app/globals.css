@@ -27,6 +27,10 @@ body {
   .glass-strong {
     @apply border border-white/50 bg-white/75 shadow-xl backdrop-blur-xl;
   }
+  /* Form input / textarea */
+  .input {
+    @apply w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none;
+  }
   /* Floating action button. */
   .fab {
     @apply fixed z-40 flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium text-white shadow-xl transition-transform hover:scale-105 active:scale-95;

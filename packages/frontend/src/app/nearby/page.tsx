@@ -56,7 +56,9 @@ export default function NearbyPage() {
             : "Couldn’t get your location — enter your city manually.",
         );
       },
-      { timeout: 10000 },
+      // Generous timeout so the permission prompt doesn't expire the first call,
+      // and allow a recent cached fix so one press is enough.
+      { timeout: 30000, maximumAge: 300000, enableHighAccuracy: false },
     );
   }
 
@@ -160,8 +162,11 @@ function RadarScope({
 
       {/* blips */}
       {jobs.map((job, i) => {
-        const angle = (i / Math.max(jobs.length, 1)) * Math.PI * 2 + i * 0.6;
-        const radius = (c - 34) * (0.35 + ((i * 37) % 60) / 100);
+        // Phyllotaxis (sunflower) layout — evenly spreads blips so they never
+        // stack on top of each other.
+        const golden = Math.PI * (3 - Math.sqrt(5));
+        const angle = i * golden;
+        const radius = (c - 32) * Math.sqrt((i + 0.5) / Math.max(jobs.length, 1));
         const x = c + radius * Math.cos(angle);
         const y = c + radius * Math.sin(angle);
         const isSel = selected?.id === job.id;

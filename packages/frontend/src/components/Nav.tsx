@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Menu,
   X,
+  Send,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthButton } from "./AuthButton";
@@ -34,6 +35,7 @@ const primary: Item[] = [
 ];
 
 const secondary: Item[] = [
+  { href: "/applications", label: "Applications", icon: Send },
   { href: "/archive", label: "Archive", icon: Archive },
   { href: "/nearby", label: "Nearby", icon: Radar },
   { href: "/messages", label: "Messages", icon: MessageSquare },

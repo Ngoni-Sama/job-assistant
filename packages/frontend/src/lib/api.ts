@@ -102,8 +102,18 @@ export const api = {
   saveAdminConfig: (patch: Partial<AppConfig>) =>
     req<{ config: AppConfig }>("/api/admin/config", jsonBody(patch)),
   getEmployer: () => req<{ employer: Employer | null }>("/api/employer"),
-  registerEmployer: (company: string, contactPerson: string) =>
-    req<{ employer: Employer }>("/api/employer", jsonBody({ company, contactPerson })),
+  registerEmployer: (company: string, contactPerson: string, document?: File | null) => {
+    const form = new FormData();
+    form.append("company", company);
+    form.append("contactPerson", contactPerson);
+    if (document) form.append("document", document);
+    return req<{ employer: Employer }>("/api/employer", { method: "POST", body: form });
+  },
+  getEmployerDoc: (userId: string) =>
+    req<{ name: string; type: string; data: string }>(
+      `/api/admin/employer-doc?userId=${encodeURIComponent(userId)}`,
+    ),
+  getApplications: () => req<{ applications: Application[] }>("/api/applications"),
   getCandidates: () => req<{ sectors: Record<string, CandidateCard[]> }>("/api/candidates"),
   getShortlist: () =>
     req<{ shortlist: CandidateCard[]; unlocked: Record<string, string> }>("/api/employer/shortlist"),

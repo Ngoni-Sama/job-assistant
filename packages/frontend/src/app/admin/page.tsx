@@ -75,6 +75,17 @@ export default function AdminPage() {
     }
   }
 
+  async function viewDoc(userId: string) {
+    try {
+      const { data, type } = await api.getEmployerDoc(userId);
+      const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: type || "application/octet-stream" }));
+      window.open(url, "_blank");
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
   async function save(patch: Partial<AppConfig>) {
     setSaving(true);
     setMsg("");
@@ -232,6 +243,13 @@ export default function AdminPage() {
                   <p className="truncate text-xs text-gray-500">
                     {e.contactPerson} · {e.userId}
                   </p>
+                  {e.documentName ? (
+                    <button onClick={() => viewDoc(e.userId)} className="text-xs text-brand-700 underline">
+                      📄 View document
+                    </button>
+                  ) : (
+                    <span className="text-xs text-amber-600">No document uploaded</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <span

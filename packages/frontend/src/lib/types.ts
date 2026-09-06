@@ -124,6 +124,7 @@ export interface Employer {
   contactPerson: string;
   status: EmployerStatus;
   createdAt: string;
+  documentName?: string;
 }
 
 export interface Message {

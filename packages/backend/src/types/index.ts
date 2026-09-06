@@ -98,6 +98,7 @@ export interface Employer {
   contactPerson: string;
   status: EmployerStatus;
   createdAt: string;
+  documentName?: string; // uploaded vetting document (stored separately)
 }
 
 export interface Message {

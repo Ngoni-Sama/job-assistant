@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { X, Mail, Phone, CalendarClock, Send, CheckCircle2, AlertTriangle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { X, Mail, CalendarClock, Send, CheckCircle2, AlertTriangle, Sparkles, FileText } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Application, SendResult } from "@/lib/types";
+import type { Application } from "@/lib/types";
 
 /**
- * Confirmation dialog for a prepared application. Shows the detected recipient,
- * the AI cover note and tailored CV, and asks the user to send or cancel —
- * keeping a human in the loop unless auto-apply is enabled.
+ * Review + edit an application before sending. Everything is editable: recipient,
+ * your contact details, the cover note, and the CV text. You can swap the AI-
+ * tailored CV for your original one. The content is sent as the email body via
+ * your Gmail (it is text, not a PDF/DOCX attachment).
  */
 export function ApplyModal({
   application,
@@ -19,25 +21,39 @@ export function ApplyModal({
   onClose: () => void;
   onSent: (jobId: string) => void;
 }) {
+  const { data: session } = useSession();
+
+  const [to, setTo] = useState(application.to ?? "");
+  const [name, setName] = useState(session?.user?.name ?? "");
+  const [email, setEmail] = useState(session?.user?.email ?? "");
+  const [phone, setPhone] = useState(application.phone ?? "");
+  const [coverNote, setCoverNote] = useState(application.coverNote);
+  const [useOriginal, setUseOriginal] = useState(false);
+  const [originalCv, setOriginalCv] = useState<string>("");
+  const [cvText, setCvText] = useState(application.tailoredCV);
+
   const [sending, setSending] = useState(false);
-  const [result, setResult] = useState<SendResult | null>(null);
+  const [sent, setSent] = useState(false);
+  const [mailto, setMailto] = useState("");
   const [error, setError] = useState("");
 
-  async function send() {
-    setSending(true);
-    setError("");
-    try {
-      const { result } = await api.sendApplication(application.jobId);
-      setResult(result);
-      if (result.sent || result.method === "manual") onSent(application.jobId);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setSending(false);
-    }
+  // Load the original CV so the user can send it instead of the tailored one.
+  useEffect(() => {
+    api.getCV().then((r) => setOriginalCv(r.cv?.markdown ?? "")).catch(() => {});
+    if (!name && session?.user?.name) setName(session.user.name);
+    if (!email && session?.user?.email) setEmail(session.user.email);
+  }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggleCv(next: boolean) {
+    setUseOriginal(next);
+    setCvText(next ? originalCv || application.tailoredCV : application.tailoredCV);
   }
 
-  // Send from the signed-in user's Gmail (server route uses their access token).
+  function buildBody(): string {
+    const contact = `${name}${email ? ` · ${email}` : ""}${phone ? ` · ${phone}` : ""}`;
+    return `${coverNote}\n\n— ${contact}\n\n---\n\n${cvText}`;
+  }
+
   async function sendViaGmail() {
     setSending(true);
     setError("");
@@ -45,118 +61,120 @@ export function ApplyModal({
       const res = await fetch("/api/gmail/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: application.to,
-          subject: application.subject,
-          body: `${application.coverNote}\n\n---\n\n${application.tailoredCV}`,
-        }),
+        body: JSON.stringify({ to, subject: application.subject, body: buildBody() }),
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Gmail send failed");
-      setResult({ sent: true, method: "email" });
+      setSent(true);
       onSent(application.jobId);
     } catch (e) {
       setError((e as Error).message);
+      setMailto(
+        `mailto:${to}?subject=${encodeURIComponent(application.subject)}&body=${encodeURIComponent(buildBody())}`,
+      );
     } finally {
       setSending(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b p-4">
-          <h2 className="font-semibold">Review application — {application.jobTitle}</h2>
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-2 sm:items-center sm:p-4">
+      <div className="my-4 w-full max-w-2xl rounded-2xl bg-white shadow-xl">
+        <div className="sticky top-0 flex items-center justify-between rounded-t-2xl border-b bg-white p-4">
+          <h2 className="truncate font-semibold">Review &amp; send — {application.jobTitle}</h2>
           <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="space-y-4 p-4">
-          <div className="rounded-lg bg-gray-50 p-3 text-sm">
-            <p className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-gray-400" />
-              {application.to ? (
-                <span>
-                  <span className="font-medium">{application.to}</span>
-                  <span className="text-xs text-gray-500"> · sends from your Gmail</span>
-                </span>
-              ) : (
-                <span className="text-amber-700">No email detected — send manually via “View”.</span>
-              )}
+          {application.deadline && (
+            <p className="flex items-center gap-1.5 text-sm text-amber-700">
+              <CalendarClock className="h-4 w-4" /> Deadline: {application.deadline}
             </p>
-            {application.phone && (
-              <p className="mt-1 flex items-center gap-2">
-                <Phone className="h-4 w-4 text-gray-400" /> {application.phone}
-              </p>
-            )}
-            {application.deadline && (
-              <p className="mt-1 flex items-center gap-2 text-amber-700">
-                <CalendarClock className="h-4 w-4" /> Deadline: {application.deadline}
-              </p>
-            )}
+          )}
+
+          {/* Recipient + your contact */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Send to (employer email)">
+              <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="Not detected — enter it" className="input" />
+            </Field>
+            <Field label="Your name">
+              <input value={name} onChange={(e) => setName(e.target.value)} className="input" />
+            </Field>
+            <Field label="Your email">
+              <input value={email} onChange={(e) => setEmail(e.target.value)} className="input" />
+            </Field>
+            <Field label="Your phone">
+              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Add your number" className="input" />
+            </Field>
           </div>
 
-          <Section title="Cover note">
-            <p className="whitespace-pre-wrap text-sm text-gray-700">{application.coverNote}</p>
-          </Section>
+          <Field label="Cover note (editable)">
+            <textarea value={coverNote} onChange={(e) => setCoverNote(e.target.value)} rows={5} className="input" />
+          </Field>
 
-          <Section title="Tailored CV">
-            <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded bg-gray-50 p-3 text-xs text-gray-700">
-              {application.tailoredCV}
-            </pre>
-          </Section>
+          {/* CV toggle */}
+          <div>
+            <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">CV (editable)</span>
+              <div className="flex rounded-full bg-gray-100 p-0.5 text-xs">
+                <button
+                  onClick={() => toggleCv(false)}
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 ${!useOriginal ? "bg-white shadow-sm" : "text-gray-500"}`}
+                >
+                  <Sparkles className="h-3 w-3" /> AI-tailored
+                </button>
+                <button
+                  onClick={() => toggleCv(true)}
+                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 ${useOriginal ? "bg-white shadow-sm" : "text-gray-500"}`}
+                >
+                  <FileText className="h-3 w-3" /> My original CV
+                </button>
+              </div>
+            </div>
+            <textarea
+              value={cvText}
+              onChange={(e) => setCvText(e.target.value)}
+              rows={10}
+              className="input break-words font-mono text-xs"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Sent as the email body (plain text — not a PDF/DOCX attachment).
+            </p>
+          </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <div className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p>{error}</p>
+                {mailto && (
+                  <a href={mailto} className="mt-1 inline-block font-medium underline">
+                    Open in your email app instead →
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
 
-          {result ? (
-            <div
-              className={`flex items-start gap-2 rounded-lg p-3 text-sm ${
-                result.sent ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-800"
-              }`}
-            >
-              {result.sent ? (
-                <>
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>Application sent by email. ✅</span>
-                </>
-              ) : (
-                <>
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <div>
-                    <p>Auto-send isn’t configured, so nothing was emailed automatically.</p>
-                    {result.mailto && (
-                      <a href={result.mailto} className="mt-1 inline-block font-medium underline">
-                        Open in your email app to send →
-                      </a>
-                    )}
-                    {result.reason && <p className="mt-1 text-xs opacity-80">{result.reason}</p>}
-                  </div>
-                </>
-              )}
+          {sent ? (
+            <div className="flex items-center gap-2 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+              <CheckCircle2 className="h-4 w-4" /> Application sent from your Gmail ✅
             </div>
           ) : (
             <div className="flex flex-wrap justify-end gap-2">
               <button onClick={onClose} className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50">
                 Cancel
               </button>
-              {application.to ? (
-                <button
-                  onClick={sendViaGmail}
-                  disabled={sending}
-                  className="flex items-center gap-1 rounded-md bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm text-white disabled:opacity-50"
-                >
-                  <Mail className="h-4 w-4" /> {sending ? "Sending…" : "Send from my Gmail"}
-                </button>
-              ) : (
-                <button
-                  onClick={send}
-                  disabled={sending}
-                  className="flex items-center gap-1 rounded-md bg-brand-600 px-4 py-2 text-sm text-white hover:bg-brand-700 disabled:opacity-50"
-                >
-                  <Send className="h-4 w-4" /> {sending ? "Preparing…" : "Prepare to send"}
-                </button>
-              )}
+              <button
+                onClick={sendViaGmail}
+                disabled={sending || !to.trim()}
+                className="flex items-center gap-1 rounded-md bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+              >
+                {to.trim() ? <Mail className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+                {sending ? "Sending…" : "Send from my Gmail"}
+              </button>
             </div>
           )}
         </div>
@@ -165,11 +183,11 @@ export function ApplyModal({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
-      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">{title}</h3>
+    <label className="block">
+      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }

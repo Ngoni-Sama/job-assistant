@@ -30,6 +30,7 @@ export default function EmployersPage() {
   const [loaded, setLoaded] = useState(false);
   const [company, setCompany] = useState("");
   const [contact, setContact] = useState("");
+  const [doc, setDoc] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -51,7 +52,7 @@ export default function EmployersPage() {
     setBusy(true);
     setError("");
     try {
-      const r = await api.registerEmployer(company.trim(), contact.trim());
+      const r = await api.registerEmployer(company.trim(), contact.trim(), doc);
       setEmployer(r.employer);
     } catch (err) {
       setError((err as Error).message);
@@ -117,6 +118,15 @@ export default function EmployersPage() {
                 required
                 className="mb-3 w-full rounded-md border px-3 py-2 text-sm"
               />
+              <label className="mb-1 block text-xs font-medium text-gray-500">
+                Company document (registration / CR14 / letterhead)
+              </label>
+              <input
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.docx"
+                onChange={(e) => setDoc(e.target.files?.[0] ?? null)}
+                className="mb-3 w-full text-xs file:mr-2 file:rounded-full file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-brand-700"
+              />
               <button
                 type="submit"
                 disabled={busy}
@@ -124,6 +134,9 @@ export default function EmployersPage() {
               >
                 {busy ? "Submitting…" : "Submit for vetting"}
               </button>
+              <p className="mt-2 text-center text-xs text-gray-400">
+                An admin verifies your document within 1–2 business days.
+              </p>
             </form>
           )}
           {error && <p className="mt-3 text-sm text-red-600">{error}</p>}

@@ -365,20 +365,57 @@ export default {
         return json({ employer: await getEmployer(env, userId) });
       }
       if (path === "/api/employer" && request.method === "POST") {
-        const body = (await request.json()) as { company?: string; contactPerson?: string };
-        if (!body.company?.trim() || !body.contactPerson?.trim()) {
+        const form = await request.formData();
+        const company = String(form.get("company") ?? "").trim();
+        const contactPerson = String(form.get("contactPerson") ?? "").trim();
+        if (!company || !contactPerson) {
           return json({ error: "Company and contact person are required" }, { status: 400 });
         }
         const existing = await getEmployer(env, userId);
+        const docEntry = form.get("document");
+        let documentName = existing?.documentName;
+        if (docEntry && typeof docEntry !== "string") {
+          const doc = docEntry as File;
+          const buf = await doc.arrayBuffer();
+          await env.JOBS_CACHE.put(
+            `employerdoc:${userId}`,
+            JSON.stringify({ name: doc.name, type: doc.type, data: bufferToBase64(buf) }),
+          );
+          documentName = doc.name;
+        }
         const employer: Employer = {
           userId,
-          company: body.company.trim().slice(0, 100),
-          contactPerson: body.contactPerson.trim().slice(0, 100),
-          status: existing?.status === "approved" ? "approved" : "pending",
+          company: company.slice(0, 100),
+          contactPerson: contactPerson.slice(0, 100),
+          // Re-submitting resets an approved account to pending re-vetting.
+          status: "pending",
           createdAt: existing?.createdAt ?? new Date().toISOString(),
+          documentName,
         };
         await env.JOBS_CACHE.put(employerKey(userId), JSON.stringify(employer));
         return json({ employer });
+      }
+
+      // Admin: fetch an employer's uploaded vetting document (base64).
+      if (path === "/api/admin/employer-doc" && request.method === "GET") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        const target = url.searchParams.get("userId") ?? "";
+        const doc = await env.JOBS_CACHE.get(`employerdoc:${target}`, "json");
+        if (!doc) return json({ error: "No document" }, { status: 404 });
+        return json(doc);
+      }
+
+      // A user's own applications (what the assistant has prepared/sent).
+      if (path === "/api/applications" && request.method === "GET") {
+        if (userId === "demo") return json({ applications: [] });
+        const { keys } = await env.JOBS_CACHE.list({ prefix: `application:${userId}:` });
+        const applications: Application[] = [];
+        for (const k of keys) {
+          const a = await env.JOBS_CACHE.get<Application>(k.name, "json");
+          if (a) applications.push(a);
+        }
+        applications.sort((a, b) => (b.generatedAt || "").localeCompare(a.generatedAt || ""));
+        return json({ applications });
       }
 
       // Candidate browse — approved employers only. Returns privacy-safe cards
@@ -677,6 +714,16 @@ const DEFAULT_PROFILE: Profile = {
 
 async function getProfile(env: Env, userId: string): Promise<Profile> {
   return (await env.JOBS_CACHE.get<Profile>(profileKey(userId), "json")) ?? DEFAULT_PROFILE;
+}
+
+function bufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }
 
 const employerKey = (userId: string) => `employer:${userId}`;
