@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useSession, signIn } from "next-auth/react";
-import { Shield, Save, KeyRound, ToggleLeft, Database, Users, UserPlus, Trash2, Building2, Check, X } from "lucide-react";
+import { Shield, Save, KeyRound, ToggleLeft, Database, Users, UserPlus, Trash2, Building2, Check, X, ShieldCheck, Megaphone } from "lucide-react";
 import { api } from "@/lib/api";
-import type { AppConfig, Employer } from "@/lib/types";
+import type { AppConfig, CandidateCheck, Employer } from "@/lib/types";
 
 export default function AdminPage() {
   const { status } = useSession();
@@ -13,6 +13,9 @@ export default function AdminPage() {
   const [invited, setInvited] = useState<string[]>([]);
   const [bootstrap, setBootstrap] = useState<string[]>([]);
   const [employers, setEmployers] = useState<Employer[]>([]);
+  const [checks, setChecks] = useState<{ userId: string; check: CandidateCheck; name: string }[]>([]);
+  const [annTitle, setAnnTitle] = useState("");
+  const [annBody, setAnnBody] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [keyInput, setKeyInput] = useState("");
   const [saving, setSaving] = useState(false);
@@ -34,6 +37,7 @@ export default function AdminPage() {
           setInvited(a.invited);
           setBootstrap(a.bootstrap);
           setEmployers((await api.getAdminEmployers()).employers);
+          setChecks((await api.getAdminChecks()).items);
         }
       } catch (e) {
         setError((e as Error).message);
@@ -75,6 +79,26 @@ export default function AdminPage() {
     try {
       const res = await api.setEmployerStatus(userId, status, reason);
       setEmployers(res.employers);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function setCheck(uid: string, checkId: string, s: CandidateCheck["status"]) {
+    await api.setCheckStatus(uid, checkId, s).catch((e) => setError((e as Error).message));
+    setChecks((prev) =>
+      prev.map((it) => (it.userId === uid && it.check.checkId === checkId ? { ...it, check: { ...it.check, status: s } } : it)),
+    );
+  }
+
+  async function postAnn(e: React.FormEvent) {
+    e.preventDefault();
+    if (!annTitle.trim() || !annBody.trim()) return;
+    try {
+      await api.postAnnouncement(annTitle.trim(), annBody.trim());
+      setAnnTitle("");
+      setAnnBody("");
+      setMsg("Announcement posted — users will see it in their bell.");
     } catch (err) {
       setError((err as Error).message);
     }
@@ -343,6 +367,64 @@ export default function AdminPage() {
             <li className="py-2 text-sm text-gray-400">No invited admins yet.</li>
           )}
         </ul>
+      </section>
+
+      {/* Verification checks */}
+      <section className="glass rounded-2xl p-6">
+        <h2 className="flex items-center gap-2 font-semibold">
+          <ShieldCheck className="h-4 w-4" /> Verification checks
+        </h2>
+        <p className="mt-1 text-sm text-gray-500">Clear or fail candidate check requests.</p>
+        <ul className="mt-3 divide-y divide-white/40">
+          {checks.filter((c) => c.check.status === "pending").length === 0 ? (
+            <li className="py-3 text-sm text-gray-400">No pending checks.</li>
+          ) : (
+            checks
+              .filter((c) => c.check.status === "pending")
+              .map((it) => (
+                <li key={it.userId + it.check.checkId} className="flex items-center justify-between gap-2 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{it.name}</p>
+                    <p className="truncate text-xs text-gray-500">{it.userId}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setCheck(it.userId, it.check.checkId, "cleared")} className="rounded-md p-1.5 text-green-600 hover:bg-green-50" aria-label="Clear">
+                      <Check className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => setCheck(it.userId, it.check.checkId, "failed")} className="rounded-md p-1.5 text-red-600 hover:bg-red-50" aria-label="Fail">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </li>
+              ))
+          )}
+        </ul>
+      </section>
+
+      {/* Announcements */}
+      <section className="glass rounded-2xl p-6">
+        <h2 className="flex items-center gap-2 font-semibold">
+          <Megaphone className="h-4 w-4" /> Post an update
+        </h2>
+        <p className="mt-1 text-sm text-gray-500">Notifies all users via the bell icon.</p>
+        <form onSubmit={postAnn} className="mt-3 space-y-2">
+          <input
+            value={annTitle}
+            onChange={(e) => setAnnTitle(e.target.value)}
+            placeholder="Title"
+            className="w-full rounded-md border px-3 py-2 text-sm"
+          />
+          <textarea
+            value={annBody}
+            onChange={(e) => setAnnBody(e.target.value)}
+            placeholder="What's new…"
+            rows={3}
+            className="w-full rounded-md border px-3 py-2 text-sm"
+          />
+          <button type="submit" className="rounded-full bg-brand-600 px-4 py-2 text-sm text-white">
+            Post update
+          </button>
+        </form>
       </section>
 
       {/* Storage (informational) */}

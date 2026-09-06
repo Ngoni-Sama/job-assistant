@@ -182,7 +182,12 @@ function CandidateTile({
           {c.name.charAt(0)}
         </div>
         <div className="min-w-0">
-          <h3 className="truncate font-semibold">{c.name}</h3>
+          <h3 className="flex items-center gap-1 truncate font-semibold">
+            {c.name}
+            {c.verifiedCategories && c.verifiedCategories.length > 0 && (
+              <BadgeCheck className="h-4 w-4 shrink-0 text-brand-600" aria-label="Verified" />
+            )}
+          </h3>
           {c.availability === "looking" && (
             <span className="inline-flex items-center gap-1 text-xs text-green-600">
               <BadgeCheck className="h-3 w-3" /> Actively looking

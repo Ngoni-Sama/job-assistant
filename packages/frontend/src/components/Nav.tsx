@@ -21,9 +21,11 @@ import {
   Menu,
   X,
   Send,
+  ShieldCheck,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthButton } from "./AuthButton";
+import { NotificationBell } from "./NotificationBell";
 
 type Item = { href: string; label: string; icon: typeof Zap };
 
@@ -36,6 +38,7 @@ const primary: Item[] = [
 
 const secondary: Item[] = [
   { href: "/applications", label: "Applications", icon: Send },
+  { href: "/verification", label: "Get verified", icon: ShieldCheck },
   { href: "/archive", label: "Archive", icon: Archive },
   { href: "/nearby", label: "Nearby", icon: Radar },
   { href: "/messages", label: "Messages", icon: MessageSquare },
@@ -118,6 +121,7 @@ export function Nav() {
               <Coins className="h-3.5 w-3.5" /> {credits}
             </Link>
           )}
+          <NotificationBell />
           <AuthButton />
 
           {/* Mobile: hamburger */}

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { MapPin, Briefcase, GraduationCap, Heart, Lock } from "lucide-react";
+import { MapPin, Briefcase, GraduationCap, Heart, Lock, BadgeCheck } from "lucide-react";
 import { api } from "@/lib/api";
 import type { CandidateCard } from "@/lib/types";
 import { SwipeStack } from "@/components/SwipeStack";
@@ -101,7 +101,12 @@ function SwipeCard({ c }: { c: CandidateCard }) {
           {c.name.charAt(0)}
         </div>
         <div className="min-w-0">
-          <h3 className="truncate text-xl font-extrabold">{c.name}</h3>
+          <h3 className="flex items-center gap-1 truncate text-xl font-extrabold">
+            {c.name}
+            {c.verifiedCategories && c.verifiedCategories.length > 0 && (
+              <BadgeCheck className="h-5 w-5 shrink-0 text-brand-600" aria-label="Verified" />
+            )}
+          </h3>
           <span className="rounded-full bg-violet-100/70 px-2 py-0.5 text-xs font-medium text-violet-700">
             {c.sector}
           </span>

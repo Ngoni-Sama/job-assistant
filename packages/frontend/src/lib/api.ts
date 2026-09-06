@@ -1,7 +1,10 @@
 import type {
+  Announcement,
   AppConfig,
   Application,
   CandidateCard,
+  CandidateCheck,
+  CheckType,
   CreditPack,
   Employer,
   JobDetailFull,
@@ -145,6 +148,18 @@ export const api = {
       ...jsonBody({ email }),
       method: "DELETE",
     }),
+  getChecks: () => req<{ catalog: CheckType[]; mine: CandidateCheck[] }>("/api/checks"),
+  orderCheck: (checkId: string) =>
+    req<{ mine: CandidateCheck[]; balance: number }>("/api/checks/order", jsonBody({ checkId })),
+  getAdminChecks: () =>
+    req<{ items: { userId: string; check: CandidateCheck; name: string }[] }>("/api/admin/checks"),
+  setCheckStatus: (userId: string, checkId: string, status: CandidateCheck["status"]) =>
+    req<{ ok: boolean }>("/api/admin/checks", jsonBody({ userId, checkId, status })),
+  getAnnouncements: () =>
+    req<{ announcements: Announcement[]; unread: number }>("/api/announcements"),
+  markAnnouncementsSeen: () => req<{ ok: boolean }>("/api/announcements/seen", { method: "POST" }),
+  postAnnouncement: (title: string, body: string) =>
+    req<{ announcements: Announcement[] }>("/api/admin/announcements", jsonBody({ title, body })),
   getProfile: () => req<{ profile: Profile }>("/api/profile"),
   saveProfile: (patch: Partial<Profile>) => req<{ profile: Profile }>("/api/profile", jsonBody(patch)),
   autofillProfile: () =>

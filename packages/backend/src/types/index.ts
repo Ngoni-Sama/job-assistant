@@ -90,6 +90,31 @@ export interface Prefs {
 
 export type Availability = "looking" | "open" | "not_looking";
 
+export type CheckCategory = "Identity" | "Education" | "Background" | "Employment";
+export type CheckStatus = "pending" | "cleared" | "failed";
+
+export interface CheckType {
+  id: string;
+  name: string;
+  category: CheckCategory;
+  credits: number;
+  description: string;
+}
+
+export interface CandidateCheck {
+  checkId: string;
+  status: CheckStatus;
+  orderedAt: string;
+  clearedAt?: string;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  at: string;
+}
+
 export type EmployerStatus = "pending" | "approved" | "rejected";
 
 /** Employer account — must be admin-approved before browsing candidates. */
@@ -141,6 +166,7 @@ export interface CandidateCard {
   skills?: string[];
   education?: string;
   languages?: string[];
+  verifiedCategories?: string[]; // cleared check categories, e.g. ["Identity"]
 }
 
 /** Candidate profile — powers discoverability in the (future) employer view. */

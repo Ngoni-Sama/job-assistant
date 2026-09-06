@@ -1,6 +1,8 @@
 import type {
+  Announcement,
   Application,
   CandidateCard,
+  CandidateCheck,
   Employer,
   Env,
   JobListing,
@@ -28,6 +30,7 @@ import { quickMatch, type QuickMatchRun } from "./lib/ai/quickmatch";
 import { extractProfile } from "./lib/ai/profileextract";
 import { charge, getCredits, addCredits, COSTS } from "./lib/credits";
 import { PACKS, createCheckoutSession, verifyWebhook } from "./lib/stripe";
+import { CHECKS, findCheck } from "./lib/checks";
 
 const JOBS_KEY = "jobs:all";
 const EXPIRED_KEY = "jobs:expired";
@@ -49,6 +52,7 @@ const PROTECTED = new Set([
   "POST /api/quick-match",
   "POST /api/billing/checkout",
   "POST /api/employer",
+  "POST /api/checks/order",
 ]);
 
 export default {
@@ -366,6 +370,81 @@ export default {
         const next: Profile = { ...current, ...extracted, updatedAt: new Date().toISOString() };
         await env.JOBS_CACHE.put(profileKey(userId), JSON.stringify(next));
         return json({ profile: next });
+      }
+
+      // --- Verification / background checks ---
+      if (path === "/api/checks" && request.method === "GET") {
+        return json({ catalog: CHECKS, mine: await getChecks(env, userId) });
+      }
+      if (path === "/api/checks/order" && request.method === "POST") {
+        const { checkId } = (await request.json()) as { checkId?: string };
+        const check = findCheck(checkId ?? "");
+        if (!check) return json({ error: "Unknown check" }, { status: 400 });
+        const mine = await getChecks(env, userId);
+        if (mine.some((c) => c.checkId === check.id && c.status !== "failed")) {
+          return json({ error: "Already ordered", mine }, { status: 409 });
+        }
+        const paid = await charge(env, userId, check.credits);
+        if (!paid.ok) {
+          return json({ error: "Not enough credits", balance: paid.balance, cost: check.credits }, { status: 402 });
+        }
+        const next = mine.filter((c) => c.checkId !== check.id);
+        next.push({ checkId: check.id, status: "pending", orderedAt: new Date().toISOString() });
+        await env.JOBS_CACHE.put(checksKey(userId), JSON.stringify(next));
+        return json({ mine: next, balance: paid.balance });
+      }
+
+      // Admin: review pending checks across all candidates.
+      if (path === "/api/admin/checks" && request.method === "GET") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        const { keys } = await env.JOBS_CACHE.list({ prefix: "checks:" });
+        const items: { userId: string; check: CandidateCheck; name: string }[] = [];
+        for (const k of keys) {
+          const email = k.name.slice("checks:".length);
+          const list = (await env.JOBS_CACHE.get<CandidateCheck[]>(k.name, "json")) ?? [];
+          for (const c of list) {
+            items.push({ userId: email, check: c, name: findCheck(c.checkId)?.name ?? c.checkId });
+          }
+        }
+        return json({ items });
+      }
+      if (path === "/api/admin/checks" && request.method === "POST") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        const { userId: target, checkId, status } = (await request.json()) as {
+          userId?: string;
+          checkId?: string;
+          status?: CandidateCheck["status"];
+        };
+        if (!target || !checkId || !status) return json({ error: "Missing fields" }, { status: 400 });
+        const list = (await env.JOBS_CACHE.get<CandidateCheck[]>(checksKey(target), "json")) ?? [];
+        const c = list.find((x) => x.checkId === checkId);
+        if (c) {
+          c.status = status;
+          if (status === "cleared") c.clearedAt = new Date().toISOString();
+          await env.JOBS_CACHE.put(checksKey(target), JSON.stringify(list));
+        }
+        return json({ ok: true });
+      }
+
+      // --- Announcements / update notifications ---
+      if (path === "/api/announcements" && request.method === "GET") {
+        const announcements = await getAnnouncements(env);
+        const seen = userId === "demo" ? "" : (await env.JOBS_CACHE.get(seenKey(userId))) ?? "";
+        const unread = announcements.filter((a) => a.at > seen).length;
+        return json({ announcements, unread });
+      }
+      if (path === "/api/announcements/seen" && request.method === "POST") {
+        if (userId !== "demo") await env.JOBS_CACHE.put(seenKey(userId), new Date().toISOString());
+        return json({ ok: true });
+      }
+      if (path === "/api/admin/announcements" && request.method === "POST") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        const { title, body } = (await request.json()) as { title?: string; body?: string };
+        if (!title?.trim() || !body?.trim()) return json({ error: "Title and body required" }, { status: 400 });
+        const list = await getAnnouncements(env);
+        list.unshift({ id: `a-${Date.now()}`, title: title.trim(), body: body.trim(), at: new Date().toISOString() });
+        await env.JOBS_CACHE.put(ANNOUNCE_KEY, JSON.stringify(list.slice(0, 30)));
+        return json({ announcements: list });
       }
 
       // --- Employer accounts ---
@@ -754,6 +833,44 @@ async function getProfile(env: Env, userId: string): Promise<Profile> {
   return (await env.JOBS_CACHE.get<Profile>(profileKey(userId), "json")) ?? DEFAULT_PROFILE;
 }
 
+const checksKey = (userId: string) => `checks:${userId}`;
+const seenKey = (userId: string) => `seen:${userId}`;
+const ANNOUNCE_KEY = "announcements";
+
+async function getChecks(env: Env, userId: string): Promise<CandidateCheck[]> {
+  if (userId === "demo") return [];
+  return (await env.JOBS_CACHE.get<CandidateCheck[]>(checksKey(userId), "json")) ?? [];
+}
+
+/** Cleared check categories for a candidate (drives the "verified" badges). */
+async function clearedCategories(env: Env, email: string): Promise<string[]> {
+  const mine = (await env.JOBS_CACHE.get<CandidateCheck[]>(checksKey(email), "json")) ?? [];
+  const cats = new Set<string>();
+  for (const c of mine) {
+    if (c.status === "cleared") {
+      const cat = findCheck(c.checkId)?.category;
+      if (cat) cats.add(cat);
+    }
+  }
+  return [...cats];
+}
+
+const DEFAULT_ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: "a-launch",
+    title: "New: verification, in-app job details & more",
+    body: "You can now get verified (Identity/Education/Background checks), view full job details in-app, browse jobs near you, and send tailored CVs as PDF or Word. Employers can browse, shortlist and message candidates.",
+    at: "2026-09-06T00:00:00.000Z",
+  },
+];
+
+async function getAnnouncements(env: Env): Promise<Announcement[]> {
+  const stored = await env.JOBS_CACHE.get<Announcement[]>(ANNOUNCE_KEY, "json");
+  if (stored && stored.length) return stored;
+  await env.JOBS_CACHE.put(ANNOUNCE_KEY, JSON.stringify(DEFAULT_ANNOUNCEMENTS));
+  return DEFAULT_ANNOUNCEMENTS;
+}
+
 function bufferToBase64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
   let binary = "";
@@ -885,6 +1002,7 @@ async function listCandidatesBySector(env: Env): Promise<Record<string, Candidat
       skills: p.skills,
       education: p.education,
       languages: p.languages,
+      verifiedCategories: await clearedCategories(env, email),
     });
   }
   return grouped;

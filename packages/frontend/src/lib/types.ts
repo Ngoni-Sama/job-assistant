@@ -117,6 +117,31 @@ export interface CreditPack {
 
 export type Availability = "looking" | "open" | "not_looking";
 
+export type CheckCategory = "Identity" | "Education" | "Background" | "Employment";
+export type CheckStatus = "pending" | "cleared" | "failed";
+
+export interface CheckType {
+  id: string;
+  name: string;
+  category: CheckCategory;
+  credits: number;
+  description: string;
+}
+
+export interface CandidateCheck {
+  checkId: string;
+  status: CheckStatus;
+  orderedAt: string;
+  clearedAt?: string;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  at: string;
+}
+
 export type EmployerStatus = "pending" | "approved" | "rejected";
 
 export interface Employer {
@@ -164,6 +189,7 @@ export interface CandidateCard {
   skills?: string[];
   education?: string;
   languages?: string[];
+  verifiedCategories?: string[];
 }
 
 export interface Profile {
