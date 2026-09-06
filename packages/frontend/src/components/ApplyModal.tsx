@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { X, Mail, CalendarClock, Send, CheckCircle2, AlertTriangle, Sparkles, FileText } from "lucide-react";
+import { X, Mail, CalendarClock, Send, CheckCircle2, AlertTriangle, Sparkles, FileText, Eye, Paperclip } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Application } from "@/lib/types";
+import { cvToPdfBlob, cvToDocxBlob, blobToBase64 } from "@/lib/cvexport";
+
+type Attach = "none" | "pdf" | "docx" | "original";
+const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 /**
  * Review + edit an application before sending. Everything is editable: recipient,
@@ -32,6 +36,9 @@ export function ApplyModal({
   const [originalCv, setOriginalCv] = useState<string>("");
   const [cvText, setCvText] = useState(application.tailoredCV);
 
+  const [attach, setAttach] = useState<Attach>("pdf");
+  const [originalFile, setOriginalFile] = useState<{ name: string; type: string; data: string } | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [mailto, setMailto] = useState("");
@@ -51,17 +58,53 @@ export function ApplyModal({
 
   function buildBody(): string {
     const contact = `${name}${email ? ` · ${email}` : ""}${phone ? ` · ${phone}` : ""}`;
-    return `${coverNote}\n\n— ${contact}\n\n---\n\n${cvText}`;
+    // When attaching a file, keep the body to the cover note; otherwise inline the CV.
+    const tail = attach === "none" ? `\n\n---\n\n${cvText}` : "";
+    return `${coverNote}\n\n— ${contact}${tail}`;
+  }
+
+  async function getAttachment() {
+    if (attach === "none") return null;
+    if (attach === "original") {
+      const f = originalFile ?? (await api.getCvFile());
+      if (!originalFile) setOriginalFile(f);
+      return f;
+    }
+    if (attach === "pdf") return { name: "CV.pdf", type: "application/pdf", data: await blobToBase64(cvToPdfBlob(cvText)) };
+    return { name: "CV.docx", type: DOCX_MIME, data: await blobToBase64(await cvToDocxBlob(cvText)) };
+  }
+
+  async function preview() {
+    setPreviewing(true);
+    setError("");
+    try {
+      let blob: Blob;
+      if (attach === "original") {
+        const f = originalFile ?? (await api.getCvFile());
+        if (!originalFile) setOriginalFile(f);
+        blob = new Blob([Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0))], { type: f.type });
+      } else if (attach === "docx") {
+        blob = await cvToDocxBlob(cvText);
+      } else {
+        blob = cvToPdfBlob(cvText);
+      }
+      window.open(URL.createObjectURL(blob), "_blank");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setPreviewing(false);
+    }
   }
 
   async function sendViaGmail() {
     setSending(true);
     setError("");
     try {
+      const attachment = await getAttachment();
       const res = await fetch("/api/gmail/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, subject: application.subject, body: buildBody() }),
+        body: JSON.stringify({ to, subject: application.subject, body: buildBody(), attachment }),
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Gmail send failed");
@@ -139,8 +182,46 @@ export function ApplyModal({
               rows={10}
               className="input break-words font-mono text-xs"
             />
+          </div>
+
+          {/* Attachment format */}
+          <div>
+            <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+              <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <Paperclip className="h-3.5 w-3.5" /> Attach CV as
+              </span>
+              <button
+                onClick={preview}
+                disabled={previewing || attach === "none"}
+                className="flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+              >
+                <Eye className="h-3.5 w-3.5" /> {previewing ? "Opening…" : "Preview"}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                ["pdf", "PDF"],
+                ["docx", "Word"],
+                ["original", "My original CV"],
+                ["none", "Body only"],
+              ] as [Attach, string][]).map(([v, label]) => (
+                <button
+                  key={v}
+                  onClick={() => setAttach(v)}
+                  className={`rounded-full border px-3 py-1 text-xs ${
+                    attach === v ? "border-brand-600 bg-brand-600 text-white" : "bg-white/60 text-gray-700"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <p className="mt-1 text-xs text-gray-400">
-              Sent as the email body (plain text — not a PDF/DOCX attachment).
+              {attach === "none"
+                ? "CV goes in the email body as plain text."
+                : attach === "original"
+                  ? "Sends your originally uploaded CV file, unchanged."
+                  : `Generates a ${attach.toUpperCase()} from the CV above and attaches it.`}
             </p>
           </div>
 

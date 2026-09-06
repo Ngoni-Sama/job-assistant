@@ -123,6 +123,14 @@ export default {
         return json({ cv });
       }
 
+      // The user's original uploaded CV file (base64) — for sending as-is.
+      if (path === "/api/cv-file" && request.method === "GET") {
+        if (userId === "demo") return json({ error: "Sign in" }, { status: 401 });
+        const file = await env.JOBS_CACHE.get(`cvfile:${userId}`, "json");
+        if (!file) return json({ error: "No original CV on file" }, { status: 404 });
+        return json(file);
+      }
+
       // --- Scrape sources (user-configurable) ---
       if (path === "/api/sources" && request.method === "GET") {
         return json({ sources: await getSources(env) });

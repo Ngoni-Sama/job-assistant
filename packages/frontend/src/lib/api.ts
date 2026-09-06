@@ -83,6 +83,7 @@ export const api = {
       method: "POST",
     }),
   getCV: () => req<{ cv: StoredCV | null }>("/api/cv"),
+  getCvFile: () => req<{ name: string; type: string; data: string }>("/api/cv-file"),
   matchAll: () => req<{ scores: JobScore[] }>("/api/match-all", { method: "POST" }),
   uploadCV: (file: File) => {
     const form = new FormData();

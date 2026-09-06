@@ -1,4 +1,5 @@
 import type { Env, StoredCV } from "../../types";
+import { cleanCvMarkdown } from "../cvclean";
 
 /**
  * Converts an uploaded CV to Markdown using Workers AI's document conversion
@@ -34,6 +35,8 @@ export async function processCV(
     console.error("toMarkdown failed", err);
   }
 
+  markdown = cleanCvMarkdown(markdown);
+
   const stored: StoredCV = {
     key,
     fileName: file.name,
@@ -43,7 +46,22 @@ export async function processCV(
 
   // Cache the processed markdown as the user's active CV.
   await env.JOBS_CACHE.put(`cv:${userId}`, JSON.stringify(stored));
+  // Keep the ORIGINAL uploaded file (base64) so the user can send it as-is.
+  await env.JOBS_CACHE.put(
+    `cvfile:${userId}`,
+    JSON.stringify({ name: file.name, type: file.type || "application/octet-stream", data: toBase64(buffer) }),
+  );
   return stored;
+}
+
+function toBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }
 
 function sanitize(name: string): string {
