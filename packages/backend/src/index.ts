@@ -248,10 +248,11 @@ export default {
             { status: 402 },
           );
         }
-        const scores = [];
-        for (const job of jobs.slice(0, 15)) {
-          scores.push(await matchJobToCV(cv.markdown, job, env));
-        }
+        // Score in parallel (was sequential — 15 AI calls blew the Worker time
+        // limit and surfaced as "failed to fetch"). Cap to keep it fast.
+        const scores = await Promise.all(
+          jobs.slice(0, 10).map((job) => matchJobToCV(cv.markdown, job, env)),
+        );
         scores.sort((a, b) => b.score - a.score);
         return json({ scores });
       }

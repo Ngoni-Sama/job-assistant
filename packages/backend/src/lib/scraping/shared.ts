@@ -16,6 +16,12 @@ export function firstGroup(input: string, re: RegExp): string {
 /** Strip tags + collapse whitespace + decode a few common entities. */
 export function text(raw: string): string {
   return raw
+    // Remove script/style blocks (and the leftover ad-push calls) BEFORE tags,
+    // otherwise the JS text (e.g. adsbygoogle...) ends up in the description.
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/\(?\s*adsbygoogle[\s\S]*?\}\s*\)\s*;?/gi, " ")
+    .replace(/window\.adsbygoogle[^;]*;?/gi, " ")
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")

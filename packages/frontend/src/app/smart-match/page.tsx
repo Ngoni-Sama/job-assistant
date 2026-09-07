@@ -74,7 +74,7 @@ export default function SmartMatchPage() {
     <div className="space-y-8">
       <div className="text-center">
         <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100/70 px-3 py-1 text-xs font-medium text-brand-700">
-          <Zap className="h-3.5 w-3.5" /> Smart Match
+          <Zap className="h-3.5 w-3.5" /> Swipe 2 Match
         </span>
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight">Swipe your way to your next job</h1>
         <p className="mt-1 text-gray-600">Right to apply, left to skip. It’s that simple.</p>

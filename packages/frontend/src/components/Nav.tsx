@@ -31,7 +31,7 @@ type Item = { href: string; label: string; icon: typeof Zap };
 
 const primary: Item[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/smart-match", label: "Smart Match", icon: Zap },
+  { href: "/smart-match", label: "Swipe 2 Match", icon: Zap },
   { href: "/quick-match", label: "Quick Match", icon: Wand2 },
   { href: "/jobs", label: "My Jobs", icon: Briefcase },
 ];

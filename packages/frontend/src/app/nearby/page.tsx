@@ -2,18 +2,36 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Radar, MapPin, Info, ArrowRight, LocateFixed } from "lucide-react";
+import { useSession, signIn } from "next-auth/react";
+import { Radar, MapPin, Info, ArrowRight, LocateFixed, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
-import type { JobListing } from "@/lib/types";
+import type { Application, JobListing } from "@/lib/types";
 import { CompanyLogo } from "@/components/CompanyLogo";
+import { ApplyModal } from "@/components/ApplyModal";
 
 export default function NearbyPage() {
+  const { status } = useSession();
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [city, setCity] = useState("");
   const [loading, setLoading] = useState(true);
   const [locating, setLocating] = useState(false);
   const [locNote, setLocNote] = useState("");
   const [selected, setSelected] = useState<JobListing | null>(null);
+  const [preparingId, setPreparingId] = useState<string | null>(null);
+  const [active, setActive] = useState<Application | null>(null);
+
+  async function apply(job: JobListing) {
+    if (status !== "authenticated") return signIn("google");
+    setPreparingId(job.id);
+    try {
+      const { application } = await api.prepareApplication(job.id);
+      setActive(application);
+    } catch {
+      /* surfaced via modal next time */
+    } finally {
+      setPreparingId(null);
+    }
+  }
 
   useEffect(() => {
     api.getJobs().then((r) => setJobs(r.jobs)).finally(() => setLoading(false));
@@ -105,25 +123,45 @@ export default function NearbyPage() {
       </div>
 
       {selected && (
-        <div className="glass flex items-center gap-3 rounded-2xl p-4">
-          <CompanyLogo src={selected.logo} name={selected.company} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold">{selected.title}</p>
-            <p className="truncate text-sm text-gray-500">
-              {selected.company} · {selected.location} · {selected.salary || "TBA"}
-            </p>
+        <div className="glass rounded-2xl p-4">
+          <div className="flex items-start gap-3">
+            <CompanyLogo src={selected.logo} name={selected.company} />
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold leading-snug">{selected.title}</h3>
+              <p className="text-sm text-gray-600">{selected.company}</p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                {selected.location} · {selected.salary || "TBA"}
+                {selected.sector ? ` · ${selected.sector}` : ""}
+              </p>
+            </div>
           </div>
-          <Link
-            href={`/jobs/${encodeURIComponent(selected.id)}`}
-            className="flex shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm text-white"
-          >
-            Show more <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+          {selected.description && (
+            <p className="mt-3 text-sm text-gray-600">{selected.description}</p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              onClick={() => apply(selected)}
+              disabled={preparingId === selected.id}
+              className="flex items-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> {preparingId === selected.id ? "…" : "Apply"}
+            </button>
+            <Link
+              href={`/jobs/${encodeURIComponent(selected.id)}`}
+              className="flex items-center gap-1 rounded-full border border-white/50 bg-white/50 px-4 py-2 text-sm text-gray-700"
+            >
+              Show more <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
       )}
 
       {!loading && nearby.length === 0 && (
         <p className="text-center text-gray-500">No jobs found in “{city}”. Try another city.</p>
+      )}
+
+      {active && (
+        <ApplyModal application={active} onClose={() => setActive(null)} onSent={() => setActive(null)} />
       )}
     </div>
   );

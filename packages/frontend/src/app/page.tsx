@@ -101,7 +101,7 @@ export default function LandingPage() {
                 href="/smart-match"
                 className="glass flex items-center gap-2 rounded-full px-6 py-3 font-medium text-gray-700 transition-transform hover:scale-105"
               >
-                <Zap className="h-4 w-4 text-brand-600" /> Try Smart Match
+                <Zap className="h-4 w-4 text-brand-600" /> Try Swipe 2 Match
               </Link>
             </div>
           </div>
@@ -137,7 +137,7 @@ export default function LandingPage() {
           {[
             { icon: Layers, title: "Carefully selected jobs", body: "We scrape and refresh live listings across Zimbabwe's top job boards — only current openings." },
             { icon: Sparkles, title: "AI-tailored CVs", body: "Every application gets a CV and cover note rewritten to match the role's requirements." },
-            { icon: Zap, title: "Smart Match", body: "Swipe right on the jobs you love. Green for yes, red for no — matching made effortless." },
+            { icon: Zap, title: "Swipe 2 Match", body: "Swipe right on the jobs you love. Green for yes, red for no — matching made effortless." },
           ].map(({ icon: Icon, title, body }) => (
             <div key={title} className="glass rounded-2xl p-6">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-violet-600 text-white">

@@ -19,6 +19,7 @@ import type { Application, JobDetailFull, JobListing } from "@/lib/types";
 import { CompanyLogo, isExpired, formatDate } from "@/components/CompanyLogo";
 import { JobTile } from "@/components/JobTile";
 import { ApplyModal } from "@/components/ApplyModal";
+import { RichText } from "@/components/RichText";
 
 export default function JobDetailPage() {
   const params = useParams<{ id: string }>();
@@ -179,7 +180,7 @@ function Section({ title, body }: { title: string; body?: string }) {
   return (
     <section className="glass rounded-2xl p-6">
       <h2 className="mb-2 font-bold">{title}</h2>
-      <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">{body}</p>
+      <RichText text={body} className="text-sm leading-relaxed text-gray-700" />
     </section>
   );
 }

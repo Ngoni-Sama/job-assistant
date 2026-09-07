@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Plus, Trash2, Globe, AlertTriangle, Zap, Radar } from "lucide-react";
 import { api, apiBase } from "@/lib/api";
 import type { Availability, Prefs, Profile, ScrapeSource } from "@/lib/types";
@@ -14,6 +15,7 @@ const AVAILABILITY: { value: Availability; label: string; desc: string }[] = [
 ];
 
 export default function SettingsPage() {
+  const { status } = useSession();
   const [sources, setSources] = useState<ScrapeSource[]>([]);
   const [prefs, setPrefs] = useState<Prefs>({ autoApply: false, categories: [] });
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -25,7 +27,10 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [warn, setWarn] = useState("");
 
+  // Wait for auth to resolve so per-user prefs/profile load under the right id
+  // (not the shared "demo" space) — otherwise categories look "forgotten".
   useEffect(() => {
+    if (status === "loading") return;
     Promise.all([api.getSources(), api.getPrefs(), api.getJobs(), api.getProfile()])
       .then(([s, p, j, pr]) => {
         setSources(s.sources);
@@ -36,7 +41,7 @@ export default function SettingsPage() {
       })
       .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [status]);
 
   async function saveProfile(patch: Partial<Profile>) {
     setProfile((prev) => (prev ? { ...prev, ...patch } : prev));

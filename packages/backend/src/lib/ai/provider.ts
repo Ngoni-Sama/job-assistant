@@ -39,6 +39,16 @@ export type ChatMessage = { role: "system" | "user" | "assistant"; content: stri
  * Provider-agnostic chat completion. Routes to OpenAI when the admin has
  * configured a key + selected it, otherwise falls back to Cloudflare Workers AI.
  */
+/** Coerce any model output shape to a plain string so callers can safely parse it. */
+function asText(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (v == null) return "";
+  // Some providers return an array of content parts or a structured object.
+  if (Array.isArray(v)) return v.map((p) => (typeof p === "string" ? p : (p as { text?: string })?.text ?? "")).join("");
+  if (typeof v === "object" && "text" in (v as object)) return String((v as { text?: unknown }).text ?? "");
+  return String(v);
+}
+
 export async function chat(env: Env, messages: ChatMessage[], maxTokens = 600): Promise<string> {
   const cfg = await getConfig(env);
 
@@ -55,8 +65,8 @@ export async function chat(env: Env, messages: ChatMessage[], maxTokens = 600): 
   const res = (await env.AI.run(WORKERS_AI_MODEL, {
     messages,
     max_tokens: maxTokens,
-  })) as { response?: string };
-  return res.response ?? "";
+  })) as { response?: unknown };
+  return asText(res.response);
 }
 
 async function openaiChat(
@@ -71,6 +81,6 @@ async function openaiChat(
     body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.4 }),
   });
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
-  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  return data.choices?.[0]?.message?.content ?? "";
+  const data = (await res.json()) as { choices?: { message?: { content?: unknown } }[] };
+  return asText(data.choices?.[0]?.message?.content);
 }
