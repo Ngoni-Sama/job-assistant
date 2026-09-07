@@ -137,7 +137,10 @@ export default {
       if (path === "/api/cv-file" && request.method === "GET") {
         if (userId === "demo") return json({ error: "Sign in" }, { status: 401 });
         const id = url.searchParams.get("id");
-        const file = await env.JOBS_CACHE.get(id ? `cvfile:${userId}:${id}` : `cvfile:${userId}`, "json");
+        // Prefer the per-CV file; fall back to the primary file record for CVs
+        // uploaded before per-id storage (or migrated legacy CVs).
+        let file = await env.JOBS_CACHE.get(id ? `cvfile:${userId}:${id}` : `cvfile:${userId}`, "json");
+        if (!file && id) file = await env.JOBS_CACHE.get(`cvfile:${userId}`, "json");
         if (!file) return json({ error: "No original CV on file" }, { status: 404 });
         return json(file);
       }

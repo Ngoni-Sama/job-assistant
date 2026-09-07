@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { X, Mail, CalendarClock, Send, CheckCircle2, AlertTriangle, Sparkles, FileText, Eye, Paperclip } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Application } from "@/lib/types";
+import type { Application, StoredCV } from "@/lib/types";
 import { cvToPdfBlob, cvToDocxBlob, blobToBase64 } from "@/lib/cvexport";
 
-type Attach = "none" | "pdf" | "docx" | "original";
+type GenFormat = "pdf" | "docx" | "none";
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 /**
@@ -35,14 +35,16 @@ export function ApplyModal({
   const [email, setEmail] = useState(session?.user?.email ?? "");
   const [phone, setPhone] = useState(application.phone ?? "");
   const [coverNote, setCoverNote] = useState(application.coverNote);
-  // When optimised, show the AI-tailored CV by default; otherwise the original.
+  // Mode: send the uploaded file as-is ("original"), or the AI-tailored text.
+  // Defaults to original unless this application was optimised.
   const [useOriginal, setUseOriginal] = useState(!application.optimised);
-  const [originalCv, setOriginalCv] = useState<string>("");
   const [cvText, setCvText] = useState(application.tailoredCV);
   const isPortal = !application.to; // no email detected = job-portal link
 
-  const [attach, setAttach] = useState<Attach>("pdf");
-  const [originalFile, setOriginalFile] = useState<{ name: string; type: string; data: string } | null>(null);
+  // The user's uploaded CVs, and which one to send in "original" mode.
+  const [cvList, setCvList] = useState<StoredCV[]>([]);
+  const [selCvId, setSelCvId] = useState<string | undefined>(cvId);
+  const [genFormat, setGenFormat] = useState<GenFormat>("pdf");
   const [previewing, setPreviewing] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -50,31 +52,26 @@ export function ApplyModal({
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
 
-  // Load the original CV (the default) — AI-tailored is opt-in. When the user
-  // picked a specific CV in the radial menu, use that one; else the primary.
+  // Load the user's CV list so "My original CV" can offer a picker and know
+  // which uploaded file to attach.
   useEffect(() => {
-    const source = cvId
-      ? api.getCvs().then((r) => r.cvs.find((c) => c.id === cvId)?.markdown ?? "")
-      : api.getCV().then((r) => r.cv?.markdown ?? "");
-    source
-      .then((md) => {
-        setOriginalCv(md);
-        if (md && useOriginal) setCvText(md); // only override when showing the original
+    api
+      .getCvs()
+      .then((r) => {
+        setCvList(r.cvs);
+        setSelCvId((cur) => cur ?? cvId ?? r.primaryId ?? r.cvs[r.cvs.length - 1]?.id);
       })
       .catch(() => {});
     if (!name && session?.user?.name) setName(session.user.name);
     if (!email && session?.user?.email) setEmail(session.user.email);
   }, [session, cvId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function toggleCv(next: boolean) {
-    setUseOriginal(next);
-    setCvText(next ? originalCv || application.tailoredCV : application.tailoredCV);
-  }
+  const selectedCv = cvList.find((c) => c.id === selCvId);
 
   function buildBody(): string {
     const contact = `${name}${email ? ` · ${email}` : ""}${phone ? ` · ${phone}` : ""}`;
-    // When attaching a file, keep the body to the cover note; otherwise inline the CV.
-    const tail = attach === "none" ? `\n\n---\n\n${cvText}` : "";
+    // Inline the CV text only in AI mode with "Body only" chosen.
+    const tail = !useOriginal && genFormat === "none" ? `\n\n---\n\n${cvText}` : "";
     return `${coverNote}\n\n— ${contact}${tail}`;
   }
 
@@ -84,23 +81,15 @@ export function ApplyModal({
     data: await blobToBase64(cvToPdfBlob(cvText)),
   });
 
+  /** The originally uploaded file for the selected CV. */
   async function loadOriginal() {
-    const f = originalFile ?? (await api.getCvFile(cvId));
-    if (!originalFile) setOriginalFile(f);
-    return f;
+    return api.getCvFile(selCvId);
   }
 
   async function getAttachment() {
-    if (attach === "none") return null;
-    if (attach === "original") {
-      try {
-        return await loadOriginal();
-      } catch {
-        setNote("No original CV on file yet (re-upload your CV to enable it) — attached a generated PDF instead.");
-        return pdfAttachment();
-      }
-    }
-    if (attach === "pdf") return pdfAttachment();
+    if (useOriginal) return await loadOriginal(); // the uploaded file, unchanged
+    if (genFormat === "none") return null;
+    if (genFormat === "pdf") return pdfAttachment();
     return { name: "CV.docx", type: DOCX_MIME, data: await blobToBase64(await cvToDocxBlob(cvText)) };
   }
 
@@ -110,22 +99,17 @@ export function ApplyModal({
     setNote("");
     try {
       let blob: Blob;
-      if (attach === "original") {
-        try {
-          const f = await loadOriginal();
-          blob = new Blob([Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0))], { type: f.type });
-        } catch {
-          setNote("No original CV on file yet — previewing a generated PDF instead.");
-          blob = cvToPdfBlob(cvText);
-        }
-      } else if (attach === "docx") {
+      if (useOriginal) {
+        const f = await loadOriginal();
+        blob = new Blob([Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0))], { type: f.type });
+      } else if (genFormat === "docx") {
         blob = await cvToDocxBlob(cvText);
       } else {
         blob = cvToPdfBlob(cvText);
       }
       window.open(URL.createObjectURL(blob), "_blank");
-    } catch (e) {
-      setError((e as Error).message);
+    } catch {
+      setError("Couldn’t open that CV. Try re-uploading it on the Upload page.");
     } finally {
       setPreviewing(false);
     }
@@ -203,78 +187,96 @@ export function ApplyModal({
             <textarea value={coverNote} onChange={(e) => setCoverNote(e.target.value)} rows={5} className="input" />
           </Field>
 
-          {/* CV toggle */}
+          {/* CV to send */}
           <div>
-            <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">CV (editable)</span>
-              {application.optimised ? (
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">CV to send</span>
+              <div className="flex items-center gap-2">
                 <div className="flex rounded-full bg-gray-100 p-0.5 text-xs">
                   <button
-                    onClick={() => toggleCv(false)}
-                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 ${!useOriginal ? "bg-white shadow-sm" : "text-gray-500"}`}
-                  >
-                    <Sparkles className="h-3 w-3" /> AI-tailored
-                  </button>
-                  <button
-                    onClick={() => toggleCv(true)}
+                    onClick={() => setUseOriginal(true)}
                     className={`flex items-center gap-1 rounded-full px-2.5 py-1 ${useOriginal ? "bg-white shadow-sm" : "text-gray-500"}`}
                   >
                     <FileText className="h-3 w-3" /> My original CV
                   </button>
+                  <button
+                    onClick={() => setUseOriginal(false)}
+                    disabled={!application.optimised}
+                    title={application.optimised ? "" : "Use ✨ AI Apply on the job to tailor your CV first"}
+                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 disabled:opacity-40 ${!useOriginal ? "bg-white shadow-sm" : "text-gray-500"}`}
+                  >
+                    <Sparkles className="h-3 w-3" /> AI-tailored
+                  </button>
                 </div>
-              ) : (
-                <span className="flex items-center gap-1 text-xs text-gray-400">
-                  <FileText className="h-3 w-3" /> Your original CV — use ✨ Optimise to AI-tailor it
-                </span>
-              )}
-            </div>
-            <textarea
-              value={cvText}
-              onChange={(e) => setCvText(e.target.value)}
-              rows={10}
-              className="input break-words font-mono text-xs"
-            />
-          </div>
-
-          {/* Attachment format */}
-          <div>
-            <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-              <span className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                <Paperclip className="h-3.5 w-3.5" /> Attach CV as
-              </span>
-              <button
-                onClick={preview}
-                disabled={previewing || attach === "none"}
-                className="flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-40"
-              >
-                <Eye className="h-3.5 w-3.5" /> {previewing ? "Opening…" : "Preview"}
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {([
-                ["pdf", "PDF"],
-                ["docx", "Word"],
-                ["original", "My original CV"],
-                ["none", "Body only"],
-              ] as [Attach, string][]).map(([v, label]) => (
                 <button
-                  key={v}
-                  onClick={() => setAttach(v)}
-                  className={`rounded-full border px-3 py-1 text-xs ${
-                    attach === v ? "border-brand-600 bg-brand-600 text-white" : "bg-white/60 text-gray-700"
-                  }`}
+                  onClick={preview}
+                  disabled={previewing}
+                  className="flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-40"
                 >
-                  {label}
+                  <Eye className="h-3.5 w-3.5" /> {previewing ? "Opening…" : "Preview"}
                 </button>
-              ))}
+              </div>
             </div>
-            <p className="mt-1 text-xs text-gray-400">
-              {attach === "none"
-                ? "CV goes in the email body as plain text."
-                : attach === "original"
-                  ? "Sends your originally uploaded CV file, unchanged."
-                  : `Generates a ${attach.toUpperCase()} from the CV above and attaches it.`}
-            </p>
+
+            {useOriginal ? (
+              // Send the uploaded file exactly as-is — no editing, no regeneration.
+              <div className="space-y-2">
+                {cvList.length > 1 && (
+                  <select
+                    value={selCvId ?? ""}
+                    onChange={(e) => setSelCvId(e.target.value)}
+                    className="input"
+                  >
+                    {cvList.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.fileName}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <div className="flex items-center gap-2 rounded-xl border bg-gray-50 p-3 text-sm text-gray-700">
+                  <Paperclip className="h-4 w-4 shrink-0 text-brand-600" />
+                  <span className="truncate font-medium">
+                    {selectedCv?.fileName ?? "Your uploaded CV"}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400">
+                  Your uploaded CV file is attached exactly as-is — nothing is regenerated.
+                </p>
+              </div>
+            ) : (
+              // AI-tailored text — editable, then generated to PDF/Word.
+              <div className="space-y-2">
+                <textarea
+                  value={cvText}
+                  onChange={(e) => setCvText(e.target.value)}
+                  rows={10}
+                  className="input break-words font-mono text-xs"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    ["pdf", "PDF"],
+                    ["docx", "Word"],
+                    ["none", "Body only"],
+                  ] as [GenFormat, string][]).map(([v, label]) => (
+                    <button
+                      key={v}
+                      onClick={() => setGenFormat(v)}
+                      className={`rounded-full border px-3 py-1 text-xs ${
+                        genFormat === v ? "border-brand-600 bg-brand-600 text-white" : "bg-white/60 text-gray-700"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400">
+                  {genFormat === "none"
+                    ? "CV goes in the email body as plain text."
+                    : `Generates a ${genFormat.toUpperCase()} from the tailored text above.`}
+                </p>
+              </div>
+            )}
           </div>
 
           {note && (

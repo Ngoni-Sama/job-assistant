@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Send, FileText, X } from "lucide-react";
+import { Sparkles, Send, FileText, X, Coins } from "lucide-react";
 import type { StoredCV } from "@/lib/types";
 
 type Mode = "apply" | "optimise";
@@ -24,13 +24,22 @@ const CONFIG = {
   },
   optimise: {
     icon: Sparkles,
-    verb: "Optimise",
-    single: "Optimise",
-    open: "Optimise…",
+    verb: "AI Apply",
+    single: "AI Apply",
+    open: "AI Apply…",
     className: "border border-brand-200 bg-white/70 text-brand-700 hover:bg-white",
     itemClass: "text-violet-700",
   },
 } as const;
+
+/** A small coin badge showing the credit cost, e.g. 🪙 3. */
+function CoinBadge({ cost }: { cost: number }) {
+  return (
+    <span className="ml-0.5 inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">
+      <Coins className="h-3 w-3" /> {cost}
+    </span>
+  );
+}
 
 /**
  * Apply or Optimise action. With one CV it's a plain button; with several it
@@ -56,18 +65,19 @@ export function RadialApply({
   const [open, setOpen] = useState(false);
   const cfg = CONFIG[mode];
   const Icon = cfg.icon;
-  const costHint = cost ? ` (${cost} cr)` : "";
-  const busyLabel = mode === "apply" ? "Preparing…" : "Optimising…";
+  const showCoin = mode === "optimise" && !!cost;
+  const busyLabel = mode === "apply" ? "Preparing…" : "AI applying…";
 
   if (cvs.length <= 1) {
     return (
       <button
         onClick={() => onApply(cvs[0]?.id)}
         disabled={preparing}
-        title={mode === "optimise" ? `AI-tailor your CV to this job${costHint}` : "Apply with your CV"}
+        title={mode === "optimise" ? "AI-tailor your CV to this job, then apply" : "Apply with your CV"}
         className={`flex items-center gap-1 rounded-full px-3 py-2 text-sm transition-transform disabled:opacity-50 ${cfg.className}`}
       >
-        <Icon className="h-3.5 w-3.5" /> {preparing ? busyLabel : `${cfg.single}${mode === "optimise" ? costHint : ""}`}
+        <Icon className="h-3.5 w-3.5" /> {preparing ? busyLabel : cfg.single}
+        {!preparing && showCoin && <CoinBadge cost={cost!} />}
       </button>
     );
   }
@@ -110,7 +120,8 @@ export function RadialApply({
         className={`relative z-20 flex items-center gap-1 rounded-full px-3 py-2 text-sm transition-transform disabled:opacity-50 ${cfg.className}`}
       >
         {open ? <X className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
-        {preparing ? busyLabel : open ? "Pick a CV" : `${cfg.open}${mode === "optimise" ? costHint : ""}`}
+        {preparing ? busyLabel : open ? "Pick a CV" : cfg.open}
+        {!preparing && !open && showCoin && <CoinBadge cost={cost!} />}
       </button>
     </div>
   );
