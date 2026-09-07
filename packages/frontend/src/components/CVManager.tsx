@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { FileText, Star, Pencil, Trash2, Check, X, Save } from "lucide-react";
 import { api } from "@/lib/api";
 import type { StoredCV } from "@/lib/types";
+import { RichCVEditor } from "./RichCVEditor";
 
 /**
  * Lists the user's uploaded CVs and lets them set a primary, rename, edit the
@@ -202,11 +203,7 @@ export function CVManager({ refreshKey }: { refreshKey?: number }) {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <textarea
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              className="min-h-[50vh] flex-1 resize-none rounded-xl border border-gray-300 bg-white/80 p-3 font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand-400"
-            />
+            <RichCVEditor initialMarkdown={editing.markdown} onChange={setEditValue} />
             <div className="mt-3 flex justify-end gap-2">
               <button
                 onClick={() => setEditing(null)}
