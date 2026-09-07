@@ -214,6 +214,7 @@ export interface JobScore {
 }
 
 export interface StoredCV {
+  id: string;
   key: string;
   fileName: string;
   markdown: string;

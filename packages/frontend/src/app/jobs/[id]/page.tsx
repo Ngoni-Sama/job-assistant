@@ -11,13 +11,13 @@ import {
   Mail,
   Phone,
   ExternalLink,
-  Sparkles,
   ChevronLeft,
 } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Application, JobDetailFull, JobListing } from "@/lib/types";
+import type { Application, JobDetailFull, JobListing, StoredCV } from "@/lib/types";
 import { CompanyLogo, isExpired, formatDate } from "@/components/CompanyLogo";
 import { JobTile } from "@/components/JobTile";
+import { RadialApply } from "@/components/RadialApply";
 import { ApplyModal } from "@/components/ApplyModal";
 import { RichText } from "@/components/RichText";
 
@@ -27,6 +27,7 @@ export default function JobDetailPage() {
   const [job, setJob] = useState<JobListing | null>(null);
   const [detail, setDetail] = useState<JobDetailFull | null>(null);
   const [similar, setSimilar] = useState<JobListing[]>([]);
+  const [cvs, setCvs] = useState<StoredCV[]>([]);
   const [loading, setLoading] = useState(true);
   const [preparing, setPreparing] = useState(false);
   const [active, setActive] = useState<Application | null>(null);
@@ -45,13 +46,17 @@ export default function JobDetailPage() {
       .finally(() => setLoading(false));
   }, [params?.id]);
 
-  async function optimise() {
+  useEffect(() => {
+    if (status === "authenticated") api.getCvs().then((r) => setCvs(r.cvs)).catch(() => {});
+  }, [status]);
+
+  async function optimise(cvId?: string) {
     if (!job) return;
     if (status !== "authenticated") return signIn("google");
     setPreparing(true);
     setError("");
     try {
-      const { application } = await api.prepareApplication(job.id);
+      const { application } = await api.prepareApplication(job.id, cvId);
       setActive(application);
     } catch (e) {
       setError((e as Error).message);
@@ -132,13 +137,7 @@ export default function JobDetailPage() {
         )}
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            onClick={optimise}
-            disabled={preparing}
-            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-5 py-2.5 text-sm font-medium text-white shadow-md disabled:opacity-50"
-          >
-            <Sparkles className="h-4 w-4" /> {preparing ? "Optimising…" : "Optimise CV & apply"}
-          </button>
+          <RadialApply cvs={cvs} preparing={preparing} onApply={(cvId) => optimise(cvId)} />
           <a
             href={job.applyLink}
             target="_blank"
@@ -162,7 +161,7 @@ export default function JobDetailPage() {
           <h2 className="text-lg font-bold">Similar jobs</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             {similar.map((s) => (
-              <JobTile key={s.id} job={s} onApply={() => optimise()} />
+              <JobTile key={s.id} job={s} cvs={cvs} onApply={(_j, cvId) => optimise(cvId)} />
             ))}
           </div>
         </section>

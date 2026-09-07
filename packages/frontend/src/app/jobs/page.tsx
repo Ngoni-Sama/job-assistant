@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Application, JobListing } from "@/lib/types";
+import type { Application, JobListing, StoredCV } from "@/lib/types";
 import { JobTile } from "@/components/JobTile";
 import { ApplyModal } from "@/components/ApplyModal";
 import { JobFilters, useJobFilters } from "@/components/JobFilters";
@@ -13,6 +13,7 @@ export default function JobsPage() {
   const { status } = useSession();
   const authed = status === "authenticated";
   const [jobs, setJobs] = useState<JobListing[]>([]);
+  const [cvs, setCvs] = useState<StoredCV[]>([]);
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [mySector, setMySector] = useState("");
   const [forYou, setForYou] = useState(false);
@@ -30,6 +31,7 @@ export default function JobsPage() {
     // Per-user data only when signed in (avoids 401 noise for guests).
     if (authed) {
       api.getApplied().then((a) => setApplied(new Set(a.applied))).catch(() => {});
+      api.getCvs().then((r) => setCvs(r.cvs)).catch(() => {});
       api
         .getProfile()
         .then((p) => {
@@ -50,12 +52,12 @@ export default function JobsPage() {
     );
   }, [filters.filtered, forYou, mySector, query]);
 
-  async function apply(job: JobListing) {
+  async function apply(job: JobListing, cvId?: string) {
     if (status !== "authenticated") return signIn("google");
     setPreparingId(job.id);
     setError("");
     try {
-      const { application, autoSent } = await api.prepareApplication(job.id);
+      const { application, autoSent } = await api.prepareApplication(job.id, cvId);
       if (autoSent) setApplied((prev) => new Set(prev).add(job.id));
       else setActive(application);
     } catch (e) {
@@ -98,6 +100,7 @@ export default function JobsPage() {
               job={job}
               applied={applied.has(job.id)}
               preparing={preparingId === job.id}
+              cvs={cvs}
               onApply={apply}
             />
           ))}

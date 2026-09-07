@@ -53,6 +53,10 @@ const PROTECTED = new Set([
   "POST /api/billing/checkout",
   "POST /api/employer",
   "POST /api/checks/order",
+  "POST /api/cvs/primary",
+  "POST /api/cvs/rename",
+  "POST /api/cvs/update",
+  "DELETE /api/cvs",
 ]);
 
 export default {
@@ -128,11 +132,72 @@ export default {
       }
 
       // The user's original uploaded CV file (base64) — for sending as-is.
+      // Optional ?id= selects a specific CV; otherwise the primary.
       if (path === "/api/cv-file" && request.method === "GET") {
         if (userId === "demo") return json({ error: "Sign in" }, { status: 401 });
-        const file = await env.JOBS_CACHE.get(`cvfile:${userId}`, "json");
+        const id = url.searchParams.get("id");
+        const file = await env.JOBS_CACHE.get(id ? `cvfile:${userId}:${id}` : `cvfile:${userId}`, "json");
         if (!file) return json({ error: "No original CV on file" }, { status: 404 });
         return json(file);
+      }
+
+      // --- Multiple CVs ---
+      if (path === "/api/cvs" && request.method === "GET") {
+        if (userId === "demo") return json({ cvs: [], primaryId: null });
+        const cvs = await getCvList(env, userId);
+        const primary = await env.JOBS_CACHE.get<StoredCV>(`cv:${userId}`, "json");
+        return json({ cvs, primaryId: primary?.id ?? cvs[cvs.length - 1]?.id ?? null });
+      }
+      if (path === "/api/cvs/primary" && request.method === "POST") {
+        const { id } = (await request.json()) as { id?: string };
+        const cvs = await getCvList(env, userId);
+        const cv = cvs.find((c) => c.id === id);
+        if (!cv) return json({ error: "CV not found" }, { status: 404 });
+        await env.JOBS_CACHE.put(`cv:${userId}`, JSON.stringify(cv));
+        const f = await env.JOBS_CACHE.get(`cvfile:${userId}:${cv.id}`);
+        if (f) await env.JOBS_CACHE.put(`cvfile:${userId}`, f);
+        return json({ cvs, primaryId: cv.id });
+      }
+      if (path === "/api/cvs/rename" && request.method === "POST") {
+        const { id, fileName } = (await request.json()) as { id?: string; fileName?: string };
+        const cvs = await getCvList(env, userId);
+        const cv = cvs.find((c) => c.id === id);
+        if (!cv || !fileName?.trim()) return json({ error: "Invalid" }, { status: 400 });
+        cv.fileName = fileName.trim().slice(0, 80);
+        await env.JOBS_CACHE.put(`cvs:${userId}`, JSON.stringify(cvs));
+        await syncPrimary(env, userId, cv);
+        return json({ cvs });
+      }
+      if (path === "/api/cvs/update" && request.method === "POST") {
+        const { id, markdown } = (await request.json()) as { id?: string; markdown?: string };
+        const cvs = await getCvList(env, userId);
+        const cv = cvs.find((c) => c.id === id);
+        if (!cv || typeof markdown !== "string") return json({ error: "Invalid" }, { status: 400 });
+        cv.markdown = markdown;
+        await env.JOBS_CACHE.put(`cvs:${userId}`, JSON.stringify(cvs));
+        await syncPrimary(env, userId, cv);
+        return json({ cvs });
+      }
+      if (path === "/api/cvs" && request.method === "DELETE") {
+        const { id } = (await request.json()) as { id?: string };
+        let cvs = await getCvList(env, userId);
+        cvs = cvs.filter((c) => c.id !== id);
+        await env.JOBS_CACHE.put(`cvs:${userId}`, JSON.stringify(cvs));
+        await env.JOBS_CACHE.delete(`cvfile:${userId}:${id}`);
+        // Re-point primary if we deleted it.
+        const primary = await env.JOBS_CACHE.get<StoredCV>(`cv:${userId}`, "json");
+        if (!primary || primary.id === id) {
+          const next = cvs[cvs.length - 1];
+          if (next) {
+            await env.JOBS_CACHE.put(`cv:${userId}`, JSON.stringify(next));
+            const f = await env.JOBS_CACHE.get(`cvfile:${userId}:${next.id}`);
+            if (f) await env.JOBS_CACHE.put(`cvfile:${userId}`, f);
+          } else {
+            await env.JOBS_CACHE.delete(`cv:${userId}`);
+            await env.JOBS_CACHE.delete(`cvfile:${userId}`);
+          }
+        }
+        return json({ cvs });
       }
 
       // --- Scrape sources (user-configurable) ---
@@ -676,8 +741,8 @@ export default {
       // Prepare an application: detect How-to-Apply + tailor CV.
       // Auto-sends when the user's autoApply preference is on and email is known.
       if (path === "/api/apply/prepare" && request.method === "POST") {
-        const { jobId } = (await request.json()) as { jobId?: string };
-        const cv = await env.JOBS_CACHE.get<StoredCV>(`cv:${userId}`, "json");
+        const { jobId, cvId } = (await request.json()) as { jobId?: string; cvId?: string };
+        const cv = await resolveCv(env, userId, cvId);
         if (!cv) return json({ error: "No CV uploaded yet" }, { status: 400 });
         const job = (await getJobs(env)).find((j) => j.id === jobId);
         if (!job) return json({ error: "Job not found" }, { status: 404 });
@@ -1018,6 +1083,34 @@ async function getQuickHistory(env: Env, userId: string): Promise<QuickMatchRun[
 
 async function getJobs(env: Env): Promise<JobListing[]> {
   return (await env.JOBS_CACHE.get<JobListing[]>(JOBS_KEY, "json")) ?? [];
+}
+
+async function getCvList(env: Env, userId: string): Promise<StoredCV[]> {
+  const list = await env.JOBS_CACHE.get<StoredCV[]>(`cvs:${userId}`, "json");
+  if (list && list.length) return list;
+  // Migrate a legacy single CV into the list.
+  const legacy = await env.JOBS_CACHE.get<StoredCV>(`cv:${userId}`, "json");
+  if (legacy) {
+    const migrated = { ...legacy, id: legacy.id ?? `cv-legacy-${Date.now()}` };
+    await env.JOBS_CACHE.put(`cvs:${userId}`, JSON.stringify([migrated]));
+    return [migrated];
+  }
+  return [];
+}
+
+/** Keep cv:<userId> (the primary) in sync when the primary CV is edited/renamed. */
+async function syncPrimary(env: Env, userId: string, cv: StoredCV): Promise<void> {
+  const primary = await env.JOBS_CACHE.get<StoredCV>(`cv:${userId}`, "json");
+  if (primary?.id === cv.id) await env.JOBS_CACHE.put(`cv:${userId}`, JSON.stringify(cv));
+}
+
+/** Resolve the CV to use for an action — a specific id, or the primary. */
+async function resolveCv(env: Env, userId: string, cvId?: string): Promise<StoredCV | null> {
+  if (cvId) {
+    const cv = (await getCvList(env, userId)).find((c) => c.id === cvId);
+    if (cv) return cv;
+  }
+  return env.JOBS_CACHE.get<StoredCV>(`cv:${userId}`, "json");
 }
 
 async function getPrefs(env: Env, userId: string): Promise<Prefs> {

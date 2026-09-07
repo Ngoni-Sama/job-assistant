@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useSession, signIn } from "next-auth/react";
-import { Zap, Heart, Sparkles, Lock } from "lucide-react";
+import { Zap, Heart, Lock } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Application, JobListing } from "@/lib/types";
+import type { Application, JobListing, StoredCV } from "@/lib/types";
 import { SwipeDeck } from "@/components/SwipeDeck";
 import { ApplyModal } from "@/components/ApplyModal";
+import { RadialApply } from "@/components/RadialApply";
 
 const LIKED_KEY = "smartmatch:liked";
 const PREFS_KEY = "smartmatch:prefs"; // captured guest swipes {jobId, liked}
@@ -21,6 +22,7 @@ export default function SmartMatchPage() {
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<Application | null>(null);
   const [preparingId, setPreparingId] = useState<string | null>(null);
+  const [cvs, setCvs] = useState<StoredCV[]>([]);
   const [error, setError] = useState("");
 
   // Gate guests after GUEST_LIMIT swipes — their picks are still captured.
@@ -56,12 +58,16 @@ export default function SmartMatchPage() {
     });
   }
 
-  async function optimise(job: JobListing) {
+  useEffect(() => {
+    if (authed) api.getCvs().then((r) => setCvs(r.cvs)).catch(() => {});
+  }, [authed]);
+
+  async function optimise(job: JobListing, cvId?: string) {
     if (status !== "authenticated") return signIn("google");
     setPreparingId(job.id);
     setError("");
     try {
-      const { application } = await api.prepareApplication(job.id);
+      const { application } = await api.prepareApplication(job.id, cvId);
       setActive(application);
     } catch (e) {
       setError((e as Error).message);
@@ -125,14 +131,13 @@ export default function SmartMatchPage() {
                     {job.company} · {job.location}
                   </p>
                 </div>
-                <button
-                  onClick={() => optimise(job)}
-                  disabled={preparingId === job.id}
-                  className="flex shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-3 py-1.5 text-xs text-white disabled:opacity-50"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  {preparingId === job.id ? "…" : "Optimise CV"}
-                </button>
+                <div className="shrink-0">
+                  <RadialApply
+                    cvs={cvs}
+                    preparing={preparingId === job.id}
+                    onApply={(cvId) => optimise(job, cvId)}
+                  />
+                </div>
               </div>
             ))}
           </div>

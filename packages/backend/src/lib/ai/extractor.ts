@@ -12,7 +12,8 @@ export async function processCV(
   userId: string,
 ): Promise<StoredCV> {
   const buffer = await file.arrayBuffer();
-  const key = `cvs/${userId}/${Date.now()}-${sanitize(file.name)}`;
+  const id = `cv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const key = `cvs/${userId}/${id}-${sanitize(file.name)}`;
 
   // Persist the raw upload to R2 when the bucket is bound (R2 is optional).
   if (env.CV_BUCKET) {
@@ -38,19 +39,27 @@ export async function processCV(
   markdown = cleanCvMarkdown(markdown);
 
   const stored: StoredCV = {
+    id,
     key,
     fileName: file.name,
     markdown,
     uploadedAt: new Date().toISOString(),
   };
 
-  // Cache the processed markdown as the user's active CV.
+  // Append to the user's CV list and make the new upload the active/primary CV.
+  const list = (await env.JOBS_CACHE.get<StoredCV[]>(`cvs:${userId}`, "json")) ?? [];
+  list.push(stored);
+  await env.JOBS_CACHE.put(`cvs:${userId}`, JSON.stringify(list));
   await env.JOBS_CACHE.put(`cv:${userId}`, JSON.stringify(stored));
-  // Keep the ORIGINAL uploaded file (base64) so the user can send it as-is.
-  await env.JOBS_CACHE.put(
-    `cvfile:${userId}`,
-    JSON.stringify({ name: file.name, type: file.type || "application/octet-stream", data: toBase64(buffer) }),
-  );
+
+  // Keep the ORIGINAL uploaded file (base64) — per-CV and as the primary.
+  const fileRec = JSON.stringify({
+    name: file.name,
+    type: file.type || "application/octet-stream",
+    data: toBase64(buffer),
+  });
+  await env.JOBS_CACHE.put(`cvfile:${userId}:${id}`, fileRec);
+  await env.JOBS_CACHE.put(`cvfile:${userId}`, fileRec);
   return stored;
 }
 

@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const authed = status === "authenticated";
 
   const [cv, setCv] = useState<StoredCV | null>(null);
+  const [cvs, setCvs] = useState<StoredCV[]>([]);
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [stats, setStats] = useState<ScrapeStats | null>(null);
   const [scores, setScores] = useState<Record<string, JobScore>>({});
@@ -44,17 +45,20 @@ export default function DashboardPage() {
         }
         // Per-account data only when signed in — never show a shared CV.
         if (authed) {
-          const [cvRes, appliedRes, prefsRes] = await Promise.all([
+          const [cvRes, appliedRes, prefsRes, cvsRes] = await Promise.all([
             api.getCV(),
             api.getApplied(),
             api.getPrefs(),
+            api.getCvs(),
           ]);
           setCv(cvRes.cv);
           setApplied(new Set(appliedRes.applied));
           setPrefs(prefsRes.prefs);
+          setCvs(cvsRes.cvs);
         } else {
           setCv(null);
           setApplied(new Set());
+          setCvs([]);
         }
       } catch (e) {
         setError((e as Error).message);
@@ -91,7 +95,7 @@ export default function DashboardPage() {
     }
   }
 
-  async function optimise(job: JobListing) {
+  async function optimise(job: JobListing, cvId?: string) {
     if (!authed) return signIn("google");
     if (!cv) {
       setError("Upload your CV first to generate a tailored application.");
@@ -100,7 +104,7 @@ export default function DashboardPage() {
     setPreparingId(job.id);
     setError("");
     try {
-      const { application, autoSent } = await api.prepareApplication(job.id);
+      const { application, autoSent } = await api.prepareApplication(job.id, cvId);
       if (autoSent) {
         setApplied((prev) => new Set(prev).add(job.id));
         setToast(autoSent.sent ? `Auto-applied to ${job.title} ✅` : `Prepared ${job.title}.`);
@@ -223,6 +227,7 @@ export default function DashboardPage() {
                 score={scores[job.id]}
                 applied={applied.has(job.id)}
                 preparing={preparingId === job.id}
+                cvs={cvs}
                 onApply={optimise}
               />
             ))}

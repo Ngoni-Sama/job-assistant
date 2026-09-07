@@ -86,7 +86,13 @@ export const api = {
       method: "POST",
     }),
   getCV: () => req<{ cv: StoredCV | null }>("/api/cv"),
-  getCvFile: () => req<{ name: string; type: string; data: string }>("/api/cv-file"),
+  getCvFile: (id?: string) =>
+    req<{ name: string; type: string; data: string }>(`/api/cv-file${id ? `?id=${encodeURIComponent(id)}` : ""}`),
+  getCvs: () => req<{ cvs: StoredCV[]; primaryId: string | null }>("/api/cvs"),
+  setPrimaryCv: (id: string) => req<{ cvs: StoredCV[]; primaryId: string }>("/api/cvs/primary", jsonBody({ id })),
+  renameCv: (id: string, fileName: string) => req<{ cvs: StoredCV[] }>("/api/cvs/rename", jsonBody({ id, fileName })),
+  updateCv: (id: string, markdown: string) => req<{ cvs: StoredCV[] }>("/api/cvs/update", jsonBody({ id, markdown })),
+  deleteCv: (id: string) => req<{ cvs: StoredCV[] }>("/api/cvs", { ...jsonBody({ id }), method: "DELETE" }),
   matchAll: () => req<{ scores: JobScore[] }>("/api/match-all", { method: "POST" }),
   uploadCV: (file: File) => {
     const form = new FormData();
@@ -167,10 +173,10 @@ export const api = {
   getPrefs: () => req<{ prefs: Prefs }>("/api/prefs"),
   setPrefs: (prefs: Partial<Prefs>) => req<{ prefs: Prefs }>("/api/prefs", jsonBody(prefs)),
   getApplied: () => req<{ applied: string[] }>("/api/applied"),
-  prepareApplication: (jobId: string) =>
+  prepareApplication: (jobId: string, cvId?: string) =>
     req<{ application: Application; autoSent: SendResult | null }>(
       "/api/apply/prepare",
-      jsonBody({ jobId }),
+      jsonBody({ jobId, cvId }),
     ),
   sendApplication: (jobId: string) =>
     req<{ result: SendResult }>("/api/apply/send", jsonBody({ jobId })),

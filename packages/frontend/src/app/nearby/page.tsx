@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession, signIn } from "next-auth/react";
-import { Radar, MapPin, Info, ArrowRight, LocateFixed, Sparkles } from "lucide-react";
+import { Radar, MapPin, Info, ArrowRight, LocateFixed } from "lucide-react";
 import { api } from "@/lib/api";
-import type { Application, JobListing } from "@/lib/types";
+import type { Application, JobListing, StoredCV } from "@/lib/types";
 import { CompanyLogo } from "@/components/CompanyLogo";
 import { ApplyModal } from "@/components/ApplyModal";
+import { RadialApply } from "@/components/RadialApply";
 
 export default function NearbyPage() {
   const { status } = useSession();
@@ -19,12 +20,13 @@ export default function NearbyPage() {
   const [selected, setSelected] = useState<JobListing | null>(null);
   const [preparingId, setPreparingId] = useState<string | null>(null);
   const [active, setActive] = useState<Application | null>(null);
+  const [cvs, setCvs] = useState<StoredCV[]>([]);
 
-  async function apply(job: JobListing) {
+  async function apply(job: JobListing, cvId?: string) {
     if (status !== "authenticated") return signIn("google");
     setPreparingId(job.id);
     try {
-      const { application } = await api.prepareApplication(job.id);
+      const { application } = await api.prepareApplication(job.id, cvId);
       setActive(application);
     } catch {
       /* surfaced via modal next time */
@@ -37,6 +39,10 @@ export default function NearbyPage() {
     api.getJobs().then((r) => setJobs(r.jobs)).finally(() => setLoading(false));
     api.getProfile().then((p) => setCity(p.profile.location || "Harare")).catch(() => setCity("Harare"));
   }, []);
+
+  useEffect(() => {
+    if (status === "authenticated") api.getCvs().then((r) => setCvs(r.cvs)).catch(() => {});
+  }, [status]);
 
   function findLocation() {
     if (!navigator.geolocation) {
@@ -139,13 +145,11 @@ export default function NearbyPage() {
             <p className="mt-3 text-sm text-gray-600">{selected.description}</p>
           )}
           <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              onClick={() => apply(selected)}
-              disabled={preparingId === selected.id}
-              className="flex items-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              <Sparkles className="h-3.5 w-3.5" /> {preparingId === selected.id ? "…" : "Apply"}
-            </button>
+            <RadialApply
+              cvs={cvs}
+              preparing={preparingId === selected.id}
+              onApply={(cvId) => apply(selected, cvId)}
+            />
             <Link
               href={`/jobs/${encodeURIComponent(selected.id)}`}
               className="flex items-center gap-1 rounded-full border border-white/50 bg-white/50 px-4 py-2 text-sm text-gray-700"

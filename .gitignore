@@ -38,3 +38,6 @@ Thumbs.db
 # misc
 *.pem
 coverage/
+
+# TS incremental build info
+*.tsbuildinfo

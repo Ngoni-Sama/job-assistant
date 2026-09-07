@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { MapPin, CalendarClock, Wallet, ExternalLink, Sparkles, CheckCircle2, Mail, Eye } from "lucide-react";
-import type { JobListing, JobScore } from "@/lib/types";
+import { MapPin, CalendarClock, Wallet, ExternalLink, CheckCircle2, Mail, Eye } from "lucide-react";
+import type { JobListing, JobScore, StoredCV } from "@/lib/types";
 import { CompanyLogo, isExpired, formatDate } from "./CompanyLogo";
+import { RadialApply } from "./RadialApply";
 
 function scoreColor(score: number): string {
   if (score >= 75) return "bg-green-100 text-green-700";
@@ -14,13 +15,15 @@ export function JobTile({
   score,
   applied,
   preparing,
+  cvs = [],
   onApply,
 }: {
   job: JobListing;
   score?: JobScore;
   applied?: boolean;
   preparing?: boolean;
-  onApply: (job: JobListing) => void;
+  cvs?: StoredCV[];
+  onApply: (job: JobListing, cvId?: string) => void;
 }) {
   const expired = isExpired(job.expiryDate);
   return (
@@ -80,13 +83,7 @@ export function JobTile({
             <CheckCircle2 className="h-4 w-4" /> Applied
           </span>
         ) : (
-          <button
-            onClick={() => onApply(job)}
-            disabled={preparing}
-            className="flex items-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-3 py-2 text-sm text-white shadow-md transition-transform hover:scale-[1.03] disabled:opacity-50"
-          >
-            <Sparkles className="h-3.5 w-3.5" /> {preparing ? "Optimising…" : "Optimise CV"}
-          </button>
+          <RadialApply cvs={cvs} preparing={!!preparing} onApply={(cvId) => onApply(job, cvId)} />
         )}
         <Link
           href={`/jobs/${encodeURIComponent(job.id)}`}

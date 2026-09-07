@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 
 type Status = "idle" | "processing" | "complete" | "error";
 
-export function CVUpload() {
+export function CVUpload({ onUploaded }: { onUploaded?: () => void } = {}) {
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
@@ -19,6 +19,7 @@ export function CVUpload() {
       const { cv } = await api.uploadCV(file);
       setStatus("complete");
       setMessage(`Extracted ${cv.markdown.length.toLocaleString()} characters of CV text.`);
+      onUploaded?.();
     } catch (err) {
       setStatus("error");
       setMessage((err as Error).message);
@@ -78,9 +79,21 @@ export function CVUpload() {
           <Check className="mx-auto h-12 w-12 text-green-500" />
           <h3 className="mt-4 text-lg font-medium text-green-600">CV processed!</h3>
           <p className="mt-1 text-sm text-gray-500">{message}</p>
-          <a href="/dashboard" className="mt-4 inline-block text-brand-600 underline">
-            Go to dashboard →
-          </a>
+          <div className="mt-4 flex items-center justify-center gap-4">
+            <button
+              onClick={() => {
+                setFile(null);
+                setMessage("");
+                setStatus("idle");
+              }}
+              className="text-brand-600 underline"
+            >
+              Upload another
+            </button>
+            <a href="/dashboard" className="text-brand-600 underline">
+              Go to dashboard →
+            </a>
+          </div>
         </div>
       )}
     </div>
