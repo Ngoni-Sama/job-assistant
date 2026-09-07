@@ -102,7 +102,7 @@ export default function CandidateBrowsePage() {
           {selected} <span className="text-gray-400">({cards.length})</span>
         </h1>
         {error && <div className="rounded-2xl bg-red-50/80 p-3 text-sm text-red-700">{error}</div>}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {cards.map((c) => (
             <CandidateTile
               key={c.id}
@@ -140,7 +140,7 @@ export default function CandidateBrowsePage() {
           No available candidates yet. Check back soon.
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sectorList.map(([sector, cards]) => (
             <button
               key={sector}

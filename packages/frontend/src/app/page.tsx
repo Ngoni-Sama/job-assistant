@@ -114,7 +114,7 @@ export default function LandingPage() {
       </section>
 
       {/* Audience hook */}
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[
           { icon: GraduationCap, title: "Recent graduate?", body: "Land your first role faster with AI-matched listings." },
           { icon: FileCheck2, title: "Struggling to find a job?", body: "We tailor your CV to each role automatically." },
@@ -133,7 +133,7 @@ export default function LandingPage() {
         <h2 className="text-center text-3xl font-extrabold tracking-tight">
           Everything you need to get hired
         </h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {[
             { icon: Layers, title: "Carefully selected jobs", body: "We scrape and refresh live listings across Zimbabwe's top job boards — only current openings." },
             { icon: Sparkles, title: "AI-tailored CVs", body: "Every application gets a CV and cover note rewritten to match the role's requirements." },

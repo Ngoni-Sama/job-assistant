@@ -23,6 +23,7 @@ export default function SmartMatchPage() {
   const [active, setActive] = useState<Application | null>(null);
   const [preparingId, setPreparingId] = useState<string | null>(null);
   const [cvs, setCvs] = useState<StoredCV[]>([]);
+  const [activeCvId, setActiveCvId] = useState<string | undefined>();
   const [error, setError] = useState("");
 
   // Gate guests after GUEST_LIMIT swipes — their picks are still captured.
@@ -65,6 +66,7 @@ export default function SmartMatchPage() {
   async function optimise(job: JobListing, cvId?: string) {
     if (status !== "authenticated") return signIn("google");
     setPreparingId(job.id);
+    setActiveCvId(cvId);
     setError("");
     try {
       const { application } = await api.prepareApplication(job.id, cvId);
@@ -145,7 +147,7 @@ export default function SmartMatchPage() {
       )}
 
       {active && (
-        <ApplyModal application={active} onClose={() => setActive(null)} onSent={() => setActive(null)} />
+        <ApplyModal application={active} cvId={activeCvId} onClose={() => setActive(null)} onSent={() => setActive(null)} />
       )}
     </div>
   );

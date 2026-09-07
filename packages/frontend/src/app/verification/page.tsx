@@ -76,7 +76,7 @@ export default function VerificationPage() {
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {catalog.map((c) => {
           const Icon = ICON[c.category] ?? FileCheck2;
           const status = byId[c.id]?.status;

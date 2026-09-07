@@ -88,7 +88,7 @@ function BillingContent() {
       </div>
 
       {/* What things cost */}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <CostCard icon={Wand2} label="Quick Match" cost={costs.quickMatch} />
         <CostCard icon={Sparkles} label="Optimise CV" cost={costs.optimise} />
         <CostCard icon={Send} label="Match all jobs" cost={costs.matchAll} />
@@ -98,7 +98,7 @@ function BillingContent() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-bold">Buy credits</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {packs.map((p) => (
             <div key={p.id} className="glass flex flex-col rounded-2xl p-6 text-center">
               <h3 className="text-lg font-bold">{p.label}</h3>

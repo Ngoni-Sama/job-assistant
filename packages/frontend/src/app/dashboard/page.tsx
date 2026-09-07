@@ -15,6 +15,7 @@ export default function DashboardPage() {
 
   const [cv, setCv] = useState<StoredCV | null>(null);
   const [cvs, setCvs] = useState<StoredCV[]>([]);
+  const [activeCvId, setActiveCvId] = useState<string | undefined>();
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [stats, setStats] = useState<ScrapeStats | null>(null);
   const [scores, setScores] = useState<Record<string, JobScore>>({});
@@ -102,6 +103,7 @@ export default function DashboardPage() {
       return;
     }
     setPreparingId(job.id);
+    setActiveCvId(cvId);
     setError("");
     try {
       const { application, autoSent } = await api.prepareApplication(job.id, cvId);
@@ -219,7 +221,7 @@ export default function DashboardPage() {
           <p className="text-sm text-gray-500">
             Showing {visible.length} of {jobs.length} jobs
           </p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((job) => (
               <JobTile
                 key={job.id}
@@ -243,6 +245,7 @@ export default function DashboardPage() {
       {active && (
         <ApplyModal
           application={active}
+          cvId={activeCvId}
           onClose={() => setActive(null)}
           onSent={(jobId) => setApplied((prev) => new Set(prev).add(jobId))}
         />

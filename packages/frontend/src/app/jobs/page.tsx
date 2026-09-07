@@ -14,6 +14,7 @@ export default function JobsPage() {
   const authed = status === "authenticated";
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [cvs, setCvs] = useState<StoredCV[]>([]);
+  const [activeCvId, setActiveCvId] = useState<string | undefined>();
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [mySector, setMySector] = useState("");
   const [forYou, setForYou] = useState(false);
@@ -55,6 +56,7 @@ export default function JobsPage() {
   async function apply(job: JobListing, cvId?: string) {
     if (status !== "authenticated") return signIn("google");
     setPreparingId(job.id);
+    setActiveCvId(cvId);
     setError("");
     try {
       const { application, autoSent } = await api.prepareApplication(job.id, cvId);
@@ -93,7 +95,7 @@ export default function JobsPage() {
       {loading ? (
         <p className="text-gray-500">Loading…</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {results.map((job) => (
             <JobTile
               key={job.id}
@@ -113,6 +115,7 @@ export default function JobsPage() {
       {active && (
         <ApplyModal
           application={active}
+          cvId={activeCvId}
           onClose={() => setActive(null)}
           onSent={(jobId) => setApplied((prev) => new Set(prev).add(jobId))}
         />

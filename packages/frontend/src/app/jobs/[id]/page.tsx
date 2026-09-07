@@ -28,6 +28,7 @@ export default function JobDetailPage() {
   const [detail, setDetail] = useState<JobDetailFull | null>(null);
   const [similar, setSimilar] = useState<JobListing[]>([]);
   const [cvs, setCvs] = useState<StoredCV[]>([]);
+  const [activeCvId, setActiveCvId] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [preparing, setPreparing] = useState(false);
   const [active, setActive] = useState<Application | null>(null);
@@ -54,6 +55,7 @@ export default function JobDetailPage() {
     if (!job) return;
     if (status !== "authenticated") return signIn("google");
     setPreparing(true);
+    setActiveCvId(cvId);
     setError("");
     try {
       const { application } = await api.prepareApplication(job.id, cvId);
@@ -159,7 +161,7 @@ export default function JobDetailPage() {
       {similar.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-lg font-bold">Similar jobs</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {similar.map((s) => (
               <JobTile key={s.id} job={s} cvs={cvs} onApply={(_j, cvId) => optimise(cvId)} />
             ))}
@@ -168,7 +170,7 @@ export default function JobDetailPage() {
       )}
 
       {active && (
-        <ApplyModal application={active} onClose={() => setActive(null)} onSent={() => setActive(null)} />
+        <ApplyModal application={active} cvId={activeCvId} onClose={() => setActive(null)} onSent={() => setActive(null)} />
       )}
     </div>
   );

@@ -102,7 +102,7 @@ export default function QuickMatchPage() {
               No strong matches this time. Try refreshing jobs or updating your CV.
             </p>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {latest.results.map((r) => (
                 <div key={r.jobId} className="glass rounded-2xl p-4">
                   <div className="flex items-start justify-between gap-2">

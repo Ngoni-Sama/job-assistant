@@ -152,7 +152,7 @@ export default function EmployersPage() {
 
       <section className="space-y-6">
         <h2 className="text-center text-2xl font-extrabold tracking-tight">How it works</h2>
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
           {STEPS.map((s, i) => (
             <div key={s.title} className="glass relative rounded-2xl p-6">
               <span className="absolute right-4 top-4 text-3xl font-extrabold text-brand-100">

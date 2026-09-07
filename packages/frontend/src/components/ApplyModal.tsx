@@ -18,10 +18,13 @@ const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingm
  */
 export function ApplyModal({
   application,
+  cvId,
   onClose,
   onSent,
 }: {
   application: Application;
+  /** The CV the user chose to apply with (for the "original" attachment). */
+  cvId?: string;
   onClose: () => void;
   onSent: (jobId: string) => void;
 }) {
@@ -47,19 +50,21 @@ export function ApplyModal({
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
 
-  // Load the original CV (the default) — AI-tailored is opt-in.
+  // Load the original CV (the default) — AI-tailored is opt-in. When the user
+  // picked a specific CV in the radial menu, use that one; else the primary.
   useEffect(() => {
-    api
-      .getCV()
-      .then((r) => {
-        const md = r.cv?.markdown ?? "";
+    const source = cvId
+      ? api.getCvs().then((r) => r.cvs.find((c) => c.id === cvId)?.markdown ?? "")
+      : api.getCV().then((r) => r.cv?.markdown ?? "");
+    source
+      .then((md) => {
         setOriginalCv(md);
         if (md) setCvText(md); // default view = your own CV
       })
       .catch(() => {});
     if (!name && session?.user?.name) setName(session.user.name);
     if (!email && session?.user?.email) setEmail(session.user.email);
-  }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session, cvId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleCv(next: boolean) {
     setUseOriginal(next);
@@ -80,7 +85,7 @@ export function ApplyModal({
   });
 
   async function loadOriginal() {
-    const f = originalFile ?? (await api.getCvFile());
+    const f = originalFile ?? (await api.getCvFile(cvId));
     if (!originalFile) setOriginalFile(f);
     return f;
   }

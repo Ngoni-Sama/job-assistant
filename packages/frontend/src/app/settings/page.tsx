@@ -117,7 +117,7 @@ export default function SettingsPage() {
         <p className="mt-1 text-sm text-gray-500">
           Let verified employers find you when you’re open to work.
         </p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
           {AVAILABILITY.map((a) => {
             const active = profile?.availability === a.value;
             return (

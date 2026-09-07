@@ -27,7 +27,7 @@ export function JobTile({
 }) {
   const expired = isExpired(job.expiryDate);
   return (
-    <div className="glass flex flex-col rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-xl">
+    <div className="glass flex min-w-0 flex-col rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-xl">
       <div className="flex items-start gap-3">
         <CompanyLogo src={job.logo} name={job.company} />
         <div className="min-w-0 flex-1">

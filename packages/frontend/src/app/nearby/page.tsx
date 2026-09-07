@@ -21,10 +21,12 @@ export default function NearbyPage() {
   const [preparingId, setPreparingId] = useState<string | null>(null);
   const [active, setActive] = useState<Application | null>(null);
   const [cvs, setCvs] = useState<StoredCV[]>([]);
+  const [activeCvId, setActiveCvId] = useState<string | undefined>();
 
   async function apply(job: JobListing, cvId?: string) {
     if (status !== "authenticated") return signIn("google");
     setPreparingId(job.id);
+    setActiveCvId(cvId);
     try {
       const { application } = await api.prepareApplication(job.id, cvId);
       setActive(application);
@@ -165,7 +167,7 @@ export default function NearbyPage() {
       )}
 
       {active && (
-        <ApplyModal application={active} onClose={() => setActive(null)} onSent={() => setActive(null)} />
+        <ApplyModal application={active} cvId={activeCvId} onClose={() => setActive(null)} onSent={() => setActive(null)} />
       )}
     </div>
   );
