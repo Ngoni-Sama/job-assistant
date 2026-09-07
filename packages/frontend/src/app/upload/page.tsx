@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useSession, signIn } from "next-auth/react";
-import { LogIn, Lock } from "lucide-react";
+import { LogIn, Lock, Sparkles, ArrowRight } from "lucide-react";
 import { CVUpload } from "@/components/CVUpload";
 import { CVManager } from "@/components/CVManager";
 
@@ -19,6 +20,21 @@ export default function UploadPage() {
           and used to score matches and generate tailored applications.
         </p>
       </div>
+
+      {/* No-CV path: build one from scratch. */}
+      <Link
+        href="/cv-builder"
+        className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-brand-600 to-violet-600 p-4 text-white shadow-md transition-transform hover:scale-[1.01]"
+      >
+        <span className="flex items-center gap-3">
+          <Sparkles className="h-6 w-6 shrink-0" />
+          <span>
+            <span className="block font-semibold">Don’t have a CV?</span>
+            <span className="block text-sm text-white/85">Answer a few questions and we’ll build one for you.</span>
+          </span>
+        </span>
+        <ArrowRight className="h-5 w-5 shrink-0" />
+      </Link>
 
       {status === "authenticated" ? (
         <>

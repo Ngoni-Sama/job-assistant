@@ -89,6 +89,11 @@ export const api = {
   getCvFile: (id?: string) =>
     req<{ name: string; type: string; data: string }>(`/api/cv-file${id ? `?id=${encodeURIComponent(id)}` : ""}`),
   getCvs: () => req<{ cvs: StoredCV[]; primaryId: string | null }>("/api/cvs"),
+  createCv: (fileName: string, markdown: string, file?: { data: string; type: string }) =>
+    req<{ cv: StoredCV; cvs: StoredCV[] }>(
+      "/api/cvs/create",
+      jsonBody({ fileName, markdown, fileData: file?.data, fileType: file?.type }),
+    ),
   setPrimaryCv: (id: string) => req<{ cvs: StoredCV[]; primaryId: string }>("/api/cvs/primary", jsonBody({ id })),
   renameCv: (id: string, fileName: string) => req<{ cvs: StoredCV[] }>("/api/cvs/rename", jsonBody({ id, fileName })),
   updateCv: (id: string, markdown: string) => req<{ cvs: StoredCV[] }>("/api/cvs/update", jsonBody({ id, markdown })),

@@ -54,6 +54,7 @@ const PROTECTED = new Set([
   "POST /api/billing/checkout",
   "POST /api/employer",
   "POST /api/checks/order",
+  "POST /api/cvs/create",
   "POST /api/cvs/primary",
   "POST /api/cvs/rename",
   "POST /api/cvs/update",
@@ -151,6 +152,39 @@ export default {
         const cvs = await getCvList(env, userId);
         const primary = await env.JOBS_CACHE.get<StoredCV>(`cv:${userId}`, "json");
         return json({ cvs, primaryId: primary?.id ?? cvs[cvs.length - 1]?.id ?? null });
+      }
+      // Create a CV from the guided builder (markdown + an optional generated file).
+      if (path === "/api/cvs/create" && request.method === "POST") {
+        const { fileName, markdown, fileData, fileType } = (await request.json()) as {
+          fileName?: string;
+          markdown?: string;
+          fileData?: string;
+          fileType?: string;
+        };
+        if (!markdown?.trim()) return json({ error: "CV is empty" }, { status: 400 });
+        const id = `cv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const name = (fileName?.trim() || "My CV").slice(0, 80);
+        const stored: StoredCV = {
+          id,
+          key: `cvs/${userId}/${id}`,
+          fileName: name,
+          markdown,
+          uploadedAt: new Date().toISOString(),
+        };
+        const cvs = await getCvList(env, userId);
+        cvs.push(stored);
+        await env.JOBS_CACHE.put(`cvs:${userId}`, JSON.stringify(cvs));
+        await env.JOBS_CACHE.put(`cv:${userId}`, JSON.stringify(stored)); // make it primary
+        if (fileData) {
+          const rec = JSON.stringify({
+            name: name.toLowerCase().endsWith(".pdf") ? name : `${name}.pdf`,
+            type: fileType || "application/pdf",
+            data: fileData,
+          });
+          await env.JOBS_CACHE.put(`cvfile:${userId}:${id}`, rec);
+          await env.JOBS_CACHE.put(`cvfile:${userId}`, rec);
+        }
+        return json({ cv: stored, cvs });
       }
       if (path === "/api/cvs/primary" && request.method === "POST") {
         const { id } = (await request.json()) as { id?: string };
