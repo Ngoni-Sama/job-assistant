@@ -15,15 +15,19 @@ export function JobTile({
   score,
   applied,
   preparing,
+  optimising,
   cvs = [],
   onApply,
+  onOptimise,
 }: {
   job: JobListing;
   score?: JobScore;
   applied?: boolean;
   preparing?: boolean;
+  optimising?: boolean;
   cvs?: StoredCV[];
   onApply: (job: JobListing, cvId?: string) => void;
+  onOptimise?: (job: JobListing, cvId?: string) => void;
 }) {
   const expired = isExpired(job.expiryDate);
   return (
@@ -83,7 +87,23 @@ export function JobTile({
             <CheckCircle2 className="h-4 w-4" /> Applied
           </span>
         ) : (
-          <RadialApply cvs={cvs} preparing={!!preparing} onApply={(cvId) => onApply(job, cvId)} />
+          <>
+            <RadialApply
+              mode="apply"
+              cvs={cvs}
+              preparing={!!preparing}
+              onApply={(cvId) => onApply(job, cvId)}
+            />
+            {onOptimise && (
+              <RadialApply
+                mode="optimise"
+                cost={3}
+                cvs={cvs}
+                preparing={!!optimising}
+                onApply={(cvId) => onOptimise(job, cvId)}
+              />
+            )}
+          </>
         )}
         <Link
           href={`/jobs/${encodeURIComponent(job.id)}`}

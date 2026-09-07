@@ -16,6 +16,7 @@ export default function DashboardPage() {
   const [cv, setCv] = useState<StoredCV | null>(null);
   const [cvs, setCvs] = useState<StoredCV[]>([]);
   const [activeCvId, setActiveCvId] = useState<string | undefined>();
+  const [optimisingId, setOptimisingId] = useState<string | null>(null);
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [stats, setStats] = useState<ScrapeStats | null>(null);
   const [scores, setScores] = useState<Record<string, JobScore>>({});
@@ -96,10 +97,11 @@ export default function DashboardPage() {
     }
   }
 
-  async function optimise(job: JobListing, cvId?: string) {
+  // Free: open the apply screen with your original CV (no AI, no credits).
+  async function apply(job: JobListing, cvId?: string) {
     if (!authed) return signIn("google");
     if (!cv) {
-      setError("Upload your CV first to generate a tailored application.");
+      setError("Upload your CV first to apply.");
       return;
     }
     setPreparingId(job.id);
@@ -117,6 +119,26 @@ export default function DashboardPage() {
       setError((e as Error).message);
     } finally {
       setPreparingId(null);
+    }
+  }
+
+  // Paid: AI-tailor the CV + cover note to this job (3 credits), then review.
+  async function optimise(job: JobListing, cvId?: string) {
+    if (!authed) return signIn("google");
+    if (!cv) {
+      setError("Upload your CV first to optimise it.");
+      return;
+    }
+    setOptimisingId(job.id);
+    setActiveCvId(cvId);
+    setError("");
+    try {
+      const { application } = await api.optimiseApplication(job.id, cvId);
+      setActive(application);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setOptimisingId(null);
     }
   }
 
@@ -229,8 +251,10 @@ export default function DashboardPage() {
                 score={scores[job.id]}
                 applied={applied.has(job.id)}
                 preparing={preparingId === job.id}
+                optimising={optimisingId === job.id}
                 cvs={cvs}
-                onApply={optimise}
+                onApply={apply}
+                onOptimise={optimise}
               />
             ))}
           </div>

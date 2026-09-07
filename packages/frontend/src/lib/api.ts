@@ -178,6 +178,11 @@ export const api = {
       "/api/apply/prepare",
       jsonBody({ jobId, cvId }),
     ),
+  optimiseApplication: (jobId: string, cvId?: string) =>
+    req<{ application: Application; balance: number }>(
+      "/api/apply/optimise",
+      jsonBody({ jobId, cvId }),
+    ),
   sendApplication: (jobId: string) =>
     req<{ result: SendResult }>("/api/apply/send", jsonBody({ jobId })),
   getSources: () => req<{ sources: ScrapeSource[] }>("/api/sources"),

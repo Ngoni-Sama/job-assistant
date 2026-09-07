@@ -19,6 +19,7 @@ export default function NearbyPage() {
   const [locNote, setLocNote] = useState("");
   const [selected, setSelected] = useState<JobListing | null>(null);
   const [preparingId, setPreparingId] = useState<string | null>(null);
+  const [optimisingId, setOptimisingId] = useState<string | null>(null);
   const [active, setActive] = useState<Application | null>(null);
   const [cvs, setCvs] = useState<StoredCV[]>([]);
   const [activeCvId, setActiveCvId] = useState<string | undefined>();
@@ -34,6 +35,20 @@ export default function NearbyPage() {
       /* surfaced via modal next time */
     } finally {
       setPreparingId(null);
+    }
+  }
+
+  async function optimise(job: JobListing, cvId?: string) {
+    if (status !== "authenticated") return signIn("google");
+    setOptimisingId(job.id);
+    setActiveCvId(cvId);
+    try {
+      const { application } = await api.optimiseApplication(job.id, cvId);
+      setActive(application);
+    } catch {
+      /* surfaced via modal next time */
+    } finally {
+      setOptimisingId(null);
     }
   }
 
@@ -148,9 +163,17 @@ export default function NearbyPage() {
           )}
           <div className="mt-3 flex flex-wrap gap-2">
             <RadialApply
+              mode="apply"
               cvs={cvs}
               preparing={preparingId === selected.id}
               onApply={(cvId) => apply(selected, cvId)}
+            />
+            <RadialApply
+              mode="optimise"
+              cost={3}
+              cvs={cvs}
+              preparing={optimisingId === selected.id}
+              onApply={(cvId) => optimise(selected, cvId)}
             />
             <Link
               href={`/jobs/${encodeURIComponent(selected.id)}`}

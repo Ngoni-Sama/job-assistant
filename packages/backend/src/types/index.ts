@@ -80,6 +80,7 @@ export interface Application {
   sentAt?: string;
   method?: "email" | "manual"; // how it was (or must be) delivered
   responded?: boolean; // employer replied (user-marked)
+  optimised?: boolean; // whether the CV/cover note were AI-tailored (paid)
 }
 
 /** Per-user preferences. */

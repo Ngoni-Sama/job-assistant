@@ -46,6 +46,7 @@ const PROTECTED = new Set([
   "POST /api/profile",
   "POST /api/profile/from-cv",
   "POST /api/apply/prepare",
+  "POST /api/apply/optimise",
   "POST /api/apply/send",
   "POST /api/match",
   "POST /api/match-all",
@@ -738,8 +739,8 @@ export default {
         return json({ applied: await getApplied(env, userId) });
       }
 
-      // Prepare an application: detect How-to-Apply + tailor CV.
-      // Auto-sends when the user's autoApply preference is on and email is known.
+      // Prepare an application — FREE, no AI. Uses the original CV and a simple
+      // templated cover note. Auto-sends only when the user opted into autoApply.
       if (path === "/api/apply/prepare" && request.method === "POST") {
         const { jobId, cvId } = (await request.json()) as { jobId?: string; cvId?: string };
         const cv = await resolveCv(env, userId, cvId);
@@ -747,17 +748,55 @@ export default {
         const job = (await getJobs(env)).find((j) => j.id === jobId);
         if (!job) return json({ error: "Job not found" }, { status: 404 });
 
-        const paidPrep = await charge(env, userId, COSTS.optimise);
-        if (!paidPrep.ok) {
+        const detail = await fetchJobDetail(job.applyLink);
+        const application: Application = {
+          jobId: job.id,
+          jobTitle: job.title,
+          company: job.company,
+          to: detail.applyEmail,
+          phone: detail.applyPhone,
+          deadline: detail.deadline,
+          applyText: detail.applyText,
+          subject: `Application: ${job.title}${job.company !== "N/A" ? ` — ${job.company}` : ""}`,
+          coverNote: templateCoverNote(job),
+          tailoredCV: cv.markdown,
+          generatedAt: new Date().toISOString(),
+          optimised: false,
+        };
+        await env.JOBS_CACHE.put(appKey(userId, job.id), JSON.stringify(application));
+
+        const prefs = await getPrefs(env, userId);
+        const { features } = await getConfig(env);
+        let autoSent = null;
+        if (prefs.autoApply && features.autoApplyAllowed && application.to) {
+          autoSent = await doSend(env, userId, application);
+        }
+        return json({ application, autoSent });
+      }
+
+      // Optimise an application with AI — PAID. Tailors the CV + cover note to
+      // the job. Charged only when the user explicitly asks for it.
+      if (path === "/api/apply/optimise" && request.method === "POST") {
+        const { jobId, cvId } = (await request.json()) as { jobId?: string; cvId?: string };
+        const cv = await resolveCv(env, userId, cvId);
+        if (!cv) return json({ error: "No CV uploaded yet" }, { status: 400 });
+        const job = (await getJobs(env)).find((j) => j.id === jobId);
+        if (!job) return json({ error: "Job not found" }, { status: 404 });
+
+        const paid = await charge(env, userId, COSTS.optimise);
+        if (!paid.ok) {
           return json(
-            { error: "Not enough credits to optimise a CV", balance: paidPrep.balance, cost: COSTS.optimise },
+            { error: "Not enough credits to optimise a CV", balance: paid.balance, cost: COSTS.optimise },
             { status: 402 },
           );
         }
         const detail = await fetchJobDetail(job.applyLink);
         const tailored = await tailorApplication(cv.markdown, job, detail, env);
 
+        // Preserve any existing prepared record (e.g. sent state) if present.
+        const prev = await env.JOBS_CACHE.get<Application>(appKey(userId, job.id), "json");
         const application: Application = {
+          ...(prev ?? {}),
           jobId: job.id,
           jobTitle: job.title,
           company: job.company,
@@ -769,16 +808,10 @@ export default {
           coverNote: tailored.coverNote,
           tailoredCV: tailored.tailoredCV,
           generatedAt: new Date().toISOString(),
+          optimised: true,
         };
         await env.JOBS_CACHE.put(appKey(userId, job.id), JSON.stringify(application));
-
-        const prefs = await getPrefs(env, userId);
-        const { features } = await getConfig(env);
-        let autoSent = null;
-        if (prefs.autoApply && features.autoApplyAllowed && application.to) {
-          autoSent = await doSend(env, userId, application);
-        }
-        return json({ application, autoSent });
+        return json({ application, balance: paid.balance });
       }
 
       // Send a previously prepared application (user-confirmed).
@@ -1102,6 +1135,18 @@ async function getCvList(env: Env, userId: string): Promise<StoredCV[]> {
 async function syncPrimary(env: Env, userId: string, cv: StoredCV): Promise<void> {
   const primary = await env.JOBS_CACHE.get<StoredCV>(`cv:${userId}`, "json");
   if (primary?.id === cv.id) await env.JOBS_CACHE.put(`cv:${userId}`, JSON.stringify(cv));
+}
+
+/** A simple, non-AI cover note used by the free "Apply" path. */
+function templateCoverNote(job: JobListing): string {
+  const at = job.company && job.company !== "N/A" ? ` at ${job.company}` : "";
+  return (
+    `Dear Hiring Manager,\n\n` +
+    `I would like to apply for the ${job.title} position${at}. ` +
+    `My CV is attached for your consideration. I believe my background and skills make me a strong fit for this role, ` +
+    `and I would welcome the opportunity to discuss how I can contribute to your team.\n\n` +
+    `Thank you for your time and consideration.`
+  );
 }
 
 /** Resolve the CV to use for an action — a specific id, or the primary. */

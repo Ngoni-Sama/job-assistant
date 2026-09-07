@@ -61,6 +61,7 @@ export interface Application {
   sentAt?: string;
   method?: "email" | "manual";
   responded?: boolean;
+  optimised?: boolean;
 }
 
 export interface SendResult {

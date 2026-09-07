@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, FileText, X } from "lucide-react";
+import { Sparkles, Send, FileText, X } from "lucide-react";
 import type { StoredCV } from "@/lib/types";
+
+type Mode = "apply" | "optimise";
 
 /** Short label for a CV — its (shortened) filename or "CV n". */
 function label(cv: StoredCV, i: number): string {
@@ -10,29 +12,62 @@ function label(cv: StoredCV, i: number): string {
   return base.length > 16 ? base.slice(0, 15) + "…" : base || `CV ${i + 1}`;
 }
 
+const CONFIG = {
+  apply: {
+    icon: Send,
+    verb: "Apply",
+    single: "Apply",
+    open: "Apply with…",
+    className:
+      "bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-md hover:scale-[1.03]",
+    itemClass: "text-brand-700",
+  },
+  optimise: {
+    icon: Sparkles,
+    verb: "Optimise",
+    single: "Optimise",
+    open: "Optimise…",
+    className: "border border-brand-200 bg-white/70 text-brand-700 hover:bg-white",
+    itemClass: "text-violet-700",
+  },
+} as const;
+
 /**
- * Apply/Optimise action. With one CV it's a plain button; with several it opens
- * an animated radial menu to pick which CV to apply with.
+ * Apply or Optimise action. With one CV it's a plain button; with several it
+ * opens an animated radial menu to pick which CV to act with.
+ *
+ * `mode="apply"` is the free path (send with your CV); `mode="optimise"` runs
+ * the AI tailoring and costs credits (shown as a hint).
  */
 export function RadialApply({
   cvs,
   preparing,
   onApply,
+  mode = "optimise",
+  cost,
 }: {
   cvs: StoredCV[];
   preparing: boolean;
   onApply: (cvId?: string) => void;
+  mode?: Mode;
+  /** Credit cost hint, e.g. 3 — shown on the optimise button. */
+  cost?: number;
 }) {
   const [open, setOpen] = useState(false);
+  const cfg = CONFIG[mode];
+  const Icon = cfg.icon;
+  const costHint = cost ? ` (${cost} cr)` : "";
+  const busyLabel = mode === "apply" ? "Preparing…" : "Optimising…";
 
   if (cvs.length <= 1) {
     return (
       <button
         onClick={() => onApply(cvs[0]?.id)}
         disabled={preparing}
-        className="flex items-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-3 py-2 text-sm text-white shadow-md transition-transform hover:scale-[1.03] disabled:opacity-50"
+        title={mode === "optimise" ? `AI-tailor your CV to this job${costHint}` : "Apply with your CV"}
+        className={`flex items-center gap-1 rounded-full px-3 py-2 text-sm transition-transform disabled:opacity-50 ${cfg.className}`}
       >
-        <Sparkles className="h-3.5 w-3.5" /> {preparing ? "Optimising…" : "Optimise CV"}
+        <Icon className="h-3.5 w-3.5" /> {preparing ? busyLabel : `${cfg.single}${mode === "optimise" ? costHint : ""}`}
       </button>
     );
   }
@@ -44,7 +79,6 @@ export function RadialApply({
 
       {/* Radial items fan out up-and-left from the main button */}
       {cvs.map((cv, i) => {
-        // Spread across a quarter arc (about 100° to 190°).
         const angle = ((100 + (i * 90) / Math.max(n - 1, 1)) * Math.PI) / 180;
         const r = 78;
         const x = open ? Math.cos(angle) * r : 0;
@@ -56,8 +90,8 @@ export function RadialApply({
               onApply(cv.id);
               setOpen(false);
             }}
-            title={cv.fileName}
-            className="glass-strong absolute bottom-0 left-0 z-20 flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1.5 text-xs font-medium text-brand-700 shadow-lg"
+            title={`${cfg.verb} — ${cv.fileName}`}
+            className={`glass-strong absolute bottom-0 left-0 z-20 flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1.5 text-xs font-medium shadow-lg ${cfg.itemClass}`}
             style={{
               transform: `translate(${x}px, ${-y}px) scale(${open ? 1 : 0.3})`,
               opacity: open ? 1 : 0,
@@ -73,10 +107,10 @@ export function RadialApply({
       <button
         onClick={() => setOpen((v) => !v)}
         disabled={preparing}
-        className="relative z-20 flex items-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-3 py-2 text-sm text-white shadow-md transition-transform hover:scale-[1.03] disabled:opacity-50"
+        className={`relative z-20 flex items-center gap-1 rounded-full px-3 py-2 text-sm transition-transform disabled:opacity-50 ${cfg.className}`}
       >
-        {open ? <X className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
-        {preparing ? "Optimising…" : open ? "Pick a CV" : "Apply with…"}
+        {open ? <X className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
+        {preparing ? busyLabel : open ? "Pick a CV" : `${cfg.open}${mode === "optimise" ? costHint : ""}`}
       </button>
     </div>
   );

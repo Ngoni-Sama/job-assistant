@@ -22,6 +22,7 @@ export default function SmartMatchPage() {
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<Application | null>(null);
   const [preparingId, setPreparingId] = useState<string | null>(null);
+  const [optimisingId, setOptimisingId] = useState<string | null>(null);
   const [cvs, setCvs] = useState<StoredCV[]>([]);
   const [activeCvId, setActiveCvId] = useState<string | undefined>();
   const [error, setError] = useState("");
@@ -63,7 +64,7 @@ export default function SmartMatchPage() {
     if (authed) api.getCvs().then((r) => setCvs(r.cvs)).catch(() => {});
   }, [authed]);
 
-  async function optimise(job: JobListing, cvId?: string) {
+  async function apply(job: JobListing, cvId?: string) {
     if (status !== "authenticated") return signIn("google");
     setPreparingId(job.id);
     setActiveCvId(cvId);
@@ -75,6 +76,21 @@ export default function SmartMatchPage() {
       setError((e as Error).message);
     } finally {
       setPreparingId(null);
+    }
+  }
+
+  async function optimise(job: JobListing, cvId?: string) {
+    if (status !== "authenticated") return signIn("google");
+    setOptimisingId(job.id);
+    setActiveCvId(cvId);
+    setError("");
+    try {
+      const { application } = await api.optimiseApplication(job.id, cvId);
+      setActive(application);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setOptimisingId(null);
     }
   }
 
@@ -133,10 +149,18 @@ export default function SmartMatchPage() {
                     {job.company} · {job.location}
                   </p>
                 </div>
-                <div className="shrink-0">
+                <div className="flex shrink-0 items-center gap-2">
                   <RadialApply
+                    mode="apply"
                     cvs={cvs}
                     preparing={preparingId === job.id}
+                    onApply={(cvId) => apply(job, cvId)}
+                  />
+                  <RadialApply
+                    mode="optimise"
+                    cost={3}
+                    cvs={cvs}
+                    preparing={optimisingId === job.id}
                     onApply={(cvId) => optimise(job, cvId)}
                   />
                 </div>

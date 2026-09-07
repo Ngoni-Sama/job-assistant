@@ -35,8 +35,8 @@ export function ApplyModal({
   const [email, setEmail] = useState(session?.user?.email ?? "");
   const [phone, setPhone] = useState(application.phone ?? "");
   const [coverNote, setCoverNote] = useState(application.coverNote);
-  // Default to the candidate's OWN CV — the AI rewrite is opt-in.
-  const [useOriginal, setUseOriginal] = useState(true);
+  // When optimised, show the AI-tailored CV by default; otherwise the original.
+  const [useOriginal, setUseOriginal] = useState(!application.optimised);
   const [originalCv, setOriginalCv] = useState<string>("");
   const [cvText, setCvText] = useState(application.tailoredCV);
   const isPortal = !application.to; // no email detected = job-portal link
@@ -59,7 +59,7 @@ export function ApplyModal({
     source
       .then((md) => {
         setOriginalCv(md);
-        if (md) setCvText(md); // default view = your own CV
+        if (md && useOriginal) setCvText(md); // only override when showing the original
       })
       .catch(() => {});
     if (!name && session?.user?.name) setName(session.user.name);
@@ -207,20 +207,26 @@ export function ApplyModal({
           <div>
             <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">CV (editable)</span>
-              <div className="flex rounded-full bg-gray-100 p-0.5 text-xs">
-                <button
-                  onClick={() => toggleCv(false)}
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 ${!useOriginal ? "bg-white shadow-sm" : "text-gray-500"}`}
-                >
-                  <Sparkles className="h-3 w-3" /> AI-tailored
-                </button>
-                <button
-                  onClick={() => toggleCv(true)}
-                  className={`flex items-center gap-1 rounded-full px-2.5 py-1 ${useOriginal ? "bg-white shadow-sm" : "text-gray-500"}`}
-                >
-                  <FileText className="h-3 w-3" /> My original CV
-                </button>
-              </div>
+              {application.optimised ? (
+                <div className="flex rounded-full bg-gray-100 p-0.5 text-xs">
+                  <button
+                    onClick={() => toggleCv(false)}
+                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 ${!useOriginal ? "bg-white shadow-sm" : "text-gray-500"}`}
+                  >
+                    <Sparkles className="h-3 w-3" /> AI-tailored
+                  </button>
+                  <button
+                    onClick={() => toggleCv(true)}
+                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 ${useOriginal ? "bg-white shadow-sm" : "text-gray-500"}`}
+                  >
+                    <FileText className="h-3 w-3" /> My original CV
+                  </button>
+                </div>
+              ) : (
+                <span className="flex items-center gap-1 text-xs text-gray-400">
+                  <FileText className="h-3 w-3" /> Your original CV — use ✨ Optimise to AI-tailor it
+                </span>
+              )}
             </div>
             <textarea
               value={cvText}

@@ -21,6 +21,7 @@ export default function JobsPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [preparingId, setPreparingId] = useState<string | null>(null);
+  const [optimisingId, setOptimisingId] = useState<string | null>(null);
   const [active, setActive] = useState<Application | null>(null);
   const [error, setError] = useState("");
 
@@ -69,6 +70,21 @@ export default function JobsPage() {
     }
   }
 
+  async function optimise(job: JobListing, cvId?: string) {
+    if (status !== "authenticated") return signIn("google");
+    setOptimisingId(job.id);
+    setActiveCvId(cvId);
+    setError("");
+    try {
+      const { application } = await api.optimiseApplication(job.id, cvId);
+      setActive(application);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setOptimisingId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -102,8 +118,10 @@ export default function JobsPage() {
               job={job}
               applied={applied.has(job.id)}
               preparing={preparingId === job.id}
+              optimising={optimisingId === job.id}
               cvs={cvs}
               onApply={apply}
+              onOptimise={optimise}
             />
           ))}
         </div>

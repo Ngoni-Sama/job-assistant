@@ -31,6 +31,7 @@ export default function JobDetailPage() {
   const [activeCvId, setActiveCvId] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [preparing, setPreparing] = useState(false);
+  const [optimising, setOptimising] = useState(false);
   const [active, setActive] = useState<Application | null>(null);
   const [error, setError] = useState("");
 
@@ -51,19 +52,35 @@ export default function JobDetailPage() {
     if (status === "authenticated") api.getCvs().then((r) => setCvs(r.cvs)).catch(() => {});
   }, [status]);
 
-  async function optimise(cvId?: string) {
-    if (!job) return;
+  // Free: open the apply screen with the original CV.
+  async function apply(jobId: string, cvId?: string) {
     if (status !== "authenticated") return signIn("google");
     setPreparing(true);
     setActiveCvId(cvId);
     setError("");
     try {
-      const { application } = await api.prepareApplication(job.id, cvId);
+      const { application } = await api.prepareApplication(jobId, cvId);
       setActive(application);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setPreparing(false);
+    }
+  }
+
+  // Paid: AI-tailor to this job (3 credits).
+  async function optimise(jobId: string, cvId?: string) {
+    if (status !== "authenticated") return signIn("google");
+    setOptimising(true);
+    setActiveCvId(cvId);
+    setError("");
+    try {
+      const { application } = await api.optimiseApplication(jobId, cvId);
+      setActive(application);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setOptimising(false);
     }
   }
 
@@ -139,7 +156,8 @@ export default function JobDetailPage() {
         )}
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <RadialApply cvs={cvs} preparing={preparing} onApply={(cvId) => optimise(cvId)} />
+          <RadialApply mode="apply" cvs={cvs} preparing={preparing} onApply={(cvId) => apply(job.id, cvId)} />
+          <RadialApply mode="optimise" cost={3} cvs={cvs} preparing={optimising} onApply={(cvId) => optimise(job.id, cvId)} />
           <a
             href={job.applyLink}
             target="_blank"
@@ -163,7 +181,13 @@ export default function JobDetailPage() {
           <h2 className="text-lg font-bold">Similar jobs</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {similar.map((s) => (
-              <JobTile key={s.id} job={s} cvs={cvs} onApply={(_j, cvId) => optimise(cvId)} />
+              <JobTile
+                key={s.id}
+                job={s}
+                cvs={cvs}
+                onApply={(j, cvId) => apply(j.id, cvId)}
+                onOptimise={(j, cvId) => optimise(j.id, cvId)}
+              />
             ))}
           </div>
         </section>
