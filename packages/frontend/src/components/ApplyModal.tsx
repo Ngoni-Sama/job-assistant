@@ -6,6 +6,7 @@ import { X, Mail, CalendarClock, Send, CheckCircle2, AlertTriangle, Sparkles, Fi
 import { api } from "@/lib/api";
 import type { Application, StoredCV } from "@/lib/types";
 import { cvToPdfBlob, cvToDocxBlob, blobToBase64 } from "@/lib/cvexport";
+import { playCoinSound } from "@/lib/sound";
 
 type GenFormat = "pdf" | "docx" | "none";
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -119,15 +120,19 @@ export function ApplyModal({
     setSending(true);
     setError("");
     try {
-      const attachment = await getAttachment();
+      // For the original file, send only its id — the server fetches it (keeps
+      // the request small). For generated PDFs/Word, send the base64 inline.
+      const attachment = useOriginal ? null : await getAttachment();
+      const originalCvId = useOriginal ? selCvId ?? "" : undefined;
       const res = await fetch("/api/gmail/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, subject: application.subject, body: buildBody(), attachment }),
+        body: JSON.stringify({ to, subject: application.subject, body: buildBody(), attachment, originalCvId }),
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Gmail send failed");
       setSent(true);
+      playCoinSound();
       onSent(application.jobId);
     } catch (e) {
       setError((e as Error).message);

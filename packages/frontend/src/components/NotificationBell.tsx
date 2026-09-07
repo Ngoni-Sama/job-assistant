@@ -42,15 +42,15 @@ export function NotificationBell() {
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="glass-strong absolute right-0 z-20 mt-2 max-h-96 w-80 overflow-y-auto rounded-2xl p-2 shadow-xl">
+          <div className="glass-strong fixed left-3 right-3 top-16 z-20 max-h-[70vh] overflow-y-auto overflow-x-hidden rounded-2xl p-2 shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:max-h-96 sm:w-80">
             <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-400">What’s new</p>
             {items.length === 0 ? (
               <p className="px-2 py-3 text-sm text-gray-500">No updates yet.</p>
             ) : (
               items.map((a) => (
                 <div key={a.id} className="rounded-xl px-2 py-2 hover:bg-white/50">
-                  <p className="text-sm font-medium">{a.title}</p>
-                  <p className="mt-0.5 text-xs text-gray-600">{a.body}</p>
+                  <p className="text-sm font-medium break-words">{a.title}</p>
+                  <p className="mt-0.5 text-xs text-gray-600 break-words">{a.body}</p>
                   <p className="mt-1 text-[10px] text-gray-400">{new Date(a.at).toLocaleDateString()}</p>
                 </div>
               ))

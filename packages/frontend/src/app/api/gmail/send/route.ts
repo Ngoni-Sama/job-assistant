@@ -2,6 +2,10 @@ import { auth } from "@/auth";
 
 type Attachment = { name: string; type: string; data: string }; // data = base64
 
+const WORKER_BASE = (process.env.NEXT_PUBLIC_API_URL || "https://job-assistant.ma360-ngoni.workers.dev")
+  .trim()
+  .replace(/\/+$/, "");
+
 /**
  * Send an application email from the signed-in user's Gmail via the Gmail API.
  * Supports an optional file attachment (PDF/DOCX/original CV). The access token
@@ -16,15 +20,31 @@ export async function POST(req: Request) {
     return Response.json({ error: "Sign in with Google to send from your Gmail." }, { status: 401 });
   }
 
-  const { to, subject, body, attachment } = (await req.json()) as {
+  const { to, subject, body, attachment, originalCvId } = (await req.json()) as {
     to?: string;
     subject?: string;
     body?: string;
     attachment?: Attachment | null;
+    // When set (id string, or "" for the primary CV), fetch the original file
+    // server-side instead of the browser uploading its base64 (avoids the
+    // platform request-size limit for large uploaded CVs).
+    originalCvId?: string;
   };
   if (!to) return Response.json({ error: "No recipient email for this job." }, { status: 400 });
 
-  const raw = buildRawMessage(from, to, subject ?? "Job application", body ?? "", attachment);
+  let att = attachment ?? null;
+  if (!att && originalCvId !== undefined) {
+    try {
+      const q = originalCvId ? `?id=${encodeURIComponent(originalCvId)}` : "";
+      const r = await fetch(`${WORKER_BASE}/api/cv-file${q}`, { headers: { "x-user-id": from } });
+      if (r.ok) att = (await r.json()) as Attachment;
+      else return Response.json({ error: "Couldn’t load your uploaded CV to attach it." }, { status: 502 });
+    } catch {
+      return Response.json({ error: "Couldn’t reach the CV store to attach your original CV." }, { status: 502 });
+    }
+  }
+
+  const raw = buildRawMessage(from, to, subject ?? "Job application", body ?? "", att);
 
   const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
     method: "POST",
