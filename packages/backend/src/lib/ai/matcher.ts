@@ -33,6 +33,7 @@ export async function matchJobToCV(
         { role: "user", content: user },
       ],
       512,
+      true, // JSON mode
     );
   } catch (err) {
     console.error("matcher chat failed", err);

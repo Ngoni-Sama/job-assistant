@@ -1,6 +1,6 @@
 import type { JobDetail } from "../../types";
 import { parseExpiry } from "../utils/date";
-import { fetchHtml, firstGroup, text } from "./shared";
+import { fetchHtml, firstGroup, text, scrubBoilerplate } from "./shared";
 
 /** Fetch a vacancymail job detail page and extract the "How to Apply" info. */
 export async function fetchJobDetail(url: string): Promise<JobDetail> {
@@ -22,7 +22,7 @@ export function parseDetail(html: string): JobDetail {
   const end = html.search(/Similar Jobs/i);
   const body = end > -1 ? html.slice(0, end) : html;
   const contentStart = body.search(/content-right-offset|single-page-section/i);
-  const description = text(contentStart > -1 ? body.slice(contentStart) : body).slice(0, 4000);
+  const description = scrubBoilerplate(text(contentStart > -1 ? body.slice(contentStart) : body)).slice(0, 4000);
 
   const applyEmail = firstMatch(applyText, /[\w.+-]+@[\w-]+\.[\w.-]+/);
   const applyPhone = cleanPhone(firstMatch(applyText, /(\+?\d[\d\s-]{7,}\d)/));
@@ -77,7 +77,7 @@ function extractSections(html: string): JobDetail["sections"] {
       .map((re) => rest.search(re))
       .filter((x) => x > -1);
     if (cuts.length) rest = rest.slice(0, Math.min(...cuts));
-    sections[found[i].key] = text(rest).replace(/\*\*/g, "").trim();
+    sections[found[i].key] = scrubBoilerplate(text(rest).replace(/\*\*/g, "")).trim();
   }
   return sections;
 }

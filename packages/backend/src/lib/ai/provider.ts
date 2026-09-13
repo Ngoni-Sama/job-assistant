@@ -49,23 +49,38 @@ function asText(v: unknown): string {
   return String(v);
 }
 
-export async function chat(env: Env, messages: ChatMessage[], maxTokens = 600): Promise<string> {
+/**
+ * Provider-agnostic chat completion. Set `json` to request JSON-mode output
+ * (structured responses); it's best-effort — callers should still parse
+ * defensively, since JSON mode isn't guaranteed 100% of the time.
+ */
+export async function chat(env: Env, messages: ChatMessage[], maxTokens = 600, json = false): Promise<string> {
   const cfg = await getConfig(env);
 
   // Prefer OpenAI when configured, but NEVER let a bad key break the product —
   // fall back to Workers AI if the OpenAI call fails for any reason.
   if (cfg.aiProvider === "openai" && cfg.openaiApiKey) {
     try {
-      return await openaiChat(cfg.openaiApiKey, cfg.openaiModel, messages, maxTokens);
+      return await openaiChat(cfg.openaiApiKey, cfg.openaiModel, messages, maxTokens, json);
     } catch (err) {
       console.error("OpenAI failed — falling back to Workers AI", err);
     }
   }
 
-  const res = (await env.AI.run(WORKERS_AI_MODEL, {
-    messages,
-    max_tokens: maxTokens,
-  })) as { response?: unknown };
+  const base = { messages, max_tokens: maxTokens };
+  // Try JSON mode; if the model rejects `response_format`, retry without it.
+  if (json) {
+    try {
+      const res = (await env.AI.run(WORKERS_AI_MODEL, {
+        ...base,
+        response_format: { type: "json_object" },
+      } as never)) as { response?: unknown };
+      return asText(res.response);
+    } catch (err) {
+      console.error("Workers AI JSON mode failed — retrying plain", err);
+    }
+  }
+  const res = (await env.AI.run(WORKERS_AI_MODEL, base)) as { response?: unknown };
   return asText(res.response);
 }
 
@@ -74,11 +89,18 @@ async function openaiChat(
   model: string,
   messages: ChatMessage[],
   maxTokens: number,
+  json = false,
 ): Promise<string> {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.4 }),
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: maxTokens,
+      temperature: 0.4,
+      ...(json ? { response_format: { type: "json_object" } } : {}),
+    }),
   });
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
   const data = (await res.json()) as { choices?: { message?: { content?: unknown } }[] };

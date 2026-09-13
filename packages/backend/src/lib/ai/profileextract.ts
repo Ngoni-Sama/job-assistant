@@ -23,6 +23,7 @@ export async function extractProfile(cvMarkdown: string, env: Env): Promise<Part
         { role: "user", content: truncate(cvMarkdown, 4000) },
       ],
       500,
+      true, // JSON mode
     );
   } catch (err) {
     console.error("extractProfile chat failed", err);

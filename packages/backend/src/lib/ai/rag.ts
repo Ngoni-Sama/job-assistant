@@ -213,7 +213,7 @@ async function explainMatches(
     { role: "user" as const, content: `Role query: ${query}\n\nCandidates:\n${list}` },
   ];
   try {
-    const raw = await chat(env, prompt, 600);
+    const raw = await chat(env, prompt, 600, true); // JSON mode
     const json = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
     const parsed = JSON.parse(json) as { summary?: string; candidates?: { id: string; reason: string }[] };
     const byId: Record<string, string> = {};

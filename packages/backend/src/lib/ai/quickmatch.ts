@@ -79,6 +79,7 @@ async function scoreBatch(
       { role: "user", content: user },
     ],
     1500,
+    true, // JSON mode
   );
 
   return parseBatch(raw, batch);

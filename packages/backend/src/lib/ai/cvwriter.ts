@@ -45,6 +45,7 @@ export async function tailorApplication(
         { role: "user", content: user },
       ],
       600,
+      true, // JSON mode
     );
   } catch (err) {
     console.error("cvwriter chat failed", err);
