@@ -22,6 +22,29 @@ export interface RagMatch extends Omit<RagDoc, "text"> {
   locked: boolean; // platform candidates hide contact until unlocked
 }
 
+/**
+ * Index one candidate doc at write-time: embed it, cache the vector in KV (which
+ * the default search path reuses, so searches don't re-embed), and upsert to
+ * Vectorize when a VECTORIZE index is bound. Non-throwing — indexing must never
+ * break the write that triggered it.
+ */
+export async function indexDoc(env: Env, doc: RagDoc): Promise<void> {
+  try {
+    const [vec] = await embed(env, [doc.text.slice(0, MAX_DOC_CHARS)]);
+    if (!vec || !vec.length) return;
+    await env.JOBS_CACHE.put(`emb:${doc.id}:${doc.text.length}`, JSON.stringify(vec), {
+      expirationTtl: 60 * 60 * 24 * 30,
+    });
+    if (env.VECTORIZE) {
+      await env.VECTORIZE.upsert([
+        { id: doc.id, values: vec, metadata: { source: doc.source, sector: doc.sector ?? "", location: doc.location ?? "" } },
+      ] as never);
+    }
+  } catch (err) {
+    console.error("indexDoc failed", err);
+  }
+}
+
 export async function embed(env: Env, texts: string[]): Promise<number[][]> {
   if (!texts.length) return [];
   const res = (await env.AI.run(EMB_MODEL, { text: texts })) as { data?: number[][] };

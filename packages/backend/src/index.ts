@@ -29,7 +29,7 @@ import { getConfig, saveConfig, type AppConfig } from "./lib/ai/provider";
 import { quickMatch, type QuickMatchRun } from "./lib/ai/quickmatch";
 import { extractProfile } from "./lib/ai/profileextract";
 import { cleanCvMarkdown } from "./lib/cvclean";
-import { rankCandidates, type RagDoc } from "./lib/ai/rag";
+import { rankCandidates, indexDoc, type RagDoc } from "./lib/ai/rag";
 import { charge, getCredits, addCredits, COSTS } from "./lib/credits";
 import { PACKS, createCheckoutSession, verifyWebhook } from "./lib/stripe";
 import { CHECKS, findCheck } from "./lib/checks";
@@ -67,7 +67,7 @@ const PROTECTED = new Set([
 ]);
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (request.method === "OPTIONS") return preflight();
 
     const url = new URL(request.url);
@@ -130,6 +130,7 @@ export default {
           return json({ error: "Expected a 'cv' file field" }, { status: 400 });
         }
         const stored = await processCV(file, env, userId);
+        ctx.waitUntil(indexCandidate(env, userId)); // re-index if this user is a searchable candidate
         return json({ success: true, cv: stored });
       }
 
@@ -464,6 +465,7 @@ export default {
           updatedAt: new Date().toISOString(),
         };
         await env.JOBS_CACHE.put(profileKey(userId), JSON.stringify(next));
+        ctx.waitUntil(indexCandidate(env, userId)); // keep the talent-search index fresh
         return json({ profile: next });
       }
       // Auto-fill the profile from the user's uploaded CV via AI.
@@ -478,6 +480,7 @@ export default {
         const current = await getProfile(env, userId);
         const next: Profile = { ...current, ...extracted, updatedAt: new Date().toISOString() };
         await env.JOBS_CACHE.put(profileKey(userId), JSON.stringify(next));
+        ctx.waitUntil(indexCandidate(env, userId));
         return json({ profile: next });
       }
 
@@ -661,6 +664,13 @@ export default {
           const list = await listAll();
           list.push(rec);
           await env.JOBS_CACHE.put(rkey, JSON.stringify(list));
+          // Index the uploaded CV so search doesn't have to embed it on-demand.
+          const docText = [rec.headline, rec.markdown].filter(Boolean).join("\n").trim();
+          if (docText) {
+            ctx.waitUntil(
+              indexDoc(env, { id: rec.id, name: rec.name, headline: rec.headline, sector: rec.sector, location: rec.location, skills: [], source: "mine", text: docText }),
+            );
+          }
           const { markdown: _m, ...meta } = rec;
           return json({ cv: meta });
         }
@@ -699,17 +709,13 @@ export default {
           for (const k of keys) {
             if (docs.length >= 60) break;
             const email = k.name.slice("profile:".length);
-            const pr = await env.JOBS_CACHE.get<Profile>(k.name, "json");
-            if (!pr || pr.availability === "not_looking") continue;
-            const cid = candidateId(email);
-            if (exclude.has(cid)) continue;
-            if (sector && (pr.sector || "Other") !== sector) continue;
-            if (location && !(pr.location ?? "").toLowerCase().includes(location)) continue;
-            const cv = await env.JOBS_CACHE.get<StoredCV>(`cv:${email}`, "json");
-            const text = [pr.headline, (pr.skills ?? []).join(", "), pr.education, cv?.markdown ?? ""].filter(Boolean).join("\n").trim();
-            if (!text) continue;
-            await env.JOBS_CACHE.put(`cidmap:${cid}`, email);
-            docs.push({ id: cid, name: pr.name || "Candidate", headline: pr.headline, sector: pr.sector || "Other", location: pr.location, skills: pr.skills, source: "platform", text });
+            if (exclude.has(candidateId(email))) continue;
+            const doc = await buildCandidateDoc(env, email);
+            if (!doc) continue;
+            if (sector && doc.sector !== sector) continue;
+            if (location && !(doc.location ?? "").toLowerCase().includes(location)) continue;
+            await env.JOBS_CACHE.put(`cidmap:${doc.id}`, email);
+            docs.push(doc);
           }
         }
         if (pool !== "platform") {
@@ -1226,6 +1232,25 @@ function candidateId(email: string): string {
 }
 
 /** Discoverable candidates (looking/open) grouped by sector — no contact details. */
+/** Assemble the searchable RAG doc for a platform candidate (profile + primary CV). */
+async function buildCandidateDoc(env: Env, email: string): Promise<RagDoc | null> {
+  const pr = await env.JOBS_CACHE.get<Profile>(profileKey(email), "json");
+  if (!pr || pr.availability === "not_looking") return null;
+  const cv = await env.JOBS_CACHE.get<StoredCV>(`cv:${email}`, "json");
+  const text = [pr.headline, (pr.skills ?? []).join(", "), pr.education, cv?.markdown ?? ""].filter(Boolean).join("\n").trim();
+  if (!text) return null;
+  const cid = candidateId(email);
+  return { id: cid, name: pr.name || "Candidate", headline: pr.headline, sector: pr.sector || "Other", location: pr.location, skills: pr.skills, source: "platform", text };
+}
+
+/** Re-index a candidate after their profile or CV changes (write-time embedding). */
+async function indexCandidate(env: Env, email: string): Promise<void> {
+  const doc = await buildCandidateDoc(env, email);
+  if (!doc) return;
+  await env.JOBS_CACHE.put(`cidmap:${doc.id}`, email);
+  await indexDoc(env, doc);
+}
+
 async function listCandidatesBySector(env: Env): Promise<Record<string, CandidateCard[]>> {
   const { keys } = await env.JOBS_CACHE.list({ prefix: "profile:" });
   const grouped: Record<string, CandidateCard[]> = {};
