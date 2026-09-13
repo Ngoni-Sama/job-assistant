@@ -61,6 +61,18 @@ export async function rankCandidates(
 ): Promise<{ answer: string; matches: RagMatch[] }> {
   if (!docs.length) return { answer: "No candidates match those filters yet.", matches: [] };
 
+  // When a Vectorize index is bound, use it for the vector search (scales past
+  // in-KV cosine). Falls back to KV cosine on any error, and either way results
+  // are intersected with the caller's already-scoped docs — so pool / exclude /
+  // per-employer filtering (and privacy) are preserved.
+  if (env.VECTORIZE) {
+    try {
+      return await rankViaVectorize(env, query, docs, topK);
+    } catch (err) {
+      console.error("Vectorize search failed — falling back to KV cosine", err);
+    }
+  }
+
   // 1) resolve/refresh embeddings (batch the uncached ones in a single call)
   const vecById = new Map<string, number[]>();
   const uncached: RagDoc[] = [];
@@ -94,8 +106,51 @@ export async function rankCandidates(
     .slice(0, topK);
 
   // 3) generate concise fit reasons for the top candidates
-  const reasons = await explainMatches(env, query, ranked.map((r) => r.d));
+  return finalize(env, query, ranked);
+}
 
+/** Vector search via a bound Cloudflare Vectorize index. */
+async function rankViaVectorize(
+  env: Env,
+  query: string,
+  docs: RagDoc[],
+  topK: number,
+): Promise<{ answer: string; matches: RagMatch[] }> {
+  const idx = env.VECTORIZE!;
+  const byId = new Map(docs.map((d) => [d.id, d]));
+
+  // Upsert the current (already-scoped) docs so the index has them, then query.
+  // Upsert is idempotent; for very large pools move this to write-time.
+  const vecs = await embed(env, docs.map((d) => d.text.slice(0, MAX_DOC_CHARS)));
+  const vectors = docs
+    .map((d, i) => ({
+      id: d.id,
+      values: vecs[i],
+      metadata: { source: d.source, sector: d.sector ?? "", location: d.location ?? "" },
+    }))
+    .filter((v) => v.values && v.values.length);
+  if (vectors.length) await idx.upsert(vectors as never);
+
+  const [qVec] = await embed(env, [query.slice(0, 512)]);
+  if (!qVec) return { answer: "Couldn’t process that query — try again.", matches: [] };
+  const res = (await idx.query(qVec, { topK: Math.min(topK * 5, 100) })) as {
+    matches?: { id: string; score: number }[];
+  };
+  // Intersect with the caller's scoped docs — preserves pool/exclude/privacy.
+  const ranked = (res.matches ?? [])
+    .map((m) => ({ d: byId.get(m.id), score: m.score }))
+    .filter((x): x is { d: RagDoc; score: number } => !!x.d)
+    .slice(0, topK);
+  return finalize(env, query, ranked);
+}
+
+/** Attach AI fit reasons and shape the response. */
+async function finalize(
+  env: Env,
+  query: string,
+  ranked: { d: RagDoc; score: number }[],
+): Promise<{ answer: string; matches: RagMatch[] }> {
+  const reasons = await explainMatches(env, query, ranked.map((r) => r.d));
   const matches: RagMatch[] = ranked.map(({ d, score }) => ({
     id: d.id,
     name: d.name,
@@ -108,7 +163,6 @@ export async function rankCandidates(
     reason: reasons.byId[d.id] ?? "Relevant to your query.",
     locked: d.source === "platform",
   }));
-
   const answer =
     reasons.summary ||
     `Found ${matches.length} candidate${matches.length === 1 ? "" : "s"} ranked by fit for “${query}”.`;

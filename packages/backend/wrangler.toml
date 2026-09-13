@@ -27,6 +27,14 @@ id = "5ea4ce669eea485b97817519327c6446"
 # binding = "CV_BUCKET"
 # bucket_name = "job-assistant-cvs"
 
+# Vectorize — recruiter candidate search (OPTIONAL). The RAG search works in-KV
+# (cosine over cached embeddings) by default. For a large candidate pool, create
+# a Vectorize index and uncomment the binding — the code auto-switches to it:
+#   npx wrangler vectorize create candidates --dimensions=768 --metric=cosine
+# [[vectorize]]
+# binding = "VECTORIZE"
+# index_name = "candidates"
+
 # Cron — automated scraping every 6 hours
 [triggers]
 crons = ["0 */6 * * *"]

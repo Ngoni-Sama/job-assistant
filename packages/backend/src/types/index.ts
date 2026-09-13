@@ -4,6 +4,7 @@ export interface Env {
   AI: Ai;
   JOBS_CACHE: KVNamespace;
   CV_BUCKET?: R2Bucket; // optional — only bound when R2 is enabled
+  VECTORIZE?: VectorizeIndex; // optional — recruiter candidate-search index (scales beyond in-KV cosine)
   DEFAULT_SCRAPE_URL: string;
   SERPER_API_KEY?: string;
   RESEND_API_KEY?: string; // optional — enables real application email sending

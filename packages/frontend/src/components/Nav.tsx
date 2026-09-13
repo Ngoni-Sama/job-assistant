@@ -12,6 +12,7 @@ import {
   Shield,
   Zap,
   Wand2,
+  Sparkles,
   Coins,
   User,
   Radar,
@@ -39,6 +40,7 @@ const primary: Item[] = [
 const secondary: Item[] = [
   { href: "/applications", label: "Applications", icon: Send },
   { href: "/verification", label: "Get verified", icon: ShieldCheck },
+  { href: "/employers/search", label: "Find talent", icon: Sparkles },
   { href: "/archive", label: "Archive", icon: Archive },
   { href: "/nearby", label: "Nearby", icon: Radar },
   { href: "/messages", label: "Messages", icon: MessageSquare },
