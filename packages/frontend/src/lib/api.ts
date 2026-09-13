@@ -16,6 +16,8 @@ import type {
   Prefs,
   Profile,
   QuickMatchRun,
+  RecruiterCv,
+  RecruiterSearchResult,
   ScrapeSource,
   ScrapeStats,
   SendResult,
@@ -133,6 +135,26 @@ export const api = {
   markResponded: (jobId: string, responded: boolean) =>
     req<{ ok: boolean }>("/api/apply/responded", jsonBody({ jobId, responded })),
   getCandidates: () => req<{ sectors: Record<string, CandidateCard[]> }>("/api/candidates"),
+  recruiterSearch: (body: {
+    query: string;
+    sector?: string;
+    location?: string;
+    pool?: "all" | "platform" | "mine";
+    excludeIds?: string[];
+    limit?: number;
+  }) => req<RecruiterSearchResult>("/api/recruiter/search", jsonBody(body)),
+  getRecruiterCvs: () => req<{ cvs: RecruiterCv[] }>("/api/recruiter/cvs"),
+  uploadRecruiterCv: (file: File, meta?: { name?: string; headline?: string; sector?: string; location?: string }) => {
+    const form = new FormData();
+    form.append("cv", file);
+    if (meta?.name) form.append("name", meta.name);
+    if (meta?.headline) form.append("headline", meta.headline);
+    if (meta?.sector) form.append("sector", meta.sector);
+    if (meta?.location) form.append("location", meta.location);
+    return req<{ cv: RecruiterCv }>("/api/recruiter/cvs", { method: "POST", body: form });
+  },
+  deleteRecruiterCv: (id: string) =>
+    req<{ ok: boolean }>("/api/recruiter/cvs", { ...jsonBody({ id }), method: "DELETE" }),
   getShortlist: () =>
     req<{ shortlist: CandidateCard[]; unlocked: Record<string, string> }>("/api/employer/shortlist"),
   shortlistCandidate: (candidate: CandidateCard) =>

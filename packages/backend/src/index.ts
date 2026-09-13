@@ -28,6 +28,8 @@ import { sendApplication } from "./lib/email";
 import { getConfig, saveConfig, type AppConfig } from "./lib/ai/provider";
 import { quickMatch, type QuickMatchRun } from "./lib/ai/quickmatch";
 import { extractProfile } from "./lib/ai/profileextract";
+import { cleanCvMarkdown } from "./lib/cvclean";
+import { rankCandidates, type RagDoc } from "./lib/ai/rag";
 import { charge, getCredits, addCredits, COSTS } from "./lib/credits";
 import { PACKS, createCheckoutSession, verifyWebhook } from "./lib/stripe";
 import { CHECKS, findCheck } from "./lib/checks";
@@ -55,6 +57,9 @@ const PROTECTED = new Set([
   "POST /api/employer",
   "POST /api/checks/order",
   "POST /api/cvs/create",
+  "POST /api/recruiter/cvs",
+  "DELETE /api/recruiter/cvs",
+  "POST /api/recruiter/search",
   "POST /api/cvs/primary",
   "POST /api/cvs/rename",
   "POST /api/cvs/update",
@@ -617,6 +622,111 @@ export default {
           return json({ error: "Approved employer account required" }, { status: 403 });
         }
         return json({ sectors: await listCandidatesBySector(env) });
+      }
+
+      // Recruiter CV pool — upload candidate CVs to search over. Approved only.
+      if (path === "/api/recruiter/cvs") {
+        const employer = await getEmployer(env, userId);
+        if (employer?.status !== "approved") {
+          return json({ error: "Approved employer account required" }, { status: 403 });
+        }
+        const rkey = `rcv:${userId}`;
+        type RCv = { id: string; fileName: string; name: string; headline: string; sector: string; location: string; markdown: string; uploadedAt: string };
+        const listAll = async () => (await env.JOBS_CACHE.get<RCv[]>(rkey, "json")) ?? [];
+        if (request.method === "GET") {
+          const list = await listAll();
+          return json({ cvs: list.map(({ markdown: _m, ...meta }) => meta) });
+        }
+        if (request.method === "POST") {
+          const form = await request.formData();
+          const entry = form.get("cv");
+          if (!entry || typeof entry === "string") return json({ error: "No CV file" }, { status: 400 });
+          const file = entry as File;
+          let markdown = "";
+          try {
+            const results = await env.AI.toMarkdown([
+              { name: file.name, blob: new Blob([await file.arrayBuffer()], { type: file.type || "application/pdf" }) },
+            ]);
+            const first = results?.[0];
+            markdown = first && "data" in first ? first.data : "";
+          } catch (err) {
+            console.error("recruiter toMarkdown failed", err);
+          }
+          markdown = cleanCvMarkdown(markdown);
+          const id = `rc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const field = (n: string) => (form.get(n)?.toString() ?? "").trim();
+          const firstLine = markdown.split("\n").map((l) => l.replace(/[#*_>-]/g, "").trim()).find(Boolean) ?? "";
+          const name = field("name") || (firstLine.length <= 40 ? firstLine : "") || file.name.replace(/\.[^.]+$/, "");
+          const rec: RCv = { id, fileName: file.name, name, headline: field("headline"), sector: field("sector"), location: field("location"), markdown, uploadedAt: new Date().toISOString() };
+          const list = await listAll();
+          list.push(rec);
+          await env.JOBS_CACHE.put(rkey, JSON.stringify(list));
+          const { markdown: _m, ...meta } = rec;
+          return json({ cv: meta });
+        }
+        if (request.method === "DELETE") {
+          const { id } = (await request.json()) as { id?: string };
+          const list = (await listAll()).filter((c) => c.id !== id);
+          await env.JOBS_CACHE.put(rkey, JSON.stringify(list));
+          return json({ ok: true });
+        }
+      }
+
+      // Recruiter RAG candidate search. Approved employers only.
+      if (path === "/api/recruiter/search" && request.method === "POST") {
+        const employer = await getEmployer(env, userId);
+        if (employer?.status !== "approved") {
+          return json({ error: "Approved employer account required" }, { status: 403 });
+        }
+        const body = (await request.json()) as {
+          query?: string;
+          sector?: string;
+          location?: string;
+          pool?: "all" | "platform" | "mine";
+          excludeIds?: string[];
+          limit?: number;
+        };
+        const query = body.query?.trim();
+        if (!query) return json({ error: "Describe the candidate you're looking for" }, { status: 400 });
+        const pool = body.pool ?? "all";
+        const exclude = new Set(body.excludeIds ?? []);
+        const sector = body.sector?.trim();
+        const location = body.location?.trim().toLowerCase();
+        const docs: RagDoc[] = [];
+
+        if (pool !== "mine") {
+          const { keys } = await env.JOBS_CACHE.list({ prefix: "profile:" });
+          for (const k of keys) {
+            if (docs.length >= 60) break;
+            const email = k.name.slice("profile:".length);
+            const pr = await env.JOBS_CACHE.get<Profile>(k.name, "json");
+            if (!pr || pr.availability === "not_looking") continue;
+            const cid = candidateId(email);
+            if (exclude.has(cid)) continue;
+            if (sector && (pr.sector || "Other") !== sector) continue;
+            if (location && !(pr.location ?? "").toLowerCase().includes(location)) continue;
+            const cv = await env.JOBS_CACHE.get<StoredCV>(`cv:${email}`, "json");
+            const text = [pr.headline, (pr.skills ?? []).join(", "), pr.education, cv?.markdown ?? ""].filter(Boolean).join("\n").trim();
+            if (!text) continue;
+            await env.JOBS_CACHE.put(`cidmap:${cid}`, email);
+            docs.push({ id: cid, name: pr.name || "Candidate", headline: pr.headline, sector: pr.sector || "Other", location: pr.location, skills: pr.skills, source: "platform", text });
+          }
+        }
+        if (pool !== "platform") {
+          type RCv = { id: string; name: string; headline: string; sector: string; location: string; markdown: string };
+          const mine = (await env.JOBS_CACHE.get<RCv[]>(`rcv:${userId}`, "json")) ?? [];
+          for (const c of mine) {
+            if (exclude.has(c.id)) continue;
+            if (sector && c.sector && c.sector !== sector) continue;
+            if (location && c.location && !c.location.toLowerCase().includes(location)) continue;
+            const text = [c.headline, c.markdown].filter(Boolean).join("\n").trim();
+            if (!text) continue;
+            docs.push({ id: c.id, name: c.name, headline: c.headline, sector: c.sector, location: c.location, skills: [], source: "mine", text });
+          }
+        }
+
+        const limit = Math.min(Math.max(body.limit ?? 10, 1), 15);
+        return json(await rankCandidates(env, query, docs, limit));
       }
 
       // Employer shortlist (swipe-right). Approved employers only.

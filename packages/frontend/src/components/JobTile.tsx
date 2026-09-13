@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, CalendarClock, Wallet, ExternalLink, CheckCircle2, Mail, Eye } from "lucide-react";
+import { MapPin, CalendarClock, Wallet, CheckCircle2, Mail, Eye } from "lucide-react";
 import type { JobListing, JobScore, StoredCV } from "@/lib/types";
 import { CompanyLogo, isExpired, formatDate } from "./CompanyLogo";
 import { RadialApply } from "./RadialApply";
@@ -111,14 +111,6 @@ export function JobTile({
         >
           <Eye className="h-3.5 w-3.5" /> View
         </Link>
-        <a
-          href={job.applyLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 rounded-full border border-white/50 bg-white/50 px-3 py-2 text-sm text-gray-500 hover:bg-white/70"
-        >
-          Source <ExternalLink className="h-3.5 w-3.5" />
-        </a>
       </div>
     </div>
   );

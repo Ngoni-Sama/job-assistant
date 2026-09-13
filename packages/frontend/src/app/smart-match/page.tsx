@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { Zap, Heart, Lock } from "lucide-react";
 import { api } from "@/lib/api";
@@ -26,6 +26,8 @@ export default function SmartMatchPage() {
   const [cvs, setCvs] = useState<StoredCV[]>([]);
   const [activeCvId, setActiveCvId] = useState<string | undefined>();
   const [error, setError] = useState("");
+  // Category (job-type) filter — mirrors the dashboard's "My categories".
+  const [selectedCats, setSelectedCats] = useState<string[]>([]);
 
   // Gate guests after GUEST_LIMIT swipes — their picks are still captured.
   const locked = !authed && guestSwipes >= GUEST_LIMIT;
@@ -41,6 +43,27 @@ export default function SmartMatchPage() {
       /* ignore */
     }
   }, []);
+
+  // Seed the filter from the user's saved categories once signed in.
+  useEffect(() => {
+    if (authed) api.getPrefs().then((r) => setSelectedCats(r.prefs.categories ?? [])).catch(() => {});
+  }, [authed]);
+
+  // Job types present in the current jobs, for the filter chips.
+  const jobTypes = useMemo(
+    () => [...new Set(jobs.map((j) => j.jobType).filter(Boolean))] as string[],
+    [jobs],
+  );
+
+  // Only swipe through jobs in the selected categories (all when none picked).
+  const deckJobs = useMemo(
+    () => (selectedCats.length ? jobs.filter((j) => j.jobType && selectedCats.includes(j.jobType)) : jobs),
+    [jobs, selectedCats],
+  );
+
+  function toggleCat(cat: string) {
+    setSelectedCats((prev) => (prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]));
+  }
 
   function onDecision(job: JobListing, isLiked: boolean) {
     // Always capture the preference (liked or skipped) so it survives sign-in.
@@ -104,6 +127,30 @@ export default function SmartMatchPage() {
         <p className="mt-1 text-gray-600">Right to apply, left to skip. It’s that simple.</p>
       </div>
 
+      {jobTypes.length > 0 && (
+        <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2">
+          <button
+            onClick={() => setSelectedCats([])}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              selectedCats.length === 0 ? "bg-brand-600 text-white" : "bg-white/70 text-gray-600 hover:bg-white"
+            }`}
+          >
+            All
+          </button>
+          {jobTypes.map((t) => (
+            <button
+              key={t}
+              onClick={() => toggleCat(t)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                selectedCats.includes(t) ? "bg-brand-600 text-white" : "bg-white/70 text-gray-600 hover:bg-white"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
+
       {error && (
         <div className="mx-auto max-w-sm rounded-2xl bg-red-50/80 p-3 text-center text-sm text-red-700">
           {error}
@@ -114,7 +161,13 @@ export default function SmartMatchPage() {
         <p className="text-center text-gray-500">Loading jobs…</p>
       ) : (
         <div className="relative">
-          <SwipeDeck jobs={jobs} onDecision={onDecision} locked={locked} />
+          {deckJobs.length === 0 ? (
+            <p className="py-12 text-center text-gray-500">
+              No jobs in the selected categories — pick “All” or different filters above.
+            </p>
+          ) : (
+            <SwipeDeck jobs={deckJobs} onDecision={onDecision} locked={locked} />
+          )}
           {locked && (
             <div className="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-white/70 backdrop-blur-sm">
               <div className="glass-strong mx-4 max-w-xs rounded-2xl p-6 text-center">

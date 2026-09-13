@@ -206,6 +206,34 @@ export interface Profile {
   updatedAt: string;
 }
 
+export interface RecruiterCv {
+  id: string;
+  fileName: string;
+  name: string;
+  headline: string;
+  sector: string;
+  location: string;
+  uploadedAt: string;
+}
+
+export interface CandidateMatch {
+  id: string;
+  name: string;
+  headline?: string;
+  sector?: string;
+  location?: string;
+  skills?: string[];
+  source: "platform" | "mine";
+  score: number;
+  reason: string;
+  locked: boolean;
+}
+
+export interface RecruiterSearchResult {
+  answer: string;
+  matches: CandidateMatch[];
+}
+
 export interface JobScore {
   jobId: string;
   score: number;

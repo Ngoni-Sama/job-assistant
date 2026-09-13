@@ -14,6 +14,7 @@ import {
   BadgeCheck,
   Mail,
   Zap,
+  Sparkles,
   MessageSquare,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -125,12 +126,20 @@ export default function CandidateBrowsePage() {
           <h1 className="flex items-center gap-2 text-2xl font-bold">
             <Users className="h-6 w-6 text-brand-600" /> Browse candidates
           </h1>
-          <Link
-            href="/employers/swipe"
-            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-md"
-          >
-            <Zap className="h-4 w-4" /> Swipe mode
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/employers/search"
+              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-md"
+            >
+              <Sparkles className="h-4 w-4" /> Find talent with AI
+            </Link>
+            <Link
+              href="/employers/swipe"
+              className="flex items-center gap-1.5 rounded-full border border-brand-200 bg-white px-4 py-2 text-sm font-medium text-brand-700"
+            >
+              <Zap className="h-4 w-4" /> Swipe mode
+            </Link>
+          </div>
         </div>
         <p className="text-sm text-gray-500">Available talent grouped by sector.</p>
       </div>
