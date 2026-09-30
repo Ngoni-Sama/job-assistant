@@ -46,16 +46,24 @@ if [ -d ../../.git ]; then
   (cd ../.. && git pull --ff-only) || echo "   (skipped: not a fast-forward / no remote)"
 fi
 
-if [ ! -f .env.production ] && [ -z "${AUTH_SECRET:-}" ]; then
-  echo "WARNING: no .env.production and AUTH_SECRET not set — sign-in will fail." >&2
-  echo "         Copy .env.example → .env.production and fill it in, or set vars in cPanel." >&2
+if [ ! -f .env.production ]; then
+  echo "NOTE: no .env.production here — that's fine if the variables are set in"
+  echo "      cPanel > Setup Node.js App > Environment variables (they aren't visible in this shell)."
 fi
 
-# This is an npm workspace: install ONLY the frontend's deps (from the repo
-# root, using the lockfile) — skips the backend's heavy wrangler/workerd.
-# cPanel sets NODE_ENV=production, which skips devDependencies — the build needs them.
-echo "==> installing frontend dependencies (incl. dev)"
-(cd ../.. && npm install --include=dev --workspace=packages/frontend)
+# Install in THIS folder (the cPanel app root) as a standalone app: CloudLinux's
+# npm runs inside the app root, so monorepo `--workspace` flags don't apply.
+# `--workspaces=false` stops npm climbing to the repo root (and pulling the
+# backend's wrangler/workerd). Runtime versions are pinned exactly in
+# package.json so they match the prebuilt .next.
+if [ "$BUILD" = "1" ]; then
+  # cPanel sets NODE_ENV=production (skips devDependencies) — the build needs them.
+  echo "==> installing frontend dependencies (incl. dev, for the build)"
+  npm install --include=dev --workspaces=false --no-audit --no-fund
+else
+  echo "==> installing frontend runtime dependencies"
+  npm install --omit=dev --workspaces=false --no-audit --no-fund
+fi
 
 if [ "$BUILD" = "1" ]; then
   echo "==> building Next.js (thread-limited for CloudLinux LVE)"

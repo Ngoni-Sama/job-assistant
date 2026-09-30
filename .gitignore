@@ -45,3 +45,5 @@ coverage/
 # nivacity deploy artifacts
 *.tar.gz
 tmp/
+# created on the server by the standalone npm install
+packages/frontend/package-lock.json
