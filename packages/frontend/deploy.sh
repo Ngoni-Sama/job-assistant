@@ -51,16 +51,19 @@ if [ ! -f .env.production ] && [ -z "${AUTH_SECRET:-}" ]; then
   echo "         Copy .env.example → .env.production and fill it in, or set vars in cPanel." >&2
 fi
 
+# This is an npm workspace: install ONLY the frontend's deps (from the repo
+# root, using the lockfile) — skips the backend's heavy wrangler/workerd.
 # cPanel sets NODE_ENV=production, which skips devDependencies — the build needs them.
-echo "==> installing dependencies (incl. dev)"
-npm install --include=dev
+echo "==> installing frontend dependencies (incl. dev)"
+(cd ../.. && npm install --include=dev --workspace=packages/frontend)
 
 if [ "$BUILD" = "1" ]; then
   echo "==> building Next.js (thread-limited for CloudLinux LVE)"
   export UV_THREADPOOL_SIZE=1
   export NODE_OPTIONS="--max-old-space-size=768 --v8-pool-size=0"
+  export LOW_RESOURCE_BUILD=1
   npm run build
-  unset NODE_OPTIONS
+  unset NODE_OPTIONS LOW_RESOURCE_BUILD
 else
   echo "==> skipping build (--no-build); using existing .next"
   if [ ! -d .next ]; then
@@ -68,6 +71,13 @@ else
     exit 1
   fi
 fi
+
+# A default cPanel index.html in the domain's public_html shadows the Node app.
+for f in "$HOME"/domains/vacancypal.co.zw/public_html/index.html "$HOME"/public_html/vacancypal.co.zw/index.html; do
+  if [ -f "$f" ]; then
+    echo "WARNING: $f exists and will shadow the app — rename or delete it."
+  fi
+done
 
 echo "==> triggering Passenger restart"
 mkdir -p tmp && touch tmp/restart.txt

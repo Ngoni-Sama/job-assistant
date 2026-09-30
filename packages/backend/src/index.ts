@@ -109,11 +109,11 @@ export default {
         }
         // Attach Pesepay's own reference number to our pending record.
         if (path === "/api/internal/pending-map" && request.method === "POST") {
-          const b = (await request.json()) as { reference?: string; pesepayRef?: string };
+          const b = (await request.json()) as { reference?: string; pesepayRef?: string; pollUrl?: string };
           const key = `pending:${b.reference ?? ""}`;
           const pending = await env.JOBS_CACHE.get<Record<string, unknown>>(key, "json");
           if (!pending || !b.pesepayRef) return json({ error: "Unknown payment reference" }, { status: 404 });
-          await env.JOBS_CACHE.put(key, JSON.stringify({ ...pending, pesepayRef: b.pesepayRef }), { expirationTtl: 60 * 60 * 24 * 3 });
+          await env.JOBS_CACHE.put(key, JSON.stringify({ ...pending, pesepayRef: b.pesepayRef, pollUrl: b.pollUrl }), { expirationTtl: 60 * 60 * 24 * 3 });
           return json({ ok: true });
         }
         // Read a pending record (for verify: owner + Pesepay reference).

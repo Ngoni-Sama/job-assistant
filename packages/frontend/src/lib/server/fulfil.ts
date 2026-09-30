@@ -1,8 +1,8 @@
 import "server-only";
-import { checkPesepay, isPaid } from "@/lib/pesepay";
+import { checkPesepay } from "@/lib/pesepay";
 import { workerInternal } from "@/lib/server/worker";
 
-type Pending = { userId: string; credits: number; amount: number; pesepayRef?: string };
+type Pending = { userId: string; credits: number; amount: number; pesepayRef?: string; pollUrl?: string };
 
 export type FulfilResult =
   | { status: "paid"; credited: number; balance: number | null; already?: boolean }
@@ -27,10 +27,10 @@ export async function fulfilPayment(reference: string, expectUser?: string): Pro
     );
     return { status: "paid", credited: 0, balance: r.balance, already: true };
   }
-  if (!pending.pesepayRef) return { status: "pending" };
+  if (!pending.pollUrl && !pending.pesepayRef) return { status: "pending" };
 
-  const check = await checkPesepay(pending.pesepayRef);
-  if (!isPaid(check)) {
+  const check = await checkPesepay({ pollUrl: pending.pollUrl, referenceNumber: pending.pesepayRef });
+  if (!check.paid) {
     const s = (check.transactionStatus ?? "").toUpperCase();
     const failed = ["FAILED", "CANCELLED", "DECLINED", "ERROR", "TIME_OUT", "TIMEOUT"].includes(s);
     return { status: failed ? "failed" : "pending", transactionStatus: check.transactionStatus };
@@ -38,7 +38,7 @@ export async function fulfilPayment(reference: string, expectUser?: string): Pro
 
   const r = await workerInternal<{ credited: number; balance: number | null; already?: boolean }>(
     "/api/internal/credit",
-    { reference, userId: pending.userId, paidAmount: check.amountDetails?.amount },
+    { reference, userId: pending.userId, paidAmount: check.amount },
   );
   return { status: "paid", credited: r.credited, balance: r.balance, already: r.already };
 }

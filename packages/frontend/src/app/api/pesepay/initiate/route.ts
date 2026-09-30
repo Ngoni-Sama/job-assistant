@@ -42,7 +42,11 @@ export async function POST(req: Request) {
     });
 
     // Map our reference → Pesepay's reference number so verify can look it up.
-    await workerInternal("/api/internal/pending-map", { reference, pesepayRef: result.referenceNumber }).catch(() => {});
+    await workerInternal("/api/internal/pending-map", {
+      reference,
+      pesepayRef: result.referenceNumber,
+      pollUrl: result.pollUrl,
+    });
 
     return Response.json({ redirectUrl: result.redirectUrl, reference, pesepayRef: result.referenceNumber });
   } catch (err) {
