@@ -80,12 +80,30 @@ export interface AppConfig {
   aiProvider: "workers-ai" | "openai";
   openaiApiKey?: string;
   openaiModel: string;
+  openaiForDocuments: boolean;
   features: {
     vacancymail: boolean;
     jobszimbabwe: boolean;
     googleJobs: boolean;
     autoApplyAllowed: boolean;
   };
+  payments: {
+    provider: "pesepay" | "stripe" | "none";
+    currency: string;
+    freeCredits: number;
+  };
+  site: {
+    name: string;
+    tagline: string;
+    supportEmail: string;
+    maintenanceMode: boolean;
+  };
+  packs: CreditPack[];
+}
+
+export interface SiteSettings {
+  site: AppConfig["site"];
+  payments: AppConfig["payments"];
 }
 
 export interface Me {

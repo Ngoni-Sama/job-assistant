@@ -1,6 +1,7 @@
 import type { Env } from "../types";
+import { getConfig } from "./ai/provider";
 
-/** Free credits granted to a new account on first use. */
+/** Default free credits for a new account (admin can override in settings). */
 export const FREE_CREDITS = 50;
 
 /** Credit cost per AI action. Tune freely — these are deducted server-side. */
@@ -16,8 +17,9 @@ const key = (userId: string) => `credits:${userId}`;
 export async function getCredits(env: Env, userId: string): Promise<number> {
   const raw = await env.JOBS_CACHE.get(key(userId));
   if (raw === null) {
-    await env.JOBS_CACHE.put(key(userId), String(FREE_CREDITS));
-    return FREE_CREDITS;
+    const free = (await getConfig(env)).payments.freeCredits ?? FREE_CREDITS;
+    await env.JOBS_CACHE.put(key(userId), String(free));
+    return free;
   }
   return Number(raw) || 0;
 }

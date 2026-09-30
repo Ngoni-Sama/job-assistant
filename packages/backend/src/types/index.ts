@@ -13,6 +13,7 @@ export interface Env {
   STRIPE_SECRET_KEY?: string; // Stripe secret (sk_...) for Checkout
   STRIPE_WEBHOOK_SECRET?: string; // Stripe webhook signing secret (whsec_...)
   APP_URL?: string; // frontend origin for Checkout success/cancel URLs
+  INTERNAL_SECRET?: string; // shared secret guarding server-to-server credit endpoints (Pesepay fulfilment)
 }
 
 export interface JobListing {

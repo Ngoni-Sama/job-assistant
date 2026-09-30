@@ -20,6 +20,7 @@ import type {
   RecruiterSearchResult,
   ScrapeSource,
   ScrapeStats,
+  SiteSettings,
   SendResult,
   StoredCV,
 } from "./types";
@@ -111,7 +112,9 @@ export const api = {
   },
   getMe: () => req<Me>("/api/me"),
   getCredits: () => req<{ balance: number; costs: Record<string, number> }>("/api/credits"),
-  getPacks: () => req<{ packs: CreditPack[] }>("/api/billing/packs"),
+  getPacks: () =>
+    req<{ packs: CreditPack[]; provider: "pesepay" | "stripe" | "none"; currency: string }>("/api/billing/packs"),
+  getSite: () => req<SiteSettings>("/api/site"),
   checkout: (packId: string) => req<{ url: string }>("/api/billing/checkout", jsonBody({ packId })),
   runQuickMatch: () => req<{ run: QuickMatchRun }>("/api/quick-match", { method: "POST" }),
   getQuickMatchHistory: () => req<{ history: QuickMatchRun[] }>("/api/quick-match/history"),
@@ -220,4 +223,30 @@ export const api = {
       ...jsonBody({ url }),
       method: "DELETE",
     }),
+};
+
+/**
+ * Pesepay top-ups run on THIS Next.js server (it holds the Pesepay keys), not
+ * the Worker — so these call same-origin routes.
+ */
+async function local<T>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: body === undefined ? "GET" : "POST",
+    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? `Request failed: ${res.status}`);
+  return data;
+}
+
+export const payments = {
+  initiate: (packId: string) => local<{ redirectUrl: string; reference: string }>("/api/pesepay/initiate", { packId }),
+  verify: (reference: string) =>
+    local<
+      | { status: "paid"; credited: number; balance: number | null; already?: boolean }
+      | { status: "pending" | "failed"; transactionStatus?: string }
+    >("/api/pesepay/verify", { reference }),
+  health: () =>
+    local<{ pesepayConfigured: boolean; internalSecretConfigured: boolean; appUrl: string | null }>("/api/pesepay/health"),
 };

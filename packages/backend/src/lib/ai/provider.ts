@@ -1,21 +1,52 @@
 import type { Env } from "../../types";
 
+export interface CreditPackConfig {
+  id: string;
+  label: string;
+  credits: number;
+  priceCents: number; // in `payments.currency`
+}
+
 export interface AppConfig {
   aiProvider: "workers-ai" | "openai";
   openaiApiKey?: string;
   openaiModel: string;
+  /** Use OpenAI (when a key is set) for CV/cover-letter document generation. */
+  openaiForDocuments: boolean;
   features: {
     vacancymail: boolean;
     jobszimbabwe: boolean;
     googleJobs: boolean;
     autoApplyAllowed: boolean;
   };
+  payments: {
+    provider: "pesepay" | "stripe" | "none";
+    currency: string; // e.g. "USD"
+    freeCredits: number; // granted to new accounts
+  };
+  site: {
+    name: string;
+    tagline: string;
+    supportEmail: string;
+    maintenanceMode: boolean;
+  };
+  /** Admin-editable top-up packs. Empty → built-in defaults. */
+  packs: CreditPackConfig[];
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
   aiProvider: "workers-ai",
   openaiModel: "gpt-4o-mini",
+  openaiForDocuments: true,
   features: { vacancymail: true, jobszimbabwe: true, googleJobs: false, autoApplyAllowed: true },
+  payments: { provider: "pesepay", currency: "USD", freeCredits: 50 },
+  site: {
+    name: "VacancyPal",
+    tagline: "Sit back, relax — let AI apply for you.",
+    supportEmail: "",
+    maintenanceMode: false,
+  },
+  packs: [],
 };
 
 const CONFIG_KEY = "config:app";
@@ -25,8 +56,17 @@ const CONFIG_KEY = "config:app";
 const WORKERS_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
 export async function getConfig(env: Env): Promise<AppConfig> {
-  const stored = await env.JOBS_CACHE.get<AppConfig>(CONFIG_KEY, "json");
-  return stored ? { ...DEFAULT_CONFIG, ...stored } : DEFAULT_CONFIG;
+  const stored = await env.JOBS_CACHE.get<Partial<AppConfig>>(CONFIG_KEY, "json");
+  if (!stored) return DEFAULT_CONFIG;
+  // Deep-merge nested groups so new settings get defaults on old stored configs.
+  return {
+    ...DEFAULT_CONFIG,
+    ...stored,
+    features: { ...DEFAULT_CONFIG.features, ...(stored.features ?? {}) },
+    payments: { ...DEFAULT_CONFIG.payments, ...(stored.payments ?? {}) },
+    site: { ...DEFAULT_CONFIG.site, ...(stored.site ?? {}) },
+    packs: stored.packs ?? [],
+  };
 }
 
 export async function saveConfig(env: Env, config: AppConfig): Promise<void> {
@@ -55,11 +95,26 @@ function asText(v: unknown): string {
  * defensively, since JSON mode isn't guaranteed 100% of the time.
  */
 export async function chat(env: Env, messages: ChatMessage[], maxTokens = 600, json = false): Promise<string> {
+  return run(env, messages, maxTokens, json, false);
+}
+
+/**
+ * Chat for DOCUMENT generation (tailored CVs, cover letters). Uses OpenAI when
+ * an admin has set a key and enabled "OpenAI for documents" — even if the rest
+ * of the app runs on Workers AI — then falls back to Workers AI on any failure.
+ */
+export async function docChat(env: Env, messages: ChatMessage[], maxTokens = 900, json = false): Promise<string> {
+  return run(env, messages, maxTokens, json, true);
+}
+
+async function run(env: Env, messages: ChatMessage[], maxTokens: number, json: boolean, forDocuments: boolean): Promise<string> {
   const cfg = await getConfig(env);
+  const useOpenAI =
+    !!cfg.openaiApiKey && (cfg.aiProvider === "openai" || (forDocuments && cfg.openaiForDocuments));
 
   // Prefer OpenAI when configured, but NEVER let a bad key break the product —
   // fall back to Workers AI if the OpenAI call fails for any reason.
-  if (cfg.aiProvider === "openai" && cfg.openaiApiKey) {
+  if (useOpenAI && cfg.openaiApiKey) {
     try {
       return await openaiChat(cfg.openaiApiKey, cfg.openaiModel, messages, maxTokens, json);
     } catch (err) {

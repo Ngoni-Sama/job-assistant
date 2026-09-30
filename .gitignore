@@ -41,3 +41,7 @@ coverage/
 
 # TS incremental build info
 *.tsbuildinfo
+
+# nivacity deploy artifacts
+*.tar.gz
+tmp/

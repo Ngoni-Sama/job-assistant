@@ -48,3 +48,35 @@ ADMIN_EMAILS = "1ngoni.maphosa@gmail.com"
 APP_URL = "https://job-assistant-frontend-tau.vercel.app"
 # STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET are set via `wrangler secret put`.
 # SERPER_API_KEY is set via: npx wrangler secret put SERPER_API_KEY
+
+# ═════════════════════════════════════════════════════════════════════════════
+# PRODUCTION (vacancypal.co.zw on nivacity) — a SEPARATE worker + KV so real
+# payments/credits never mix with dev/test data. The default (top-level) config
+# above stays the dev/test environment (auto-deployed by GitHub Actions).
+#
+# One-time setup (run in packages/backend):
+#   npx wrangler kv namespace create JOBS_CACHE --env production
+#     → paste the returned id below (replace REPLACE_WITH_PROD_KV_ID)
+#   npx wrangler secret put INTERNAL_SECRET --env production   # same value as the frontend's WORKER_INTERNAL_SECRET
+# Deploy:
+#   npx wrangler deploy --env production
+# Worker URL: https://vacancypal-api.ma360-ngoni.workers.dev
+# (bindings/vars below are NOT inherited from the top level, so they're repeated.)
+# ═════════════════════════════════════════════════════════════════════════════
+[env.production]
+name = "vacancypal-api"
+
+[env.production.ai]
+binding = "AI"
+
+[[env.production.kv_namespaces]]
+binding = "JOBS_CACHE"
+id = "REPLACE_WITH_PROD_KV_ID"
+
+[env.production.triggers]
+crons = ["0 */6 * * *"]
+
+[env.production.vars]
+DEFAULT_SCRAPE_URL = "https://vacancymail.co.zw/jobs/"
+ADMIN_EMAILS = "1ngoni.maphosa@gmail.com"
+APP_URL = "https://vacancypal.co.zw"

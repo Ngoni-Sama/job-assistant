@@ -1,5 +1,5 @@
 import type { Env, JobDetail, JobListing } from "../../types";
-import { chat } from "./provider";
+import { docChat } from "./provider";
 
 export interface TailoredApplication {
   summary: string; // tailored professional summary added on top of the CV
@@ -38,7 +38,7 @@ export async function tailorApplication(
 
   let raw = "";
   try {
-    raw = await chat(
+    raw = await docChat(
       env,
       [
         { role: "system", content: system },

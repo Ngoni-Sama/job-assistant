@@ -56,6 +56,11 @@ export function Nav() {
   const [credits, setCredits] = useState<number | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [siteName, setSiteName] = useState("VacancyPal");
+
+  useEffect(() => {
+    api.getSite().then((s) => s.site.name && setSiteName(s.site.name)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (status !== "authenticated") {
@@ -83,7 +88,7 @@ export function Nav() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-2 font-bold text-brand-700">
           <Briefcase className="h-5 w-5" />
-          <span className="hidden sm:inline">Job Assistant</span>
+          <span className="hidden sm:inline">{siteName}</span>
         </Link>
 
         <div className="flex items-center gap-2">

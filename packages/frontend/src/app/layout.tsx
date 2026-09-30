@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { Nav } from "@/components/Nav";
 import { Providers } from "@/components/Providers";
+import { SiteBanner } from "@/components/SiteBanner";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -12,7 +13,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Job Assistant — Sit back, relax, let AI apply for you",
+  title: "VacancyPal — Sit back, relax, let AI apply for you",
   description:
     "Carefully selected jobs, AI-tailored CVs, and one-swipe applications. Built for job seekers in Zimbabwe.",
 };
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans">
         <Providers>
           <div className="min-h-screen">
+            <SiteBanner />
             <Nav />
             <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
           </div>

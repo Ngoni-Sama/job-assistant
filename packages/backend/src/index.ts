@@ -89,6 +89,63 @@ export default {
       }
 
       // --- Billing / credits ---
+      // Pesepay fulfilment (server-to-server from the Next.js app, which holds the
+      // Pesepay keys). Guarded by a shared secret; crediting is idempotent per
+      // payment reference so a callback + return-page verify can't double-credit.
+      if (path.startsWith("/api/internal/")) {
+        const secret = request.headers.get("x-internal-secret") ?? "";
+        if (!env.INTERNAL_SECRET || secret !== env.INTERNAL_SECRET) {
+          return json({ error: "Forbidden" }, { status: 403 });
+        }
+        if (path === "/api/internal/pending" && request.method === "POST") {
+          const b = (await request.json()) as { reference?: string; userId?: string; credits?: number; amount?: number };
+          if (!b.reference || !b.userId || !b.credits) return json({ error: "Invalid" }, { status: 400 });
+          await env.JOBS_CACHE.put(
+            `pending:${b.reference}`,
+            JSON.stringify({ userId: b.userId, credits: b.credits, amount: b.amount ?? 0, at: new Date().toISOString() }),
+            { expirationTtl: 60 * 60 * 24 * 3 },
+          );
+          return json({ ok: true });
+        }
+        // Attach Pesepay's own reference number to our pending record.
+        if (path === "/api/internal/pending-map" && request.method === "POST") {
+          const b = (await request.json()) as { reference?: string; pesepayRef?: string };
+          const key = `pending:${b.reference ?? ""}`;
+          const pending = await env.JOBS_CACHE.get<Record<string, unknown>>(key, "json");
+          if (!pending || !b.pesepayRef) return json({ error: "Unknown payment reference" }, { status: 404 });
+          await env.JOBS_CACHE.put(key, JSON.stringify({ ...pending, pesepayRef: b.pesepayRef }), { expirationTtl: 60 * 60 * 24 * 3 });
+          return json({ ok: true });
+        }
+        // Read a pending record (for verify: owner + Pesepay reference).
+        if (path === "/api/internal/pending-get" && request.method === "POST") {
+          const b = (await request.json()) as { reference?: string };
+          const pending = await env.JOBS_CACHE.get<Record<string, unknown>>(`pending:${b.reference ?? ""}`, "json");
+          const paid = await env.JOBS_CACHE.get(`paid:${b.reference ?? ""}`);
+          if (!pending) return json({ error: "Unknown payment reference" }, { status: 404 });
+          return json({ pending, paid: !!paid });
+        }
+        if (path === "/api/internal/credit" && request.method === "POST") {
+          const b = (await request.json()) as { reference?: string; userId?: string; paidAmount?: number };
+          if (!b.reference) return json({ error: "Invalid" }, { status: 400 });
+          const done = await env.JOBS_CACHE.get(`paid:${b.reference}`);
+          const pending = await env.JOBS_CACHE.get<{ userId: string; credits: number; amount: number }>(`pending:${b.reference}`, "json");
+          if (done) {
+            const owner = pending?.userId ?? b.userId ?? "";
+            return json({ credited: 0, already: true, balance: owner ? await getCredits(env, owner) : null });
+          }
+          if (!pending) return json({ error: "Unknown payment reference" }, { status: 404 });
+          if (b.userId && b.userId !== pending.userId) return json({ error: "Reference belongs to another user" }, { status: 403 });
+          // Guard against paying a small amount for a big pack.
+          if (typeof b.paidAmount === "number" && pending.amount && b.paidAmount + 0.001 < pending.amount) {
+            return json({ error: "Paid amount is less than the pack price" }, { status: 402 });
+          }
+          await env.JOBS_CACHE.put(`paid:${b.reference}`, JSON.stringify({ userId: pending.userId, credits: pending.credits, at: new Date().toISOString() }));
+          const balance = await addCredits(env, pending.userId, pending.credits);
+          return json({ credited: pending.credits, balance });
+        }
+        return json({ error: "Not found" }, { status: 404 });
+      }
+
       // Stripe webhook: fulfils credit purchases. Server-to-server (no x-user-id).
       if (path === "/api/billing/webhook" && request.method === "POST") {
         const sig = request.headers.get("stripe-signature") ?? "";
@@ -109,7 +166,20 @@ export default {
         return json({ balance: await getCredits(env, userId), costs: COSTS });
       }
       if (path === "/api/billing/packs" && request.method === "GET") {
-        return json({ packs: PACKS });
+        const cfg = await getConfig(env);
+        return json({
+          packs: cfg.packs.length ? cfg.packs : PACKS,
+          provider: cfg.payments.provider,
+          currency: cfg.payments.currency,
+        });
+      }
+      // Public, non-secret site settings (name, tagline, payment provider…).
+      if (path === "/api/site" && request.method === "GET") {
+        const cfg = await getConfig(env);
+        return json({
+          site: cfg.site,
+          payments: { provider: cfg.payments.provider, currency: cfg.payments.currency, freeCredits: cfg.payments.freeCredits },
+        });
       }
       if (path === "/api/billing/checkout" && request.method === "POST") {
         if (userId === "demo") return json({ error: "Sign in to buy credits" }, { status: 401 });
@@ -384,6 +454,13 @@ export default {
             ...current,
             ...patch,
             features: { ...current.features, ...(patch.features ?? {}) },
+            payments: { ...current.payments, ...(patch.payments ?? {}) },
+            site: { ...current.site, ...(patch.site ?? {}) },
+            packs: Array.isArray(patch.packs)
+              ? patch.packs
+                  .filter((p) => p && p.id && p.credits > 0 && p.priceCents > 0)
+                  .map((p) => ({ id: String(p.id), label: String(p.label || p.id), credits: Math.round(p.credits), priceCents: Math.round(p.priceCents) }))
+              : current.packs,
             // Keep the existing key when the client sends back the masked value.
             openaiApiKey:
               patch.openaiApiKey && !patch.openaiApiKey.includes("•")
