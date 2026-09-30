@@ -62,6 +62,7 @@ export interface JobDetail {
     duties?: string;
     qualifications?: string;
     howToApply?: string;
+    about?: string; // "About the company"
   };
 }
 

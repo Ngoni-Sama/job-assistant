@@ -80,9 +80,42 @@ export function scrubBoilerplate(s: string): string {
   // Collapse duplicated consecutive labels ("Job Summary Job Summary" → one).
   out = out.replace(/\b([A-Z][A-Za-z ]{2,30}?)\s+\1\b/g, "$1");
   // Stray lone "zw" tokens left by slug stripping, and orphaned braces/brackets.
-  out = out.replace(/\s+zw\s+/gi, " ");
-  out = out.replace(/(^|\s)[{}[\]]+(?=\s|$)/g, " ");
-  return out.replace(/\s+/g, " ").trim();
+  out = out.replace(/(^|[ \t])zw(?=[ \t]|$)/gim, "$1");
+  out = out.replace(/(^|[ \t])[{}[\]]+(?=[ \t]|$)/gm, "$1");
+  // Collapse spaces but KEEP line breaks (paragraph/bullet structure from htmlToText).
+  return out
+    .split("\n")
+    .map((l) => l.replace(/[ \t ]+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+/**
+ * HTML → readable text that KEEPS structure: each paragraph/heading on its own
+ * line and list items as "• item", so the UI renders real paragraphs and bullets
+ * instead of one run-on line. Scripts, styles, comments and ad pushes go first.
+ */
+export function htmlToText(raw: string): string {
+  const s = raw
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/\(?\s*adsbygoogle[\s\S]*?\}\s*\)\s*;?/gi, " ")
+    .replace(/<li[^>]*>/gi, "\n• ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/?(p|div|h[1-6]|ul|ol|li|section|article|header|footer|tr|table|blockquote)(\s[^>]*)?>/gi, "\n")
+    .replace(/<[^>]+>/g, " ");
+  const lines = decodeEntities(s)
+    .split("\n")
+    .map((l) => l.replace(/[ \t ]+/g, " ").trim())
+    .filter(Boolean);
+  // A bullet whose text landed on the next line ("•" then "text") → join them.
+  const out: string[] = [];
+  for (const l of lines) {
+    if (out.length && out[out.length - 1] === "•") out[out.length - 1] = `• ${l}`;
+    else out.push(l);
+  }
+  return out.filter((l) => l !== "•").join("\n");
 }
 
 /** Small stable hash for deterministic job ids (dedupes across runs). */

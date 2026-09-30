@@ -29,6 +29,7 @@ export interface JobDetailFull {
     duties?: string;
     qualifications?: string;
     howToApply?: string;
+    about?: string;
   };
 }
 

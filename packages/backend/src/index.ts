@@ -371,7 +371,7 @@ export default {
         const job = jobs.find((j) => j.id === id);
         if (!job) return json({ error: "Job not found" }, { status: 404 });
 
-        const detailKey = `jobdetail:${id}`;
+        const detailKey = `jobdetail:v2:${id}`; // v2 = structured parser (2026-09-30); v1 entries expire on their own
         let detail = await env.JOBS_CACHE.get<Awaited<ReturnType<typeof fetchJobDetail>>>(detailKey, "json");
         if (!detail) {
           try {

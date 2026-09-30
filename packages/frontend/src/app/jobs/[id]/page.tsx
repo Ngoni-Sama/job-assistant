@@ -174,6 +174,10 @@ export default function JobDetailPage() {
       <Section title="Duties and Responsibilities" body={sections.duties} />
       <Section title="Qualifications and Experience" body={sections.qualifications} />
       <Section title="How to Apply" body={sections.howToApply || detail?.applyText} />
+      <Section
+        title={`About ${job.company && job.company !== "N/A" ? job.company : "the company"}`}
+        body={sections.about}
+      />
 
       {/* Similar jobs */}
       {similar.length > 0 && (
