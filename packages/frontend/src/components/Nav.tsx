@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -86,9 +87,10 @@ export function Nav() {
   return (
     <header className="glass sticky top-0 z-30 border-x-0 border-t-0">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/" className="flex items-center gap-2 font-bold text-brand-700">
-          <Briefcase className="h-5 w-5" />
-          <span className="hidden sm:inline">{siteName}</span>
+        <Link href="/" className="flex items-center" aria-label={`${siteName} home`}>
+          {/* Pin mark on phones, full wordmark from sm up. */}
+          <Image src="/brand/logo-mark.png" alt={siteName} width={237} height={264} priority className="h-9 w-auto sm:hidden" />
+          <Image src="/brand/logo.png" alt={siteName} width={988} height={264} priority className="hidden h-9 w-auto sm:block" />
         </Link>
 
         <div className="flex items-center gap-2">

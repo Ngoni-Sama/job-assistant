@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
@@ -12,10 +12,27 @@ const jakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
+const DESCRIPTION =
+  "Carefully selected jobs, AI-tailored CVs, and one-swipe applications. Find jobs, hire talent, grow together — built for Zimbabwe.";
+
+// Favicon (app/icon.png), Apple icon (app/apple-icon.png) and the share card
+// (app/opengraph-image.png) are picked up automatically by Next.js.
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.APP_URL || process.env.AUTH_URL || "https://vacancypal.co.zw"),
   title: "VacancyPal — Sit back, relax, let AI apply for you",
-  description:
-    "Carefully selected jobs, AI-tailored CVs, and one-swipe applications. Built for job seekers in Zimbabwe.",
+  description: DESCRIPTION,
+  applicationName: "VacancyPal",
+  openGraph: {
+    type: "website",
+    siteName: "VacancyPal",
+    title: "VacancyPal — Find Jobs • Hire Talent • Grow Together",
+    description: DESCRIPTION,
+  },
+  twitter: { card: "summary_large_image", title: "VacancyPal", description: DESCRIPTION },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2563eb",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
