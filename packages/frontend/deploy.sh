@@ -6,7 +6,7 @@
 #
 # Run from packages/frontend:
 #   bash deploy.sh              # pull, install, build, restart
-#   bash deploy.sh --no-build   # use an uploaded .next (built locally), then restart
+#   bash deploy.sh --no-build   # use the prebuilt vacancypal-next.tar.gz from git (recommended)
 #
 # CloudLinux caps processes/threads (NPROC), which can kill `next build` with
 # EAGAIN/SIGABRT. If that happens, build locally with scripts/pack-nivacity.ps1,
@@ -65,7 +65,14 @@ if [ "$BUILD" = "1" ]; then
   npm run build
   unset NODE_OPTIONS LOW_RESOURCE_BUILD
 else
-  echo "==> skipping build (--no-build); using existing .next"
+  # The build is made on Windows (scripts/pack-nivacity.ps1) and shipped through
+  # git as vacancypal-next.tar.gz — unpack the freshly pulled one.
+  if [ -f vacancypal-next.tar.gz ]; then
+    echo "==> unpacking prebuilt vacancypal-next.tar.gz"
+    rm -rf .next
+    tar -xzf vacancypal-next.tar.gz
+  fi
+  echo "==> skipping build (--no-build); using prebuilt .next"
   if [ ! -d .next ]; then
     echo "ERROR: --no-build but no .next directory. Upload a locally-built .next first." >&2
     exit 1

@@ -13,6 +13,7 @@
 *.ico   binary
 *.woff  binary
 *.woff2 binary
+*.tar.gz binary
 
 # Shell scripts must keep LF endings to run on the Linux (nivacity) server
 *.sh text eol=lf
