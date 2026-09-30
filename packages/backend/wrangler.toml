@@ -56,7 +56,7 @@ APP_URL = "https://job-assistant-frontend-tau.vercel.app"
 #
 # One-time setup (run in packages/backend):
 #   npx wrangler kv namespace create JOBS_CACHE --env production
-#     → paste the returned id below (replace REPLACE_WITH_PROD_KV_ID)
+#     → done 2026-09-30: production-JOBS_CACHE
 #   npx wrangler secret put INTERNAL_SECRET --env production   # same value as the frontend's WORKER_INTERNAL_SECRET
 # Deploy:
 #   npx wrangler deploy --env production
@@ -71,7 +71,7 @@ binding = "AI"
 
 [[env.production.kv_namespaces]]
 binding = "JOBS_CACHE"
-id = "REPLACE_WITH_PROD_KV_ID"
+id = "8d2630d4b5404fb3abcdb7523237061a"
 
 [env.production.triggers]
 crons = ["0 */6 * * *"]
