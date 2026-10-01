@@ -2,7 +2,6 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 
 const GMAIL_SEND = "https://www.googleapis.com/auth/gmail.send";
-const GMAIL_READ = "https://www.googleapis.com/auth/gmail.readonly";
 
 /**
  * Auth.js (NextAuth v5) with Google + Gmail send.
@@ -12,6 +11,10 @@ const GMAIL_READ = "https://www.googleapis.com/auth/gmail.readonly";
  * expires; it's exposed on the session so server routes (app/api/gmail/send)
  * can use it. NOTE: gmail.send is a *sensitive* scope — Google caps it at 100
  * users until the consent screen is verified.
+ *
+ * gmail.readonly was removed (2026-10-01): it's a *restricted* scope that would
+ * require a paid annual security assessment for verification. Replies are
+ * marked manually on the Applications page instead.
  */
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
@@ -19,7 +22,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       authorization: {
         params: {
-          scope: `openid email profile ${GMAIL_SEND} ${GMAIL_READ}`,
+          scope: `openid email profile ${GMAIL_SEND}`,
           access_type: "offline",
           prompt: "consent",
         },

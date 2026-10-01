@@ -5,6 +5,7 @@ import "./globals.css";
 import { Nav } from "@/components/Nav";
 import { Providers } from "@/components/Providers";
 import { SiteBanner } from "@/components/SiteBanner";
+import { Footer } from "@/components/Footer";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <SiteBanner />
             <Nav />
             <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+            <Footer />
           </div>
         </Providers>
         <Analytics />
