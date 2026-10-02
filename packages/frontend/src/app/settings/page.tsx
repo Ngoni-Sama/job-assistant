@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Plus, Trash2, Globe, AlertTriangle, Zap, Radar } from "lucide-react";
+import { Plus, Trash2, Globe, AlertTriangle, Radar } from "lucide-react";
 import { api, apiBase } from "@/lib/api";
 import type { Availability, Prefs, Profile, ScrapeSource } from "@/lib/types";
+import { AutoApplyCard } from "@/components/AutoApplyCard";
 
 const API_URL = apiBase;
 
@@ -148,27 +149,9 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border bg-white p-6">
-        <h2 className="font-semibold">Applications</h2>
-        <label className="mt-3 flex items-start gap-3">
-          <input
-            type="checkbox"
-            checked={prefs.autoApply}
-            onChange={(e) => savePrefs({ autoApply: e.target.checked })}
-            className="mt-1 h-4 w-4"
-          />
-          <span className="text-sm">
-            <span className="flex items-center gap-1 font-medium">
-              <Zap className="h-4 w-4 text-amber-500" /> Auto-apply
-            </span>
-            <span className="text-gray-500">
-              When on, clicking Apply sends the tailored application automatically without asking.
-              Real email sending only happens when a mail provider is configured on the backend
-              (Resend); otherwise the application is prepared for you to send manually.
-            </span>
-          </span>
-        </label>
-      </section>
+      {status === "authenticated" && (
+        <AutoApplyCard prefs={prefs} savePrefs={savePrefs} suggestedSector={profile?.sector} />
+      )}
 
       <section className="rounded-lg border bg-white p-6">
         <h2 className="font-semibold">My categories</h2>

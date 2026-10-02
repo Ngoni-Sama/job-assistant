@@ -17,13 +17,9 @@ import {
   Building2,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { SECTORS } from "@/lib/sectors";
 import type { CandidateMatch, RecruiterCv, RecruiterSearchResult, Employer, CandidateCard } from "@/lib/types";
 
-const SECTORS = [
-  "IT & Software", "Healthcare", "Engineering", "Finance & Accounting", "Sales & Marketing",
-  "Administration", "Education", "Hospitality & Tourism", "Logistics & Transport",
-  "NGO & Development", "Human Resources", "Other",
-];
 
 const SAMPLE_PROMPTS = [
   "Registered nurse, 3+ years, Harare",

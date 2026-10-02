@@ -37,7 +37,8 @@ id = "5ea4ce669eea485b97817519327c6446"
 
 # Cron — automated scraping every 6 hours
 [triggers]
-crons = ["0 */6 * * *"]
+# 0 */6 = scrape jobs; 30 */3 = auto-apply (AUTO_APPLY_CRON in src/index.ts)
+crons = ["0 */6 * * *", "30 */3 * * *"]
 
 [vars]
 DEFAULT_SCRAPE_URL = "https://vacancymail.co.zw/jobs/"
@@ -74,7 +75,7 @@ binding = "JOBS_CACHE"
 id = "8d2630d4b5404fb3abcdb7523237061a"
 
 [env.production.triggers]
-crons = ["0 */6 * * *"]
+crons = ["0 */6 * * *", "30 */3 * * *"]
 
 [env.production.vars]
 DEFAULT_SCRAPE_URL = "https://vacancymail.co.zw/jobs/"

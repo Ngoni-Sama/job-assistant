@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { workerInternal } from "@/lib/server/worker";
 
 const GMAIL_SEND = "https://www.googleapis.com/auth/gmail.send";
 
@@ -36,6 +37,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.expiresAt = account.expires_at ? account.expires_at * 1000 : 0;
+        // Auto-apply runs on the server while the user is away, so hand the
+        // refresh token to the Worker. It's stored (encrypted) ONLY if this user
+        // has auto-apply switched on; otherwise the Worker discards it.
+        if (account.refresh_token && token.email) {
+          await workerInternal("/api/internal/google-token", {
+            userId: token.email,
+            refreshToken: account.refresh_token,
+          }).catch((err) => console.error("auto-apply token handoff failed", err));
+        }
         return token;
       }
       // Still valid (60s buffer).

@@ -71,12 +71,15 @@ export default async function PrivacyPage() {
       <H>3. Google user data and Gmail</H>
       <P>
         We request only one Gmail permission: <b>“Send email on your behalf” (gmail.send)</b>. We use it for one
-        purpose — to send a job application from your own Gmail account when you press <b>Send</b> in {name}. We do
-        not read, scan or store your inbox, and we cannot see emails you send or receive outside {name}.
+        purpose — to send job applications from your own Gmail account: when you press <b>Send</b> in {name}, or,
+        if you switch on <b>Auto-apply</b>, automatically to jobs that match the sectors, keywords and daily limit you
+        chose. We do not read, scan or store your inbox, and we cannot see emails you send or receive outside {name}.
       </P>
       <P>
-        Your Google access token is kept in an encrypted session and is used only by our server to send the email you
-        requested. You can revoke our access at any time at{" "}
+        Your Google access token is kept in an encrypted session and is used only by our server to send the emails
+        described above. If you turn on Auto-apply, we also store an <b>encrypted</b> Google refresh token so we can
+        send while you are away; it is used for nothing else, and turning Auto-apply off deletes it immediately. You
+        can revoke our access at any time at{" "}
         <a href="https://myaccount.google.com/permissions" className="font-medium text-brand-700 underline">
           myaccount.google.com/permissions
         </a>

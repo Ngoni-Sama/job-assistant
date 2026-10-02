@@ -58,6 +58,14 @@ export function Nav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [siteName, setSiteName] = useState("VacancyPal");
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     api.getSite().then((s) => s.site.name && setSiteName(s.site.name)).catch(() => {});
@@ -85,8 +93,14 @@ export function Nav() {
   const allItems = [...primary, ...secondaryItems];
 
   return (
-    <header className="glass sticky top-0 z-30 border-x-0 border-t-0">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+    // Floating bar: detached from the edges, rounded, and a touch more shadow once scrolled.
+    <header className="sticky top-0 z-30 px-3 pt-3 sm:px-4">
+      <div
+        className={`glass mx-auto max-w-6xl rounded-2xl transition-shadow duration-300 ${
+          scrolled ? "shadow-xl shadow-blue-900/10" : "shadow-md"
+        }`}
+      >
+      <div className="flex items-center justify-between px-4 py-2.5">
         <Link href="/" className="flex items-center" aria-label={`${siteName} home`}>
           {/* Pin mark on phones, full wordmark from sm up. */}
           <Image src="/brand/logo-mark.png" alt={siteName} width={237} height={264} priority className="h-9 w-auto sm:hidden" />
@@ -144,14 +158,15 @@ export function Nav() {
         </div>
       </div>
 
-      {/* Mobile: full menu */}
+      {/* Mobile: full menu (opens inside the floating bar) */}
       {menuOpen && (
-        <nav className="glass-strong mx-4 mb-3 grid grid-cols-2 gap-1 rounded-2xl p-2 md:hidden">
+        <nav className="grid grid-cols-2 gap-1 border-t border-white/40 p-2 md:hidden">
           {allItems.map((item) => (
             <NavLink key={item.href} item={item} active={pathname === item.href} block />
           ))}
         </nav>
       )}
+      </div>
     </header>
   );
 }

@@ -57,8 +57,10 @@ export default async function TermsPage() {
 
       <H>5. Sending applications from your Gmail</H>
       <P>
-        If you allow it, {name} sends the applications you choose from your own Gmail account, only when you press
-        Send. See our{" "}
+        If you allow it, {name} sends applications from your own Gmail account when you press Send. If you switch on
+        Auto-apply, it also applies automatically to new jobs matching the sectors, keywords and daily limit you set,
+        with your uploaded CV attached — you are responsible for keeping your CV and choices accurate, and you can
+        switch it off at any time. See our{" "}
         <Link href="/privacy" className="font-medium text-brand-700 underline">
           Privacy Policy
         </Link>{" "}

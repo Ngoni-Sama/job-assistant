@@ -1,6 +1,7 @@
 import type {
   Announcement,
   AppConfig,
+  AutoApplyStatus,
   Application,
   CandidateCard,
   CandidateCheck,
@@ -202,6 +203,8 @@ export const api = {
     req<{ profile: Profile }>("/api/profile/from-cv", { method: "POST" }),
   getPrefs: () => req<{ prefs: Prefs }>("/api/prefs"),
   setPrefs: (prefs: Partial<Prefs>) => req<{ prefs: Prefs }>("/api/prefs", jsonBody(prefs)),
+  getAutoApply: () => req<AutoApplyStatus>("/api/auto-apply"),
+  runAutoApply: () => req<{ sent: number; error?: string }>("/api/auto-apply/run", { method: "POST" }),
   getApplied: () => req<{ applied: string[] }>("/api/applied"),
   prepareApplication: (jobId: string, cvId?: string) =>
     req<{ application: Application; autoSent: SendResult | null }>(

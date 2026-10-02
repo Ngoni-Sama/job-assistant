@@ -14,6 +14,9 @@ export interface Env {
   STRIPE_WEBHOOK_SECRET?: string; // Stripe webhook signing secret (whsec_...)
   APP_URL?: string; // frontend origin for Checkout success/cancel URLs
   INTERNAL_SECRET?: string; // shared secret guarding server-to-server credit endpoints (Pesepay fulfilment)
+  GOOGLE_CLIENT_ID?: string; // OAuth client used to refresh tokens for auto-apply (same client as the website)
+  GOOGLE_CLIENT_SECRET?: string;
+  TOKEN_KEY?: string; // base64 32-byte AES key encrypting stored Google refresh tokens
 }
 
 export interface JobListing {
@@ -83,6 +86,7 @@ export interface Application {
   sentAt?: string;
   method?: "email" | "manual"; // how it was (or must be) delivered
   responded?: boolean; // employer replied (user-marked)
+  auto?: boolean; // sent by the auto-apply background job
   optimised?: boolean; // whether the CV/cover note were AI-tailored (paid)
 }
 
@@ -90,6 +94,18 @@ export interface Application {
 export interface Prefs {
   autoApply: boolean;
   categories: string[]; // job types the user cares about
+  // Auto-apply targeting (the background job only applies to matching jobs).
+  autoApplySectors?: string[];
+  autoApplyKeywords?: string[]; // matched against the job title
+  autoApplyDailyLimit?: number; // 1..20, default 5
+  autoApplyUseAI?: boolean; // AI-tailor each application (costs credits)
+}
+
+/** Per-user auto-apply activity log. */
+export interface AutoApplyLog {
+  lastRun?: string;
+  lastError?: string;
+  sent: { jobId: string; title: string; company: string; to: string; at: string }[];
 }
 
 export type Availability = "looking" | "open" | "not_looking";

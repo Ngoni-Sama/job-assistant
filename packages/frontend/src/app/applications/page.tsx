@@ -13,6 +13,7 @@ import {
   FileDown,
   Undo2,
   MessageCircle,
+  Zap,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Application } from "@/lib/types";
@@ -133,7 +134,14 @@ export default function ApplicationsPage() {
                 className="flex w-full items-center justify-between gap-2 p-4 text-left"
               >
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{a.jobTitle}</p>
+                  <p className="flex items-center gap-1.5 truncate font-medium">
+                    <span className="truncate">{a.jobTitle}</span>
+                    {a.auto && (
+                      <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                        <Zap className="h-3 w-3" /> Auto
+                      </span>
+                    )}
+                  </p>
                   <p className="truncate text-xs text-gray-500">
                     {a.company} · {new Date(a.generatedAt).toLocaleDateString()}
                   </p>

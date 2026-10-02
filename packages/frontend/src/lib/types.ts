@@ -62,6 +62,7 @@ export interface Application {
   sentAt?: string;
   method?: "email" | "manual";
   responded?: boolean;
+  auto?: boolean; // sent by auto-apply
   optimised?: boolean;
 }
 
@@ -75,6 +76,19 @@ export interface SendResult {
 export interface Prefs {
   autoApply: boolean;
   categories: string[];
+  autoApplySectors?: string[];
+  autoApplyKeywords?: string[];
+  autoApplyDailyLimit?: number;
+  autoApplyUseAI?: boolean;
+}
+
+export interface AutoApplyStatus {
+  allowed: boolean; // admin feature flag
+  authorized: boolean; // server holds a Google token for this user
+  sentToday: number;
+  lastRun: string | null;
+  lastError: string | null;
+  recent: { jobId: string; title: string; company: string; to: string; at: string }[];
 }
 
 export interface AppConfig {

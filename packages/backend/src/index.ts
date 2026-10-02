@@ -1,10 +1,12 @@
 import type {
   Announcement,
   Application,
+  AutoApplyLog,
   CandidateCard,
   CandidateCheck,
   Employer,
   Env,
+  JobDetail,
   JobListing,
   Message,
   Prefs,
@@ -33,6 +35,8 @@ import { rankCandidates, indexDoc, type RagDoc } from "./lib/ai/rag";
 import { charge, getCredits, addCredits, COSTS } from "./lib/credits";
 import { PACKS, createCheckoutSession, verifyWebhook } from "./lib/stripe";
 import { CHECKS, findCheck } from "./lib/checks";
+import { encryptToken, decryptToken, gtokenKey } from "./lib/tokens";
+import { getAccessToken, sendGmail, GoogleAuthRevoked } from "./lib/gmail";
 
 const JOBS_KEY = "jobs:all";
 const EXPIRED_KEY = "jobs:expired";
@@ -50,6 +54,7 @@ const PROTECTED = new Set([
   "POST /api/apply/prepare",
   "POST /api/apply/optimise",
   "POST /api/apply/send",
+  "POST /api/auto-apply/run",
   "POST /api/match",
   "POST /api/match-all",
   "POST /api/quick-match",
@@ -106,6 +111,16 @@ export default {
             { expirationTtl: 60 * 60 * 24 * 3 },
           );
           return json({ ok: true });
+        }
+        // Store a Google refresh token for background auto-apply — ONLY for users
+        // who turned auto-apply on. Called by the website at sign-in.
+        if (path === "/api/internal/google-token" && request.method === "POST") {
+          const b = (await request.json()) as { userId?: string; refreshToken?: string };
+          if (!b.userId || !b.refreshToken) return json({ error: "Invalid" }, { status: 400 });
+          const prefs = await getPrefs(env, b.userId);
+          if (!prefs.autoApply) return json({ stored: false });
+          await env.JOBS_CACHE.put(gtokenKey(b.userId), await encryptToken(env, b.refreshToken));
+          return json({ stored: true });
         }
         // Attach Pesepay's own reference number to our pending record.
         if (path === "/api/internal/pending-map" && request.method === "POST") {
@@ -956,12 +971,45 @@ export default {
       }
       if (path === "/api/prefs" && request.method === "POST") {
         const body = (await request.json()) as Partial<Prefs>;
+        const cur = await getPrefs(env, userId);
+        const list = (v: unknown, fallback: string[] = []) =>
+          Array.isArray(v) ? v.map((s) => String(s).trim()).filter(Boolean).slice(0, 30) : fallback;
         const prefs: Prefs = {
-          autoApply: body.autoApply ?? (await getPrefs(env, userId)).autoApply,
-          categories: body.categories ?? (await getPrefs(env, userId)).categories,
+          autoApply: body.autoApply ?? cur.autoApply,
+          categories: body.categories ?? cur.categories,
+          autoApplySectors: body.autoApplySectors !== undefined ? list(body.autoApplySectors) : cur.autoApplySectors ?? [],
+          autoApplyKeywords: body.autoApplyKeywords !== undefined ? list(body.autoApplyKeywords) : cur.autoApplyKeywords ?? [],
+          autoApplyDailyLimit: Math.min(20, Math.max(1, Math.round(Number(body.autoApplyDailyLimit ?? cur.autoApplyDailyLimit ?? 5)) || 5)),
+          autoApplyUseAI: body.autoApplyUseAI ?? cur.autoApplyUseAI ?? false,
         };
         await env.JOBS_CACHE.put(prefsKey(userId), JSON.stringify(prefs));
+        // Turning auto-apply off removes the stored Google token immediately.
+        if (!prefs.autoApply) await env.JOBS_CACHE.delete(gtokenKey(userId));
         return json({ prefs });
+      }
+
+      // Auto-apply status for the signed-in user.
+      if (path === "/api/auto-apply" && request.method === "GET") {
+        const cfg = await getConfig(env);
+        const log = (await env.JOBS_CACHE.get<AutoApplyLog>(autoLogKey(userId), "json")) ?? { sent: [] };
+        const dayAgo = Date.now() - 24 * 3600 * 1000;
+        return json({
+          allowed: cfg.features.autoApplyAllowed,
+          authorized: !!(await env.JOBS_CACHE.get(gtokenKey(userId))),
+          sentToday: log.sent.filter((s) => Date.parse(s.at) > dayAgo).length,
+          lastRun: log.lastRun ?? null,
+          lastError: log.lastError ?? null,
+          recent: log.sent.slice(-10).reverse(),
+        });
+      }
+      // Run auto-apply now for the signed-in user (rate-limited).
+      if (path === "/api/auto-apply/run" && request.method === "POST") {
+        const log = (await env.JOBS_CACHE.get<AutoApplyLog>(autoLogKey(userId), "json")) ?? { sent: [] };
+        if (log.lastRun && Date.now() - Date.parse(log.lastRun) < 5 * 60 * 1000) {
+          return json({ error: "Auto-apply ran in the last 5 minutes — try again shortly." }, { status: 429 });
+        }
+        const result = await autoApplyForUser(env, userId, await getJobs(env));
+        return json(result);
       }
 
       // Which jobs the user has applied to
@@ -1092,9 +1140,11 @@ export default {
     }
   },
 
-  // Cron: refresh the job cache automatically.
-  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
-    await runScrape(env);
+  // Cron: "0 */6 * * *" refreshes the job cache; AUTO_APPLY_CRON runs auto-apply
+  // in its own invocation (separate time/subrequest budget).
+  async scheduled(event: ScheduledController, env: Env): Promise<void> {
+    if (event.cron === AUTO_APPLY_CRON) await runAutoApply(env);
+    else await runScrape(env);
   },
 } satisfies ExportedHandler<Env>;
 
@@ -1413,6 +1463,181 @@ async function getPrefs(env: Env, userId: string): Promise<Prefs> {
 
 async function getApplied(env: Env, userId: string): Promise<string[]> {
   return (await env.JOBS_CACHE.get<string[]>(appliedKey(userId), "json")) ?? [];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auto-apply: background job that applies to matching jobs from the user's Gmail
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AUTO_APPLY_CRON = "30 */3 * * *"; // must match a [triggers] cron in wrangler.toml
+const autoLogKey = (userId: string) => `autoapply:${userId}`;
+const AUTO_MAX_DETAIL_FETCHES = 10; // per user per run (bounds subrequests)
+const AUTO_MAX_USERS_PER_RUN = 25;
+
+/** Cron entry point: run auto-apply for every user who authorized it. */
+async function runAutoApply(env: Env): Promise<void> {
+  const cfg = await getConfig(env);
+  if (!cfg.features.autoApplyAllowed) return;
+  const { keys } = await env.JOBS_CACHE.list({ prefix: "gtoken:" });
+  if (!keys.length) return;
+  const jobs = await getJobs(env);
+  for (const k of keys.slice(0, AUTO_MAX_USERS_PER_RUN)) {
+    const userId = k.name.slice("gtoken:".length);
+    try {
+      await autoApplyForUser(env, userId, jobs);
+    } catch (err) {
+      console.error("auto-apply failed for", userId, err);
+    }
+  }
+}
+
+/** A job qualifies if it matches a chosen sector OR keyword (and job type, if set). */
+function matchesAutoApply(job: JobListing, prefs: Prefs): boolean {
+  const sectors = prefs.autoApplySectors ?? [];
+  const keywords = (prefs.autoApplyKeywords ?? []).map((k) => k.toLowerCase());
+  if (!sectors.length && !keywords.length) return false; // never "apply to everything"
+  const title = job.title.toLowerCase();
+  const sectorOk = sectors.length > 0 && !!job.sector && sectors.includes(job.sector);
+  const keywordOk = keywords.length > 0 && keywords.some((k) => title.includes(k));
+  if (!sectorOk && !keywordOk) return false;
+  if (prefs.categories?.length && job.jobType && !prefs.categories.includes(job.jobType)) return false;
+  return isCurrent(job.expiryDate);
+}
+
+/**
+ * Apply to new matching jobs for one user, from their own Gmail, within their
+ * daily limit. Never applies to the same job twice or emails the same employer
+ * address twice within 30 days. Records everything in the Applications list.
+ */
+async function autoApplyForUser(
+  env: Env,
+  userId: string,
+  jobs: JobListing[],
+): Promise<{ sent: number; error?: string }> {
+  const log: AutoApplyLog = (await env.JOBS_CACHE.get<AutoApplyLog>(autoLogKey(userId), "json")) ?? { sent: [] };
+  const finish = async (sent: number, error?: string) => {
+    log.lastRun = new Date().toISOString();
+    log.lastError = error;
+    log.sent = log.sent.slice(-100);
+    await env.JOBS_CACHE.put(autoLogKey(userId), JSON.stringify(log));
+    return { sent, error };
+  };
+
+  if (!(await getConfig(env)).features.autoApplyAllowed) return finish(0, "Auto-apply is switched off by the site admin.");
+  const prefs = await getPrefs(env, userId);
+  if (!prefs.autoApply) {
+    await env.JOBS_CACHE.delete(gtokenKey(userId));
+    return finish(0, "Auto-apply is off.");
+  }
+  const stored = await env.JOBS_CACHE.get(gtokenKey(userId));
+  if (!stored) return finish(0, "Not authorized yet — use “Authorize Gmail” in Settings → Auto-apply.");
+  if (!prefs.autoApplySectors?.length && !prefs.autoApplyKeywords?.length) {
+    return finish(0, "Pick at least one sector or keyword to auto-apply to.");
+  }
+  const cv = await env.JOBS_CACHE.get<StoredCV>(`cv:${userId}`, "json");
+  if (!cv?.markdown) return finish(0, "Upload or build a CV first.");
+
+  const now = Date.now();
+  let remaining = (prefs.autoApplyDailyLimit ?? 5) - log.sent.filter((s) => Date.parse(s.at) > now - 86_400_000).length;
+  if (remaining <= 0) return finish(0);
+  const recentTo = new Set(
+    log.sent.filter((s) => Date.parse(s.at) > now - 30 * 86_400_000).map((s) => s.to.toLowerCase()),
+  );
+  const applied = new Set(await getApplied(env, userId));
+  const candidates = jobs.filter((j) => !applied.has(j.id) && matchesAutoApply(j, prefs));
+  if (!candidates.length) return finish(0);
+
+  let accessToken: string;
+  try {
+    accessToken = await getAccessToken(env, await decryptToken(env, stored));
+  } catch (err) {
+    if (err instanceof GoogleAuthRevoked) {
+      await env.JOBS_CACHE.delete(gtokenKey(userId));
+      return finish(0, "Google access was removed — authorize Gmail again in Settings → Auto-apply.");
+    }
+    return finish(0, (err as Error).message);
+  }
+
+  const profile = await getProfile(env, userId);
+  const file = await env.JOBS_CACHE.get<{ name: string; type: string; data: string }>(`cvfile:${userId}`, "json");
+  let detailFetches = 0;
+  let sent = 0;
+
+  for (const job of candidates) {
+    if (remaining <= 0) break;
+    const detailKey = `jobdetail:v2:${job.id}`;
+    let detail = await env.JOBS_CACHE.get<JobDetail>(detailKey, "json");
+    if (!detail) {
+      if (detailFetches >= AUTO_MAX_DETAIL_FETCHES) break;
+      detailFetches++;
+      try {
+        detail = await fetchJobDetail(job.applyLink);
+        await env.JOBS_CACHE.put(detailKey, JSON.stringify(detail), { expirationTtl: 60 * 60 * 24 * 7 });
+      } catch {
+        continue;
+      }
+    }
+    const to = (detail.applyEmail ?? job.applyEmail)?.trim();
+    if (!to || recentTo.has(to.toLowerCase())) continue; // portal-only jobs are skipped
+
+    // Cover note: free template, or AI-tailored when the user opted in (charged per job).
+    let coverNote = templateCoverNote(job);
+    let optimised = false;
+    if (prefs.autoApplyUseAI && (await charge(env, userId, COSTS.optimise)).ok) {
+      try {
+        const t = await tailorApplication(cv.markdown, job, detail, env);
+        if (t.coverNote) {
+          coverNote = t.coverNote;
+          optimised = true;
+        }
+      } catch {
+        await addCredits(env, userId, COSTS.optimise); // refund on AI failure
+      }
+    }
+
+    const subject = `Application: ${job.title}${job.company !== "N/A" ? ` — ${job.company}` : ""}`;
+    const signature = `— ${profile.name || userId} · ${userId}`;
+    // Attach the uploaded CV; if there's no file on record, include the CV text instead.
+    const body = `${coverNote}\n\n${signature}${file ? "" : `\n\n---\n\n${cv.markdown}`}`;
+    try {
+      await sendGmail(accessToken, { from: userId, to, subject, body, attachment: file ?? null });
+    } catch (err) {
+      if (err instanceof GoogleAuthRevoked) {
+        await env.JOBS_CACHE.delete(gtokenKey(userId));
+        return finish(sent, "Google access was removed — authorize Gmail again in Settings → Auto-apply.");
+      }
+      // A send failure (e.g. Gmail API disabled) would repeat for every job — stop this run.
+      return finish(sent, (err as Error).message);
+    }
+
+    const at = new Date().toISOString();
+    const application: Application = {
+      jobId: job.id,
+      jobTitle: job.title,
+      company: job.company,
+      to,
+      phone: detail.applyPhone,
+      deadline: detail.deadline,
+      applyText: detail.applyText,
+      subject,
+      coverNote,
+      tailoredCV: cv.markdown,
+      generatedAt: at,
+      sent: true,
+      sentAt: at,
+      method: "email",
+      optimised,
+      auto: true,
+    };
+    await env.JOBS_CACHE.put(appKey(userId, job.id), JSON.stringify(application));
+    applied.add(job.id);
+    await env.JOBS_CACHE.put(appliedKey(userId), JSON.stringify([...applied]));
+    log.sent.push({ jobId: job.id, title: job.title, company: job.company, to, at });
+    recentTo.add(to.toLowerCase());
+    remaining--;
+    sent++;
+  }
+  return finish(sent);
 }
 
 /** Send an application, record the outcome, and mark the job applied. */
