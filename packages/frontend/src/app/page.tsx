@@ -14,6 +14,8 @@ import {
   Search,
   Briefcase,
   Building2,
+  Mail,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -147,6 +149,48 @@ export default function LandingPage() {
               <p className="mt-1 text-sm text-gray-600">{body}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Applications from the user's own Gmail (also explains the Gmail permission) */}
+      <section className="glass rounded-3xl p-8 md:p-10">
+        <div className="flex flex-col gap-6 md:flex-row md:items-start">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-600 to-violet-600 text-white">
+            <Mail className="h-6 w-6" />
+          </div>
+          <div className="space-y-3">
+            <h2 className="text-2xl font-extrabold tracking-tight">Applications go from your own Gmail</h2>
+            <p className="text-gray-600">
+              When you sign in with Google, VacancyPal asks for one Gmail permission — to send email on your behalf —
+              so employers get your application from your own address and replies land in your inbox.
+            </p>
+            <ul className="grid gap-2 text-sm text-gray-700 sm:grid-cols-2">
+              <li className="flex gap-2">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                <span>
+                  <b>You press Send.</b> Review each application first; nothing goes out until you send it.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                <span>
+                  <b>Or switch on Auto-apply.</b> Off by default. It applies only to jobs matching the sectors or
+                  keywords you choose, within your daily limit, and you can turn it off any time.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                <span>We never read your inbox or send anything other than your job applications.</span>
+              </li>
+              <li className="flex gap-2">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+                <span>Every application sent appears on your Applications page.</span>
+              </li>
+            </ul>
+            <Link href="/how-we-use-gmail" className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 underline">
+              How VacancyPal uses Gmail <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
       </section>
 

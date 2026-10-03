@@ -13,6 +13,9 @@ export function Footer() {
           <Link href="/terms" className="hover:text-brand-700 hover:underline">
             Terms of Service
           </Link>
+          <Link href="/how-we-use-gmail" className="hover:text-brand-700 hover:underline">
+            How we use Gmail
+          </Link>
         </nav>
       </div>
     </footer>

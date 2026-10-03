@@ -79,6 +79,11 @@ export default async function PrivacyPage() {
         purpose — to send job applications from your own Gmail account: when you press <b>Send</b> in {name}, or,
         if you switch on <b>Auto-apply</b>, automatically to jobs that match the sectors, keywords and daily limit you
         chose. We do not read, scan or store your inbox, and we cannot see emails you send or receive outside {name}.
+        A plain-language summary, including how Auto-apply works, is on{" "}
+        <Link href="/how-we-use-gmail" className="font-medium text-brand-700 underline">
+          How {name} uses Gmail
+        </Link>
+        .
       </P>
       <P>
         Your Google access token is kept in an encrypted session and is used only by our server to send the emails
