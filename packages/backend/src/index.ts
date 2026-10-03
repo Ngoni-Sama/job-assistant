@@ -512,8 +512,11 @@ export default {
         return json({ sources });
       }
 
-      // Trigger a scrape across all enabled sources
+      // Trigger a scrape across all enabled sources. Admin-only: the cron already
+      // scrapes every 6h, and an open route let anyone hammer the job boards.
       if (path === "/api/scrape" && request.method === "POST") {
+        if (userId === "demo") return json({ error: "Please sign in to continue" }, { status: 401 });
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
         const { jobs, stats } = await runScrape(env);
         ctx.waitUntil(processJobAlerts(env));
         return json({ success: true, count: jobs.length, stats, jobs });

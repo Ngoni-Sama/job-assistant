@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const [active, setActive] = useState<Application | null>(null);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const filters = useJobFilters(jobs);
 
@@ -40,7 +41,10 @@ export default function DashboardPage() {
         const jobsRes = await api.getJobs();
         setJobs(jobsRes.jobs);
         setStats(jobsRes.stats);
-        if (jobsRes.jobs.length === 0) {
+        // Scraping is admin-only (the cron fills the cache every 6h).
+        const admin = authed ? await api.getMe().then((me) => me.isAdmin).catch(() => false) : false;
+        setIsAdmin(admin);
+        if (jobsRes.jobs.length === 0 && admin) {
           const res = await api.scrape();
           setJobs(res.jobs);
           setStats(res.stats);
@@ -74,7 +78,8 @@ export default function DashboardPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await api.scrape();
+      // Admins re-scrape the boards; everyone else re-reads the cached jobs.
+      const res = isAdmin ? await api.scrape() : await api.getJobs();
       setJobs(res.jobs);
       setStats(res.stats);
     } catch (e) {
