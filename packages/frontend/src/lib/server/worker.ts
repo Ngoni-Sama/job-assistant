@@ -1,4 +1,5 @@
 import "server-only";
+import { userHeaders } from "@/lib/server/usertoken";
 
 /** Base URL of the Cloudflare Worker API (same default as the browser client). */
 export const WORKER_BASE = (process.env.NEXT_PUBLIC_API_URL || "https://job-assistant.ma360-ngoni.workers.dev")
@@ -23,7 +24,10 @@ export async function workerInternal<T>(path: string, body: unknown): Promise<T>
 
 /** Call a normal Worker endpoint as a given user. */
 export async function workerGet<T>(path: string, userId = "demo"): Promise<T> {
-  const res = await fetch(`${WORKER_BASE}${path}`, { headers: { "x-user-id": userId }, cache: "no-store" });
+  const res = await fetch(`${WORKER_BASE}${path}`, {
+    headers: userId === "demo" ? { "x-user-id": "demo" } : userHeaders(userId),
+    cache: "no-store",
+  });
   if (!res.ok) throw new Error(`Worker ${res.status}`);
   return (await res.json()) as T;
 }

@@ -52,6 +52,7 @@ import {
   sendPush,
 } from "./lib/push";
 import { jobAlertText, jobsForUser, type SlimJob } from "./lib/alerts";
+import { markSignedUsersSeen, requireSignedUsers, verifyUserToken } from "./lib/usertoken";
 
 const JOBS_KEY = "jobs:all";
 const EXPIRED_KEY = "jobs:expired";
@@ -95,12 +96,41 @@ export default {
 
     const url = new URL(request.url);
     const path = url.pathname;
-    const userId = request.headers.get("x-user-id") ?? "demo";
 
     try {
       if (path === "/" || path === "/api/health") {
         // `version` is a deploy marker — bump it to confirm auto-deploy shipped.
-        return json({ ok: true, service: "job-assistant", version: "2026-09-04.1" });
+        return json({ ok: true, service: "job-assistant", version: "2026-10-03.1" });
+      }
+
+      // Who is calling? Only a token signed by the website's server proves it.
+      // The plain x-user-id header is accepted only until the website starts
+      // sending signed tokens (see lib/usertoken.ts), then refused.
+      let userId = "demo";
+      const userToken = request.headers.get("x-user-token");
+      const claimed = request.headers.get("x-user-id");
+      if (userToken) {
+        const check = await verifyUserToken(env, userToken);
+        if (check.ok) {
+          userId = check.email;
+          ctx.waitUntil(markSignedUsersSeen(env));
+        } else if (check.reason === "unconfigured") {
+          // This Worker has no INTERNAL_SECRET (e.g. local dev), so it can't verify.
+          userId = claimed || "demo";
+        } else {
+          return json(
+            {
+              error: check.reason === "expired" ? "Your session expired — refresh the page." : "Invalid session — please sign in again.",
+              code: `token_${check.reason}`,
+            },
+            { status: 401 },
+          );
+        }
+      } else if (claimed && claimed !== "demo") {
+        if (await requireSignedUsers(env)) {
+          return json({ error: "Please refresh the page and sign in again.", code: "signed_required" }, { status: 401 });
+        }
+        userId = claimed;
       }
 
       // Data isolation: signed-out ("demo") callers may READ public data but must

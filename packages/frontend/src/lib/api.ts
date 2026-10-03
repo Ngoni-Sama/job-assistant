@@ -59,12 +59,43 @@ async function currentUserId(): Promise<string> {
   }
 }
 
-async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
+// A short-lived signed token from this site's server proves to the Worker who
+// the user is (the plain email header alone could be forged). Cached per user
+// and refreshed a few minutes before it expires.
+let tokenCache: { email: string; token: string | null; expiresAt: number } | null = null;
+
+async function workerToken(email: string, fresh = false): Promise<string | null> {
+  if (email === "demo") return null;
+  if (!fresh && tokenCache?.email === email && tokenCache.expiresAt - Date.now() > 5 * 60_000) {
+    return tokenCache.token;
+  }
+  try {
+    const res = await fetch("/api/worker-token", { cache: "no-store" });
+    const data = (await res.json()) as { token: string | null; expiresAt: number | null };
+    // No token (server not configured): retry in a minute rather than on every call.
+    tokenCache = { email, token: data.token, expiresAt: data.expiresAt ?? Date.now() + 6 * 60_000 };
+    return data.token;
+  } catch {
+    return null;
+  }
+}
+
+async function req<T>(path: string, init: RequestInit = {}, retried = false): Promise<T> {
   const userId = await currentUserId();
+  const token = await workerToken(userId, retried);
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { "x-user-id": userId, ...(init.headers ?? {}) },
+    headers: {
+      "x-user-id": userId,
+      ...(token ? { "x-user-token": token } : {}),
+      ...(init.headers ?? {}),
+    },
   });
+  if (res.status === 401 && !retried && userId !== "demo") {
+    // Token expired or the Worker now requires one — get a fresh token and retry once.
+    const code = ((await res.clone().json().catch(() => ({}))) as { code?: string }).code ?? "";
+    if (code.startsWith("token_") || code === "signed_required") return req<T>(path, init, true);
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error ?? `Request failed: ${res.status}`);

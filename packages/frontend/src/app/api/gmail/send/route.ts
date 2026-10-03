@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { userHeaders } from "@/lib/server/usertoken";
 
 type Attachment = { name: string; type: string; data: string }; // data = base64
 
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
   if (!att && originalCvId !== undefined) {
     try {
       const q = originalCvId ? `?id=${encodeURIComponent(originalCvId)}` : "";
-      const r = await fetch(`${WORKER_BASE}/api/cv-file${q}`, { headers: { "x-user-id": from } });
+      const r = await fetch(`${WORKER_BASE}/api/cv-file${q}`, { headers: userHeaders(from) });
       if (r.ok) att = (await r.json()) as Attachment;
       else return Response.json({ error: "Couldn’t load your uploaded CV to attach it." }, { status: 502 });
     } catch {
