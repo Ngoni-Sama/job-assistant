@@ -132,7 +132,9 @@ export async function writeAtsCv(env: Env, input: AtsCvInput): Promise<AtsCvOutp
     "\n\nRules you must follow: use ONLY facts in the candidate's details. Never add employers, job titles, " +
     "dates, qualifications, certifications, numbers or skills they did not give. Return ONLY JSON: " +
     '{"headline": string, "summary": string, "experience": [{"i": number, "bullets": string[]}], ' +
-    '"skills": string[]} — one "experience" item per role, using the role\'s index "i". No prose.';
+    '"skills": string[]} — one "experience" item per role, using the role\'s index "i", with 3-5 bullets ' +
+    "per role; every bullet is a full sentence of 12-25 words (action verb + what they did + scale or result), " +
+    "never a short fragment. No prose outside the JSON.";
 
   const user = JSON.stringify({
     targetRole: input.targetRole || undefined,

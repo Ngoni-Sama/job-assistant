@@ -37,6 +37,7 @@ import { cleanCvMarkdown } from "./lib/cvclean";
 import { rankCandidates, indexDoc, type RagDoc } from "./lib/ai/rag";
 import { charge, getCredits, addCredits, getCosts } from "./lib/credits";
 import { writeAtsCv, type AtsCvInput } from "./lib/ai/atscv";
+import { interviewQuestions } from "./lib/ai/cvinterview";
 import { PACKS, createCheckoutSession, verifyWebhook } from "./lib/stripe";
 import { CHECKS, findCheck } from "./lib/checks";
 import { encryptToken, decryptToken, gtokenKey } from "./lib/tokens";
@@ -91,6 +92,7 @@ const PROTECTED = new Set([
   "DELETE /api/push/subscribe",
   "POST /api/push/test",
   "POST /api/cv/ats-write",
+  "POST /api/cv/questions",
 ]);
 
 export default {
@@ -389,6 +391,37 @@ export default {
           console.error("ATS CV writer failed", err);
           const balance = atsCost ? await addCredits(env, userId, atsCost) : paid.balance; // refund
           return json({ error: "The AI couldn't write your CV just now — you haven't been charged. Please try again.", balance }, { status: 502 });
+        }
+      }
+
+      // CV interview: AI follow-up questions for one role (free by default; capped per day).
+      if (path === "/api/cv/questions" && request.method === "POST") {
+        const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+        const text = (v: unknown, n: number) => (typeof v === "string" ? v.slice(0, n).trim() : "");
+        const role = text(body?.role, 120);
+        if (!role) return json({ error: "Tell us the job title first." }, { status: 400 });
+
+        const dayKey = `cvq:${userId}:${new Date().toISOString().slice(0, 10)}`;
+        const used = Number((await env.JOBS_CACHE.get(dayKey)) ?? 0);
+        if (used >= 30) {
+          return json({ error: "You've used today's interview questions — carry on filling in the form, or try again tomorrow." }, { status: 429 });
+        }
+        const { cvQuestions: cost } = await getCosts(env);
+        const paid = await charge(env, userId, cost);
+        if (!paid.ok) return json({ error: "Not enough credits", balance: paid.balance, cost }, { status: 402 });
+        try {
+          const out = await interviewQuestions(env, {
+            targetRole: text(body?.targetRole, 120),
+            role,
+            company: text(body?.company, 120),
+            details: text(body?.details, 3000),
+          });
+          await env.JOBS_CACHE.put(dayKey, String(used + 1), { expirationTtl: 60 * 60 * 26 });
+          return json({ ...out, balance: paid.balance, cost });
+        } catch (err) {
+          console.error("CV interview failed", err);
+          const balance = cost ? await addCredits(env, userId, cost) : paid.balance; // refund
+          return json({ error: "The AI couldn't think of questions just now — you can keep going without them.", balance }, { status: 502 });
         }
       }
 

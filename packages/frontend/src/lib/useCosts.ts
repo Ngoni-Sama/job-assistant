@@ -5,7 +5,7 @@ import { api } from "./api";
 import type { ActionCosts } from "./types";
 
 /** Shown until the live prices load (same as the server defaults). */
-const FALLBACK: ActionCosts = { quickMatch: 10, optimise: 3, matchAll: 5, unlockContact: 20, atsCv: 40 };
+const FALLBACK: ActionCosts = { quickMatch: 10, optimise: 3, matchAll: 5, unlockContact: 20, atsCv: 40, cvQuestions: 0 };
 
 let cached: ActionCosts | null = null;
 let pending: Promise<ActionCosts> | null = null;

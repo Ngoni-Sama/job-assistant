@@ -14,12 +14,13 @@ export interface ActionCosts {
   matchAll: number; // score all cached jobs
   unlockContact: number; // employer reveals one candidate's contact details
   atsCv: number; // ATS CV Creator: AI writes the whole CV from the user's details
+  cvQuestions: number; // CV interview: AI follow-up questions for one role (free by default)
 }
 
-export const DEFAULT_COSTS: ActionCosts = { quickMatch: 10, optimise: 3, matchAll: 5, unlockContact: 20, atsCv: 40 };
+export const DEFAULT_COSTS: ActionCosts = { quickMatch: 10, optimise: 3, matchAll: 5, unlockContact: 20, atsCv: 40, cvQuestions: 0 };
 
 /** AI tasks whose instructions an admin can rewrite. */
-export type PromptKey = "cvWriter" | "matcher" | "quickMatch" | "profile" | "atsCv";
+export type PromptKey = "cvWriter" | "matcher" | "quickMatch" | "profile" | "atsCv" | "cvQuestions";
 
 /**
  * Default instructions per task. The required output format (JSON shape) is
@@ -42,12 +43,22 @@ export const DEFAULT_PROMPTS: Record<PromptKey, string> = {
     "You extract a candidate profile from a CV. Use only facts present in the CV. Omit a field if it is unknown.",
   atsCv:
     "You are an expert CV writer who knows how applicant-tracking systems (ATS) read CVs. From the candidate's " +
-    "details, write: a professional headline (max 10 words); a 3-4 sentence summary; and for each role 3-5 " +
-    "achievement bullets that start with a strong action verb (Led, Managed, Delivered, Improved…), use plain " +
-    "words an ATS can read, and include numbers ONLY where the candidate gave them. Avoid weak phrases like " +
+    "details, write: a professional headline (max 10 words) built around the job they want; a 3-4 sentence " +
+    "summary; and for each role 3-5 achievement bullets. Each bullet is one full sentence of 12-25 words that " +
+    "starts with a strong action verb (Led, Managed, Processed, Reconciled, Trained, Improved…), says what they " +
+    "did AND the scale or result, and uses plain words an ATS can read. Keep EVERY number and fact the candidate " +
+    "gave (e.g. '300 invoices a month', '40 supplier accounts', '2 new clerks') — numbers make a CV stronger — " +
+    "and turn their notes and question answers into polished bullets. Never invent numbers. Avoid weak phrases like " +
     "'responsible for' or 'duties included'. If a target role or job advert is given, use its wording where it " +
     "honestly matches the candidate's experience. Then list the candidate's own skills, most relevant first. " +
     "Write in clear British English suitable for Zimbabwe and southern Africa.",
+  cvQuestions:
+    "You are a friendly careers coach helping someone in Zimbabwe write their CV. They tell you a job they did " +
+    "and, roughly, what they did there. Ask 3 or 4 short, specific questions they can answer in one line that " +
+    "draw out concrete achievements and facts an employer would value: how many people, customers, patients or " +
+    "accounts; targets met; money, stock or equipment handled; systems or tools used; problems they solved; " +
+    "anything they improved. Don't ask about things they already told you. Use simple, warm English. Also " +
+    "suggest up to 8 skills people in this role commonly have — the person will only tick the ones they really have.",
 };
 
 const MAX_PROMPT = 4000;
@@ -145,6 +156,9 @@ function asText(v: unknown): string {
   // Some providers return an array of content parts or a structured object.
   if (Array.isArray(v)) return v.map((p) => (typeof p === "string" ? p : (p as { text?: string })?.text ?? "")).join("");
   if (typeof v === "object" && "text" in (v as object)) return String((v as { text?: unknown }).text ?? "");
+  // Workers AI JSON mode hands back the already-parsed object — keep it as JSON
+  // (String() would give "[object Object]" and every caller's JSON parse would fail).
+  if (typeof v === "object") return JSON.stringify(v);
   return String(v);
 }
 

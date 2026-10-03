@@ -24,12 +24,14 @@ import {
   Coins,
   ShieldCheck,
   Loader2,
+  MessageCircleQuestion,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { cvToPdfBlob, cvToDocxBlob, blobToBase64 } from "@/lib/cvexport";
 import { scoreCv, type AtsReport } from "@/lib/atsScore";
 import { useCosts } from "@/lib/useCosts";
 import { ShareButtons } from "@/components/ShareButtons";
+import { CvInterview, type InterviewResult } from "@/components/CvInterview";
 
 type Job = { role: string; company: string; start: string; end: string; bullets: string };
 type Edu = { qualification: string; institution: string; year: string };
@@ -92,6 +94,30 @@ export default function CvBuilderPage() {
   const [aiNote, setAiNote] = useState("");
   const [undo, setUndo] = useState<Draft | null>(null);
   const [done, setDone] = useState(false);
+  const [interviewing, setInterviewing] = useState(false);
+
+  /** Put the interview answers into the form (keeps anything already filled in). */
+  function applyInterview(r: InterviewResult) {
+    setD((prev) => {
+      const keepJobs = prev.jobs.filter((j) => j.role.trim() || j.company.trim() || j.bullets.trim());
+      const keepEdus = prev.edus.filter((e) => e.qualification.trim() || e.institution.trim());
+      const skillList = splitSkills(prev.skills);
+      for (const sk of r.skills) if (!skillList.some((x) => x.toLowerCase() === sk.toLowerCase())) skillList.push(sk);
+      const jobs = [...keepJobs, ...r.jobs];
+      const edus = [...keepEdus, ...r.edus];
+      return {
+        ...prev,
+        targetRole: r.targetRole || prev.targetRole,
+        headline: prev.headline || r.targetRole,
+        jobs: jobs.length ? jobs : [emptyJob()],
+        edus: edus.length ? edus : [emptyEdu()],
+        skills: skillList.join(", "),
+      };
+    });
+    setInterviewing(false);
+    setAiNote("Your answers are in the form below. Check the ATS score, add anything missing, then press “Write my CV with AI” to turn them into strong bullet points.");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setD((prev) => ({ ...prev, [key]: value }));
   const setJob = (i: number, patch: Partial<Job>) =>
@@ -274,7 +300,7 @@ export default function CvBuilderPage() {
       });
       setAiNote(
         cv.removed
-          ? `Done — your CV has been rewritten. We removed ${cv.removed} AI suggestion${cv.removed === 1 ? "" : "s"} that weren’t backed by your details. Review it, then save or download.`
+          ? `Done — your CV has been rewritten. We removed ${cv.removed} AI suggestion${cv.removed === 1 ? " that wasn’t" : "s that weren’t"} backed by your details. Review it, then save or download.`
           : "Done — your CV has been rewritten. Review it, then save or download.",
       );
     } catch (e) {
@@ -353,6 +379,32 @@ export default function CvBuilderPage() {
           />
         </div>
       </div>
+
+      {/* Guided route for people who don't know what to write */}
+      <div className="glass flex flex-col items-start gap-4 rounded-3xl border border-brand-100 p-5 sm:flex-row sm:items-center">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-400 to-accent-600 text-white">
+          <MessageCircleQuestion className="h-6 w-6" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-bold">Not sure what to write? Let AI interview you.</p>
+          <p className="text-sm text-gray-600">
+            Answer a few simple questions about your jobs in your own words — AI asks follow-ups that bring out your
+            achievements, then fills in your CV.
+          </p>
+        </div>
+        <button
+          onClick={() => setInterviewing(true)}
+          className="flex shrink-0 items-center gap-1.5 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-brand-700"
+        >
+          Start the interview
+        </button>
+      </div>
+      {aiNote && !interviewing && (
+        <p className="rounded-2xl bg-green-50/90 p-3 text-sm text-green-800 lg:hidden">{aiNote}</p>
+      )}
+      {interviewing && (
+        <CvInterview initialTarget={d.targetRole} onClose={() => setInterviewing(false)} onDone={applyInterview} />
+      )}
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">

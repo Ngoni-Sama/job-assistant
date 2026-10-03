@@ -19,6 +19,11 @@ const TASKS: { key: PromptKey; title: string; body: string }[] = [
     title: "ATS CV Creator",
     body: "Writes the headline, summary, achievement bullets and skill order for the CV Creator. Invented numbers, employers or skills are removed by the app regardless of this prompt.",
   },
+  {
+    key: "cvQuestions",
+    title: "CV interview questions",
+    body: "Asks 3–4 follow-up questions about one job the person did (to draw out achievements and numbers) and suggests skills they can tick.",
+  },
 ];
 
 /**

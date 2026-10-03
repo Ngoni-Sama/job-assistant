@@ -133,6 +133,8 @@ export const api = {
       "/api/cvs/create",
       jsonBody({ fileName, markdown, fileData: file?.data, fileType: file?.type }),
     ),
+  cvQuestions: (input: { targetRole?: string; role: string; company?: string; details?: string }) =>
+    req<{ questions: string[]; skills: string[]; balance: number; cost: number }>("/api/cv/questions", jsonBody(input)),
   atsWriteCv: (input: AtsCvRequest) =>
     req<{ cv: AtsCvResult; balance: number; cost: number }>("/api/cv/ats-write", jsonBody(input)),
   setPrimaryCv: (id: string) => req<{ cvs: StoredCV[]; primaryId: string }>("/api/cvs/primary", jsonBody({ id })),

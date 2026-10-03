@@ -143,9 +143,10 @@ export interface ActionCosts {
   matchAll: number;
   unlockContact: number;
   atsCv: number;
+  cvQuestions: number;
 }
 
-export type PromptKey = "cvWriter" | "matcher" | "quickMatch" | "profile" | "atsCv";
+export type PromptKey = "cvWriter" | "matcher" | "quickMatch" | "profile" | "atsCv" | "cvQuestions";
 
 /** What the ATS CV Creator sends to the AI (the user's own facts). */
 export interface AtsCvRequest {

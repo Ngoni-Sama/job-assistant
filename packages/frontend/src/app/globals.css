@@ -27,6 +27,11 @@ body {
   .glass-strong {
     @apply border border-white/50 bg-white/75 shadow-xl backdrop-blur-xl;
   }
+  /* Solid panel for anything floating over content (menus, notifications, alerts) —
+     see-through glass made the text underneath show through and hard to read. */
+  .popover {
+    @apply border border-gray-200 bg-white shadow-2xl ring-1 ring-black/5;
+  }
   /* Form input / textarea */
   .input {
     @apply w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none;

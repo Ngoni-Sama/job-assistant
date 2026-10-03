@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession, signIn } from "next-auth/react";
-import { Radar, MapPin, Info, ArrowRight, LocateFixed } from "lucide-react";
-import { jobPath } from "@/lib/seo";
+import { Radar, MapPin, Info, ArrowRight, LocateFixed, Search, UserRound, X } from "lucide-react";
+import { cityOf, jobPath } from "@/lib/seo";
 import { api } from "@/lib/api";
-import type { Application, JobListing, StoredCV } from "@/lib/types";
+import type { Application, JobListing, Prefs, Profile, StoredCV } from "@/lib/types";
+import { JobTile } from "@/components/JobTile";
+import { hasTargets, matchScore, profileTargets } from "@/lib/jobMatch";
 import { CompanyLogo } from "@/components/CompanyLogo";
 import { ApplyModal } from "@/components/ApplyModal";
 import { RadialApply } from "@/components/RadialApply";
@@ -26,6 +28,14 @@ export default function NearbyPage() {
   const [active, setActive] = useState<Application | null>(null);
   const [cvs, setCvs] = useState<StoredCV[]>([]);
   const [activeCvId, setActiveCvId] = useState<string | undefined>();
+  // Filters: what job, sector, type, and "matches my profession".
+  const [query, setQuery] = useState("");
+  const [sector, setSector] = useState("");
+  const [jobType, setJobType] = useState("");
+  const [mine, setMine] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [prefs, setPrefs] = useState<Prefs | null>(null);
+  const [shown, setShown] = useState(12);
 
   async function apply(job: JobListing, cvId?: string) {
     if (status !== "authenticated") return signIn("google");
@@ -57,12 +67,28 @@ export default function NearbyPage() {
 
   useEffect(() => {
     api.getJobs().then((r) => setJobs(r.jobs)).finally(() => setLoading(false));
-    api.getProfile().then((p) => setCity(p.profile.location || "Harare")).catch(() => setCity("Harare"));
   }, []);
 
   useEffect(() => {
-    if (status === "authenticated") api.getCvs().then((r) => setCvs(r.cvs)).catch(() => {});
+    if (status === "loading") return;
+    if (status !== "authenticated") {
+      setCity((c) => c || "Harare");
+      return;
+    }
+    api.getCvs().then((r) => setCvs(r.cvs)).catch(() => {});
+    api.getPrefs().then((r) => setPrefs(r.prefs)).catch(() => {});
+    api
+      .getProfile()
+      .then((p) => {
+        setProfile(p.profile);
+        setCity((c) => c || cityOf(p.profile.location) || "Harare");
+        if (p.profile.mainProfession) setMine(true); // start with jobs in their field
+      })
+      .catch(() => setCity((c) => c || "Harare"));
   }, [status]);
+
+  const targets = useMemo(() => profileTargets(profile, prefs), [profile, prefs]);
+  const canMatch = hasTargets(targets);
 
   function findLocation() {
     if (!navigator.geolocation) {
@@ -106,11 +132,41 @@ export default function NearbyPage() {
     );
   }
 
-  const nearby = useMemo(() => {
-    if (!city.trim()) return jobs.slice(0, 12);
-    const c = city.toLowerCase();
-    return jobs.filter((j) => j.location.toLowerCase().includes(c)).slice(0, 12);
+  // Jobs in this town (compare town names, so "Harare, Zimbabwe" matches "Harare").
+  const inTown = useMemo(() => {
+    const want = cityOf(city).toLowerCase() || city.trim().toLowerCase();
+    if (!want) return jobs;
+    return jobs.filter((j) => {
+      const where = j.location.toLowerCase();
+      return cityOf(j.location).toLowerCase() === want || where.includes(want);
+    });
   }, [jobs, city]);
+
+  const sectors = useMemo(() => [...new Set(inTown.map((j) => j.sector).filter(Boolean) as string[])].sort(), [inTown]);
+  const types = useMemo(() => [...new Set(inTown.map((j) => j.jobType).filter(Boolean) as string[])].sort(), [inTown]);
+
+  // …then narrowed by the filters; profession matches first.
+  const results = useMemo(() => {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    let list = inTown.filter((j) => {
+      if (sector && j.sector !== sector) return false;
+      if (jobType && j.jobType !== jobType) return false;
+      const text = `${j.title} ${j.company} ${j.sector ?? ""}`.toLowerCase();
+      return words.every((w) => text.includes(w));
+    });
+    if (mine && canMatch) {
+      list = list
+        .map((j) => ({ j, s: matchScore(j, targets) }))
+        .filter((x) => x.s > 0)
+        .sort((a, b) => b.s - a.s)
+        .map((x) => x.j);
+    }
+    return list;
+  }, [inTown, query, sector, jobType, mine, canMatch, targets]);
+  const nearby = results.slice(0, 12); // the radar shows the top 12
+
+  useEffect(() => setShown(12), [results]);
+  const filtering = !!(query || sector || jobType || (mine && canMatch));
 
   return (
     <div className="space-y-6">
@@ -139,6 +195,77 @@ export default function NearbyPage() {
         </div>
       </div>
       {locNote && <p className="text-sm text-gray-500">{locNote}</p>}
+
+      {/* What job? */}
+      <div className="glass space-y-3 rounded-2xl p-4">
+        <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2">
+          <Search className="h-4 w-4 shrink-0 text-gray-400" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="What job? e.g. accountant, driver, nurse"
+            aria-label="Search for a job near you"
+            className="w-full bg-transparent text-sm outline-none"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {canMatch && (
+            <button
+              onClick={() => setMine((v) => !v)}
+              aria-pressed={mine}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${
+                mine ? "bg-brand-600 text-white" : "border border-gray-200 bg-white text-gray-700"
+              }`}
+              title={targets.mainProfession ? `Jobs matching ${targets.mainProfession}` : "Jobs matching your profile"}
+            >
+              <UserRound className="h-4 w-4" /> {targets.mainProfession ? `My profession: ${targets.mainProfession}` : "Matches my profile"}
+            </button>
+          )}
+          <select
+            value={sector}
+            onChange={(e) => setSector(e.target.value)}
+            aria-label="Sector"
+            className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700"
+          >
+            <option value="">All sectors</option>
+            {sectors.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          <select
+            value={jobType}
+            onChange={(e) => setJobType(e.target.value)}
+            aria-label="Job type"
+            className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700"
+          >
+            <option value="">Any type</option>
+            {types.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+          {filtering && (
+            <button
+              onClick={() => {
+                setQuery("");
+                setSector("");
+                setJobType("");
+                setMine(false);
+              }}
+              className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm text-gray-500 hover:bg-white"
+            >
+              <X className="h-4 w-4" /> Clear
+            </button>
+          )}
+          <span className="ml-auto text-sm text-gray-500">
+            {loading ? "" : `${results.length} ${results.length === 1 ? "job" : "jobs"} in ${cityOf(city) || city || "Zimbabwe"}`}
+          </span>
+        </div>
+      </div>
 
       <div className="glass-strong rounded-3xl p-6">
         {loading ? (
@@ -188,8 +315,39 @@ export default function NearbyPage() {
         </div>
       )}
 
-      {!loading && nearby.length === 0 && (
-        <p className="text-center text-gray-500">No jobs found in “{city}”. Try another city.</p>
+      {!loading && results.length === 0 && (
+        <p className="text-center text-gray-500">
+          {filtering ? `No matching jobs in “${cityOf(city) || city}” — try clearing a filter or another town.` : `No jobs found in “${city}”. Try another town.`}
+        </p>
+      )}
+
+      {/* Every match as a list (the radar shows the top 12) */}
+      {!loading && results.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-bold">
+            {filtering ? "Matching jobs" : "All jobs"} in {cityOf(city) || city}
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {results.slice(0, shown).map((job) => (
+              <JobTile
+                key={job.id}
+                job={job}
+                preparing={preparingId === job.id}
+                optimising={optimisingId === job.id}
+                cvs={cvs}
+                onApply={apply}
+                onOptimise={optimise}
+              />
+            ))}
+          </div>
+          {results.length > shown && (
+            <div className="text-center">
+              <button onClick={() => setShown((n) => n + 24)} className="glass rounded-full px-6 py-2.5 text-sm font-medium text-gray-700">
+                Show more ({results.length - shown} more)
+              </button>
+            </div>
+          )}
+        </section>
       )}
 
       {active && (
@@ -214,16 +372,16 @@ function RadarScope({
     <div className="relative mx-auto" style={{ width: size, height: size }}>
       <svg viewBox={`0 0 ${size} ${size}`} className="absolute inset-0">
         {[0.25, 0.5, 0.75, 1].map((r) => (
-          <circle key={r} cx={c} cy={c} r={(c - 6) * r} fill="none" stroke="rgba(37,99,235,0.18)" />
+          <circle key={r} cx={c} cy={c} r={(c - 6) * r} fill="none" stroke="rgba(0,113,250,0.18)" />
         ))}
-        <line x1={c} y1={6} x2={c} y2={size - 6} stroke="rgba(37,99,235,0.12)" />
-        <line x1={6} y1={c} x2={size - 6} y2={c} stroke="rgba(37,99,235,0.12)" />
+        <line x1={c} y1={6} x2={c} y2={size - 6} stroke="rgba(0,113,250,0.12)" />
+        <line x1={6} y1={c} x2={size - 6} y2={c} stroke="rgba(0,113,250,0.12)" />
         {/* sweep */}
         <g className="radar-sweep">
           <defs>
             <linearGradient id="sweep" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stopColor="rgba(37,99,235,0)" />
-              <stop offset="1" stopColor="rgba(37,99,235,0.35)" />
+              <stop offset="0" stopColor="rgba(0,113,250,0)" />
+              <stop offset="1" stopColor="rgba(0,113,250,0.35)" />
             </linearGradient>
           </defs>
           <path d={`M ${c} ${c} L ${c} 6 A ${c - 6} ${c - 6} 0 0 1 ${size - 30} ${c} Z`} fill="url(#sweep)" />
