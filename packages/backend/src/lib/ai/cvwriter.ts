@@ -1,5 +1,5 @@
 import type { Env, JobDetail, JobListing } from "../../types";
-import { docChat } from "./provider";
+import { docChat, getConfig, promptFor } from "./provider";
 
 export interface TailoredApplication {
   summary: string; // tailored professional summary added on top of the CV
@@ -19,12 +19,11 @@ export async function tailorApplication(
   detail: JobDetail,
   env: Env,
 ): Promise<TailoredApplication> {
+  // Admin-editable instructions + a fixed output format the app relies on.
   const system =
-    "You are a professional CV writer. Given a candidate's CV and a job, return " +
-    "ONLY compact JSON: {\"summary\": string, \"coverNote\": string}. " +
-    "`summary` is a 3-4 sentence professional summary rewritten to target THIS job, " +
-    "using only facts present in the CV (never invent qualifications). " +
-    "`coverNote` is a short, warm 3-4 sentence application message addressed to the hiring team.";
+    promptFor(await getConfig(env), "cvWriter") +
+    '\n\nReturn ONLY compact JSON: {"summary": string, "coverNote": string}. ' +
+    "`summary` is the tailored professional summary; `coverNote` is the cover note. No prose outside the JSON.";
 
   const user = [
     "=== JOB ===",

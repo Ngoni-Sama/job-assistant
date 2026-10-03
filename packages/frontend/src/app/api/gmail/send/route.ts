@@ -17,8 +17,14 @@ export async function POST(req: Request) {
   const token = (session as { accessToken?: string } | null)?.accessToken;
   const from = session?.user?.email;
 
-  if (!token || !from) {
+  if (!from) {
     return Response.json({ error: "Sign in with Google to send from your Gmail." }, { status: 401 });
+  }
+  if (!token || (session as { gmail?: boolean }).gmail === false) {
+    return Response.json(
+      { error: "Allow VacancyPal to send from your Gmail first.", code: "gmail_permission" },
+      { status: 403 },
+    );
   }
 
   const { to, subject, body, attachment, originalCvId } = (await req.json()) as {

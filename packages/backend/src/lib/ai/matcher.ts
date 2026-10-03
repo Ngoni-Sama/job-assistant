@@ -1,5 +1,5 @@
 import type { Env, JobListing, JobScore } from "../../types";
-import { chat } from "./provider";
+import { chat, getConfig, promptFor } from "./provider";
 
 /** Scores a single job against the CV markdown and returns a structured result. */
 export async function matchJobToCV(
@@ -8,8 +8,8 @@ export async function matchJobToCV(
   env: Env,
 ): Promise<JobScore> {
   const system =
-    "You are an expert technical recruiter. Compare a candidate CV to a job and " +
-    "return ONLY compact JSON with keys: score (0-100 integer), matchedSkills " +
+    promptFor(await getConfig(env), "matcher") +
+    "\n\nReturn ONLY compact JSON with keys: score (0-100 integer), matchedSkills " +
     "(string[]), missingSkills (string[]), summary (one sentence). No prose.";
 
   const user = [

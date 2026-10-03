@@ -8,6 +8,7 @@ import type { Application, StoredCV } from "@/lib/types";
 import { cvToPdfBlob, cvToDocxBlob, blobToBase64 } from "@/lib/cvexport";
 import { playCoinSound } from "@/lib/sound";
 import { offerPush } from "@/lib/push";
+import { grantGmail, hasGmail } from "@/lib/gmail-permission";
 
 type GenFormat = "pdf" | "docx" | "none";
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -53,6 +54,9 @@ export function ApplyModal({
   const [mailto, setMailto] = useState("");
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
+  // Gmail sending is granted separately from sign-in, on first use.
+  const [needsGmail, setNeedsGmail] = useState(false);
+  const gmailReady = hasGmail(session) && !needsGmail;
 
   // Load the user's CV list so "My original CV" can offer a picker and know
   // which uploaded file to attach.
@@ -130,7 +134,11 @@ export function ApplyModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to, subject: application.subject, body: buildBody(), attachment, originalCvId }),
       });
-      const data = (await res.json()) as { error?: string };
+      const data = (await res.json()) as { error?: string; code?: string };
+      if (res.status === 403 && data.code === "gmail_permission") {
+        setNeedsGmail(true);
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Gmail send failed");
       setSent(true);
       playCoinSound();
@@ -310,10 +318,29 @@ export function ApplyModal({
               <CheckCircle2 className="h-4 w-4" /> Application sent from your Gmail ✅
             </div>
           ) : (
+            <div className="space-y-2">
+            {!gmailReady && (
+              <p className="rounded-lg bg-blue-50 p-3 text-xs text-blue-800">
+                To send from your own address, Google will ask you once to let VacancyPal{" "}
+                <b>send email on your behalf</b>. We never read your inbox.{" "}
+                <a href="/how-we-use-gmail" target="_blank" className="underline">
+                  How we use Gmail
+                </a>
+                . Afterwards, open this application again to send it.
+              </p>
+            )}
             <div className="flex flex-wrap justify-end gap-2">
               <button onClick={onClose} className="rounded-md border px-4 py-2 text-sm hover:bg-gray-50">
                 Cancel
               </button>
+              {!gmailReady ? (
+                <button
+                  onClick={() => grantGmail()}
+                  className="flex items-center gap-1 rounded-md bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm text-white"
+                >
+                  <Mail className="h-4 w-4" /> Allow Gmail sending
+                </button>
+              ) : (
               <button
                 onClick={sendViaGmail}
                 disabled={sending || !to.trim()}
@@ -322,6 +349,8 @@ export function ApplyModal({
                 {to.trim() ? <Mail className="h-4 w-4" /> : <Send className="h-4 w-4" />}
                 {sending ? "Sending…" : "Send from my Gmail"}
               </button>
+              )}
+            </div>
             </div>
           )}
         </div>

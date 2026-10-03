@@ -23,12 +23,25 @@ import {
   CheckCircle2,
   AlertTriangle,
   Sparkles,
+  UserRound,
+  PlugZap,
 } from "lucide-react";
-import { api, payments } from "@/lib/api";
-import type { AppConfig, CandidateCheck, CreditPack, Employer } from "@/lib/types";
 
-type Tab = "site" | "payments" | "ai" | "moderation" | "team" | "updates";
+/** Paid actions and what they're called on the site. */
+const PRICED_ACTIONS: { key: keyof ActionCosts; label: string; body: string }[] = [
+  { key: "optimise", label: "AI Apply", body: "Tailor one application with AI (also each AI auto-apply, and profile from CV)" },
+  { key: "quickMatch", label: "Quick Match", body: "Analyse all listings against the CV" },
+  { key: "matchAll", label: "Match all jobs", body: "Score the latest jobs against the CV" },
+  { key: "unlockContact", label: "Unlock a candidate", body: "Employer reveals one candidate's contact details" },
+];
+import { api, payments } from "@/lib/api";
+import type { ActionCosts, AppConfig, CandidateCheck, CreditPack, Employer } from "@/lib/types";
+import { AdminUsers } from "@/components/admin/AdminUsers";
+import { AdminPrompts } from "@/components/admin/AdminPrompts";
+
+type Tab = "users" | "site" | "payments" | "ai" | "moderation" | "team" | "updates";
 const TABS: { id: Tab; label: string; icon: typeof Shield }[] = [
+  { id: "users", label: "Users", icon: UserRound },
   { id: "site", label: "Site", icon: Globe },
   { id: "payments", label: "Payments", icon: CreditCard },
   { id: "ai", label: "AI", icon: Sparkles },
@@ -43,7 +56,7 @@ export default function AdminPage() {
   const { status } = useSession();
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [config, setConfig] = useState<AppConfig | null>(null);
-  const [tab, setTab] = useState<Tab>("site");
+  const [tab, setTab] = useState<Tab>("users");
   const [health, setHealth] = useState<Health | null>(null);
   const [defaultPacks, setDefaultPacks] = useState<CreditPack[]>([]);
   const [packsDraft, setPacksDraft] = useState<CreditPack[]>([]);
@@ -56,6 +69,8 @@ export default function AdminPage() {
   const [annBody, setAnnBody] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [keyInput, setKeyInput] = useState("");
+  const [keyTest, setKeyTest] = useState<{ ok: boolean; message: string } | null>(null);
+  const [costsDraft, setCostsDraft] = useState<ActionCosts | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
@@ -93,6 +108,7 @@ export default function AdminPage() {
         const cfg = (await api.getAdminConfig()).config;
         setConfig(cfg);
         setSiteDraft(cfg.site);
+        setCostsDraft(cfg.costs);
         const p = await api.getPacks();
         setDefaultPacks(p.packs);
         setPacksDraft(cfg.packs.length ? cfg.packs : p.packs);
@@ -273,6 +289,9 @@ export default function AdminPage() {
       {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {msg && <p className="rounded-xl bg-green-50 p-3 text-sm text-green-700">{msg}</p>}
 
+      {/* ---------------- USERS ---------------- */}
+      {tab === "users" && <AdminUsers />}
+
       {/* ---------------- SITE ---------------- */}
       {tab === "site" && (
         <section className="glass space-y-4 rounded-2xl p-6">
@@ -378,6 +397,53 @@ export default function AdminPage() {
               </Field>
             </div>
           </section>
+
+          {costsDraft && (
+            <section className="glass space-y-3 rounded-2xl p-6">
+              <h2 className="flex items-center gap-2 font-semibold">
+                <Coins className="h-4 w-4 text-amber-500" /> Credit prices
+              </h2>
+              <p className="text-sm text-gray-500">How many credits each paid action costs. 0 makes it free.</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {PRICED_ACTIONS.map((a) => (
+                  <label key={a.key} className="flex items-center justify-between gap-3 rounded-xl bg-white/60 p-3">
+                    <span className="min-w-0 text-sm">
+                      <span className="block font-medium">{a.label}</span>
+                      <span className="block text-xs text-gray-500">{a.body}</span>
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={10000}
+                      value={costsDraft[a.key]}
+                      onChange={(e) => setCostsDraft({ ...costsDraft, [a.key]: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
+                      className="input w-20 shrink-0 text-right"
+                      aria-label={`${a.label} price in credits`}
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => save({ costs: costsDraft }, "Prices saved.")}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 rounded-full bg-brand-600 px-4 py-1.5 text-sm text-white disabled:opacity-50"
+                >
+                  <Save className="h-4 w-4" /> Save prices
+                </button>
+                <button
+                  onClick={() => {
+                    const defaults = { quickMatch: 10, optimise: 3, matchAll: 5, unlockContact: 20 };
+                    setCostsDraft(defaults);
+                    save({ costs: defaults }, "Prices reset to defaults.");
+                  }}
+                  className="rounded-full px-3 py-1.5 text-sm text-gray-500 hover:bg-white/60"
+                >
+                  Reset to defaults
+                </button>
+              </div>
+            </section>
+          )}
 
           <section className="glass space-y-3 rounded-2xl p-6">
             <h2 className="flex items-center gap-2 font-semibold">
@@ -488,7 +554,24 @@ export default function AdminPage() {
                 >
                   <Save className="h-4 w-4" /> Save
                 </button>
+                <button
+                  onClick={async () => {
+                    setKeyTest(null);
+                    try {
+                      setKeyTest(await api.testOpenAI());
+                    } catch (e) {
+                      setKeyTest({ ok: false, message: (e as Error).message });
+                    }
+                  }}
+                  disabled={!config.openaiApiKey}
+                  className="flex items-center gap-1 rounded-lg border px-3 py-2 text-sm text-gray-700 hover:bg-white disabled:opacity-50"
+                >
+                  <PlugZap className="h-4 w-4" /> Test
+                </button>
               </div>
+              {keyTest && (
+                <p className={`mt-1 text-xs ${keyTest.ok ? "text-green-700" : "text-red-600"}`}>{keyTest.message}</p>
+              )}
               <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
                 {config.openaiApiKey ? (
                   <>
@@ -525,6 +608,8 @@ export default function AdminPage() {
               </span>
             </label>
           </section>
+
+          <AdminPrompts config={config} save={save} saving={saving} />
 
           <section className="glass rounded-2xl p-6">
             <h2 className="flex items-center gap-2 font-semibold">

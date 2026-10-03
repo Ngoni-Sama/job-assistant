@@ -1,16 +1,16 @@
 import type { Env } from "../types";
-import { getConfig } from "./ai/provider";
+import { DEFAULT_COSTS, getConfig, type ActionCosts } from "./ai/provider";
 
 /** Default free credits for a new account (admin can override in settings). */
 export const FREE_CREDITS = 50;
 
-/** Credit cost per AI action. Tune freely — these are deducted server-side. */
-export const COSTS = {
-  quickMatch: 10, // full batch analysis of all listings
-  optimise: 3, // prepare/tailor one application
-  matchAll: 5, // score all cached jobs
-  unlockContact: 20, // employer reveals one candidate's contact details
-} as const;
+/** Built-in credit prices (admins can change them in Admin → Payments). */
+export const COSTS = DEFAULT_COSTS;
+
+/** Current credit price per paid action, as set by the admin. */
+export async function getCosts(env: Env): Promise<ActionCosts> {
+  return (await getConfig(env)).costs;
+}
 
 const key = (userId: string) => `credits:${userId}`;
 

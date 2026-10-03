@@ -9,11 +9,13 @@ import { SwipeDeck } from "@/components/SwipeDeck";
 import { ApplyModal } from "@/components/ApplyModal";
 import { RadialApply } from "@/components/RadialApply";
 
+import { useCosts } from "@/lib/useCosts";
 const LIKED_KEY = "smartmatch:liked";
 const PREFS_KEY = "smartmatch:prefs"; // captured guest swipes {jobId, liked}
 const GUEST_LIMIT = 3; // free swipes before sign-in is required
 
 export default function SmartMatchPage() {
+  const costs = useCosts();
   const { status } = useSession();
   const authed = status === "authenticated";
   const [jobs, setJobs] = useState<JobListing[]>([]);
@@ -211,7 +213,7 @@ export default function SmartMatchPage() {
                   />
                   <RadialApply
                     mode="optimise"
-                    cost={3}
+                    cost={costs.optimise}
                     cvs={cvs}
                     preparing={optimisingId === job.id}
                     onApply={(cvId) => optimise(job, cvId)}

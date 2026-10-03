@@ -129,6 +129,40 @@ export interface AppConfig {
     maintenanceMode: boolean;
   };
   packs: CreditPack[];
+  /** Credits charged per paid action. */
+  costs: ActionCosts;
+  /** Admin-written AI instructions (missing = default). */
+  prompts: Partial<Record<PromptKey, string>>;
+}
+
+export interface ActionCosts {
+  quickMatch: number;
+  optimise: number;
+  matchAll: number;
+  unlockContact: number;
+}
+
+export type PromptKey = "cvWriter" | "matcher" | "quickMatch" | "profile";
+
+export interface AdminUserRow {
+  email: string;
+  name: string | null;
+  credits: number;
+  cvs: number;
+  applications: number;
+  employer: "pending" | "approved" | "rejected" | null;
+  availability: "looking" | "open" | "not_looking" | null;
+  mainProfession: string | null;
+  autoApply: boolean;
+  notificationDevices: number;
+}
+
+export interface AdminUsersPage {
+  users: AdminUserRow[];
+  total: number;
+  offset: number;
+  pageSize: number;
+  totals: { users: number; withCv: number; employers: number; autoApplyOn: number; notificationsOn: number };
 }
 
 export interface SiteSettings {

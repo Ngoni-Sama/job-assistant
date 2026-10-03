@@ -27,10 +27,11 @@ export default async function HowWeUseGmailPage() {
   return (
     <LegalPage title={`How ${name} uses Gmail`} updated="3 October 2026">
       <P>
-        {name} helps job seekers in Zimbabwe apply for jobs. When you sign in with Google, we ask for one Gmail
-        permission: <b>“Send email on your behalf” (gmail.send)</b>. It lets {name} send your job applications from
-        your own Gmail address, so employers receive them from you and replies come straight to your inbox. We use it
-        in exactly two ways, both of which you control.
+        {name} helps job seekers in Zimbabwe apply for jobs. Signing in with Google only shares your name, email
+        address and profile photo. Separately — the first time you send an application from Gmail or switch on
+        Auto-apply — Google asks you for one Gmail permission: <b>“Send email on your behalf” (gmail.send)</b>. It lets{" "}
+        {name} send your job applications from your own Gmail address, so employers receive them from you and replies
+        come straight to your inbox. We use it in exactly two ways, both of which you control.
       </P>
 
       <H>1. When you press Send</H>

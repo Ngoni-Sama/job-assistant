@@ -1,5 +1,5 @@
 import type { Env, JobListing } from "../../types";
-import { chat } from "./provider";
+import { chat, getConfig, promptFor } from "./provider";
 
 export interface QuickMatchResult {
   jobId: string;
@@ -58,10 +58,9 @@ async function scoreBatch(
   env: Env,
 ): Promise<QuickMatchResult[]> {
   const system =
-    "You are a career advisor. Given a candidate CV and a numbered list of jobs, " +
-    "identify ONLY the jobs the candidate is a STRONG fit for and has a realistic " +
-    'chance of qualifying for. Return ONLY a JSON array: [{"i": number, "score": ' +
-    '0-100, "reason": "one short sentence"}]. Include an item only if score >= 60. No prose.';
+    promptFor(await getConfig(env), "quickMatch") +
+    '\n\nReturn ONLY a JSON array: [{"i": number, "score": 0-100, "reason": "one short sentence"}]. ' +
+    "Include an item only if score >= 60. No prose.";
 
   const list = batch
     .map(

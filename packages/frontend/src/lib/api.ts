@@ -1,4 +1,6 @@
 import type {
+  AdminUsersPage,
+  PromptKey,
   Announcement,
   AppConfig,
   AutoApplyStatus,
@@ -216,6 +218,12 @@ export const api = {
   setEmployerStatus: (userId: string, status: Employer["status"], reason?: string) =>
     req<{ employers: Employer[] }>("/api/admin/employers", jsonBody({ userId, status, reason })),
   getAdmins: () => req<{ invited: string[]; bootstrap: string[] }>("/api/admin/admins"),
+  getAdminUsers: (offset = 0, q = "") =>
+    req<AdminUsersPage>(`/api/admin/users?offset=${offset}&q=${encodeURIComponent(q)}`),
+  adjustCredits: (userId: string, amount: number) =>
+    req<{ balance: number }>("/api/admin/credits", jsonBody({ userId, amount })),
+  getDefaultPrompts: () => req<{ prompts: Record<PromptKey, string> }>("/api/admin/prompts/defaults"),
+  testOpenAI: () => req<{ ok: boolean; message: string }>("/api/admin/openai/test", { method: "POST" }),
   addAdmin: (email: string) =>
     req<{ invited: string[]; bootstrap: string[] }>("/api/admin/admins", jsonBody({ email })),
   removeAdmin: (email: string) =>

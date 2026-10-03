@@ -21,7 +21,9 @@ import { RadialApply } from "@/components/RadialApply";
 import { ApplyModal } from "@/components/ApplyModal";
 import { RichText } from "@/components/RichText";
 
+import { useCosts } from "@/lib/useCosts";
 export default function JobDetailPage() {
+  const costs = useCosts();
   const params = useParams<{ id: string }>();
   const { status } = useSession();
   const [job, setJob] = useState<JobListing | null>(null);
@@ -157,7 +159,7 @@ export default function JobDetailPage() {
 
         <div className="mt-4 flex flex-wrap gap-2">
           <RadialApply mode="apply" cvs={cvs} preparing={preparing} onApply={(cvId) => apply(job.id, cvId)} />
-          <RadialApply mode="optimise" cost={3} cvs={cvs} preparing={optimising} onApply={(cvId) => optimise(job.id, cvId)} />
+          <RadialApply mode="optimise" cost={costs.optimise} cvs={cvs} preparing={optimising} onApply={(cvId) => optimise(job.id, cvId)} />
           <a
             href={job.applyLink}
             target="_blank"

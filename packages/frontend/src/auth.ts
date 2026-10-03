@@ -5,13 +5,15 @@ import { workerInternal } from "@/lib/server/worker";
 const GMAIL_SEND = "https://www.googleapis.com/auth/gmail.send";
 
 /**
- * Auth.js (NextAuth v5) with Google + Gmail send.
+ * Auth.js (NextAuth v5) with Google.
  *
- * We request the gmail.send scope so the app can send applications from the
- * user's own Gmail. The access token is kept in the JWT and refreshed when it
- * expires; it's exposed on the session so server routes (app/api/gmail/send)
- * can use it. NOTE: gmail.send is a *sensitive* scope — Google caps it at 100
- * users until the consent screen is verified.
+ * Signing in asks only for name, email and photo. Gmail sending (gmail.send,
+ * verified by Google 2026-10-03) is requested separately, the first time the
+ * user sends from Gmail or turns on Auto-apply — see lib/gmail-permission.ts,
+ * which re-runs this same provider with the extra scope. `include_granted_scopes`
+ * keeps an earlier Gmail grant on later sign-ins. The access token is kept in
+ * the JWT and refreshed when it expires; server routes (app/api/gmail/send)
+ * read it from the session.
  *
  * gmail.readonly was removed (2026-10-01): it's a *restricted* scope that would
  * require a paid annual security assessment for verification. Replies are
@@ -23,9 +25,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       authorization: {
         params: {
-          scope: `openid email profile ${GMAIL_SEND}`,
-          access_type: "offline",
-          prompt: "consent",
+          scope: "openid email profile",
+          include_granted_scopes: "true",
         },
       },
     }),
@@ -37,10 +38,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.expiresAt = account.expires_at ? account.expires_at * 1000 : 0;
+        // Did Google grant Gmail sending (now, or earlier via include_granted_scopes)?
+        token.gmail = (account.scope ?? "").split(" ").includes(GMAIL_SEND);
         // Auto-apply runs on the server while the user is away, so hand the
         // refresh token to the Worker. It's stored (encrypted) ONLY if this user
         // has auto-apply switched on; otherwise the Worker discards it.
-        if (account.refresh_token && token.email) {
+        if (account.refresh_token && token.gmail && token.email) {
           await workerInternal("/api/internal/google-token", {
             userId: token.email,
             refreshToken: account.refresh_token,
@@ -83,6 +86,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       (session as { accessToken?: string }).accessToken = token.accessToken as string | undefined;
+      // Sessions from before this change always had Gmail (it was asked at sign-in).
+      const granted = token.gmail === undefined ? !!token.accessToken : !!token.gmail;
+      // Usable = granted and either refreshable or the access token is still valid.
+      const usable =
+        !!token.refreshToken || (!!token.expiresAt && Date.now() < (token.expiresAt as number) - 60_000);
+      (session as { gmail?: boolean }).gmail = granted && usable;
       return session;
     },
   },

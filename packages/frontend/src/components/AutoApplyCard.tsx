@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { signIn } from "next-auth/react";
+import { grantGmail } from "@/lib/gmail-permission";
 import { Zap, ShieldCheck, AlertTriangle, Play, Sparkles, Mail, Coins, X, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { SECTORS } from "@/lib/sectors";
@@ -47,7 +47,7 @@ export function AutoApplyCard({
     await savePrefs({ autoApply: on });
     if (on && !status?.authorized) {
       // Google sign-in again so the server gets permission to send while you're away.
-      signIn("google", { callbackUrl: "/settings?autoapply=authorized#auto-apply" });
+      grantGmail("/settings?autoapply=authorized#auto-apply");
     } else {
       refresh();
     }
@@ -127,7 +127,7 @@ export function AutoApplyCard({
           </span>
           {!status.authorized && (
             <button
-              onClick={() => signIn("google", { callbackUrl: "/settings?autoapply=authorized#auto-apply" })}
+              onClick={() => grantGmail("/settings?autoapply=authorized#auto-apply")}
               className="rounded-full bg-amber-600 px-3 py-1 text-xs font-medium text-white"
             >
               Authorize Gmail

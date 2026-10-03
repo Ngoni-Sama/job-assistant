@@ -7,6 +7,48 @@ export interface CreditPackConfig {
   priceCents: number; // in `payments.currency`
 }
 
+/** Credits charged per paid action (admin-editable). */
+export interface ActionCosts {
+  quickMatch: number; // full batch analysis of all listings
+  optimise: number; // AI Apply: tailor one application (also auto-apply with AI)
+  matchAll: number; // score all cached jobs
+  unlockContact: number; // employer reveals one candidate's contact details
+}
+
+export const DEFAULT_COSTS: ActionCosts = { quickMatch: 10, optimise: 3, matchAll: 5, unlockContact: 20 };
+
+/** AI tasks whose instructions an admin can rewrite. */
+export type PromptKey = "cvWriter" | "matcher" | "quickMatch" | "profile";
+
+/**
+ * Default instructions per task. The required output format (JSON shape) is
+ * NOT part of these — each task appends its own, so an edited prompt can't
+ * break the app.
+ */
+export const DEFAULT_PROMPTS: Record<PromptKey, string> = {
+  cvWriter:
+    "You are a professional CV writer. Using the candidate's CV and the job, write: " +
+    "a 3-4 sentence professional summary rewritten to target THIS job, using only facts present in the CV " +
+    "(never invent qualifications, employers, dates or skills); and a short, warm 3-4 sentence cover note " +
+    "addressed to the hiring team.",
+  matcher:
+    "You are an expert recruiter. Compare a candidate's CV to a job and judge honestly how well they fit, " +
+    "based on the skills, experience and qualifications the job asks for.",
+  quickMatch:
+    "You are a career advisor. Given a candidate CV and a numbered list of jobs, identify ONLY the jobs the " +
+    "candidate is a STRONG fit for and has a realistic chance of qualifying for.",
+  profile:
+    "You extract a candidate profile from a CV. Use only facts present in the CV. Omit a field if it is unknown.",
+};
+
+const MAX_PROMPT = 4000;
+
+/** The instructions for a task: the admin's version if set, otherwise the default. */
+export function promptFor(cfg: AppConfig, key: PromptKey): string {
+  const custom = cfg.prompts?.[key]?.trim();
+  return custom ? custom.slice(0, MAX_PROMPT) : DEFAULT_PROMPTS[key];
+}
+
 export interface AppConfig {
   aiProvider: "workers-ai" | "openai";
   openaiApiKey?: string;
@@ -32,6 +74,10 @@ export interface AppConfig {
   };
   /** Admin-editable top-up packs. Empty → built-in defaults. */
   packs: CreditPackConfig[];
+  /** Credits per paid action. */
+  costs: ActionCosts;
+  /** Admin-written AI instructions (missing/empty → DEFAULT_PROMPTS). */
+  prompts: Partial<Record<PromptKey, string>>;
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -47,6 +93,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     maintenanceMode: false,
   },
   packs: [],
+  costs: DEFAULT_COSTS,
+  prompts: {},
 };
 
 const CONFIG_KEY = "config:app";
@@ -66,6 +114,8 @@ export async function getConfig(env: Env): Promise<AppConfig> {
     payments: { ...DEFAULT_CONFIG.payments, ...(stored.payments ?? {}) },
     site: { ...DEFAULT_CONFIG.site, ...(stored.site ?? {}) },
     packs: stored.packs ?? [],
+    costs: { ...DEFAULT_COSTS, ...(stored.costs ?? {}) },
+    prompts: stored.prompts ?? {},
   };
 }
 

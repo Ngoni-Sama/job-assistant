@@ -161,8 +161,9 @@ export default function LandingPage() {
           <div className="space-y-3">
             <h2 className="text-2xl font-extrabold tracking-tight">Applications go from your own Gmail</h2>
             <p className="text-gray-600">
-              When you sign in with Google, VacancyPal asks for one Gmail permission — to send email on your behalf —
-              so employers get your application from your own address and replies land in your inbox.
+              Signing in only shares your name, email and photo. When you first send an application from Gmail (or
+              switch on Auto-apply), Google asks once for one permission — to send email on your behalf — so employers
+              get your application from your own address and replies land in your inbox.
             </p>
             <ul className="grid gap-2 text-sm text-gray-700 sm:grid-cols-2">
               <li className="flex gap-2">

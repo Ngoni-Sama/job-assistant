@@ -1,5 +1,5 @@
 import type { Env, Profile } from "../../types";
-import { chat } from "./provider";
+import { chat, getConfig, promptFor } from "./provider";
 
 /**
  * Extract structured candidate profile fields from a CV using AI. Only facts
@@ -8,11 +8,11 @@ import { chat } from "./provider";
  */
 export async function extractProfile(cvMarkdown: string, env: Env): Promise<Partial<Profile>> {
   const system =
-    "You extract a candidate profile from a CV. Return ONLY JSON: " +
+    promptFor(await getConfig(env), "profile") +
+    "\n\nReturn ONLY JSON: " +
     '{"name": string, "headline": string (one line, e.g. "Registered Nurse · 5 yrs · Harare"), ' +
     '"sector": string, "location": string, "yearsExperience": number, "skills": string[] (max 10), ' +
-    '"education": string (highest qualification), "languages": string[]}. ' +
-    "Use only facts present in the CV. Omit a field if unknown. No prose.";
+    '"education": string (highest qualification), "languages": string[]}. Omit unknown fields. No prose.';
 
   let raw = "";
   try {

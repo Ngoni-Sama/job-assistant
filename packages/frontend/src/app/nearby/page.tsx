@@ -10,7 +10,9 @@ import { CompanyLogo } from "@/components/CompanyLogo";
 import { ApplyModal } from "@/components/ApplyModal";
 import { RadialApply } from "@/components/RadialApply";
 
+import { useCosts } from "@/lib/useCosts";
 export default function NearbyPage() {
+  const costs = useCosts();
   const { status } = useSession();
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [city, setCity] = useState("");
@@ -170,7 +172,7 @@ export default function NearbyPage() {
             />
             <RadialApply
               mode="optimise"
-              cost={3}
+              cost={costs.optimise}
               cvs={cvs}
               preparing={optimisingId === selected.id}
               onApply={(cvId) => optimise(selected, cvId)}

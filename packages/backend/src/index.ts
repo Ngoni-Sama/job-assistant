@@ -29,12 +29,12 @@ import { processCV } from "./lib/ai/extractor";
 import { matchJobToCV } from "./lib/ai/matcher";
 import { tailorApplication } from "./lib/ai/cvwriter";
 import { sendApplication } from "./lib/email";
-import { getConfig, saveConfig, type AppConfig } from "./lib/ai/provider";
+import { DEFAULT_PROMPTS, getConfig, saveConfig, type AppConfig, type PromptKey } from "./lib/ai/provider";
 import { quickMatch, type QuickMatchRun } from "./lib/ai/quickmatch";
 import { extractProfile } from "./lib/ai/profileextract";
 import { cleanCvMarkdown } from "./lib/cvclean";
 import { rankCandidates, indexDoc, type RagDoc } from "./lib/ai/rag";
-import { charge, getCredits, addCredits, COSTS } from "./lib/credits";
+import { charge, getCredits, addCredits, getCosts } from "./lib/credits";
 import { PACKS, createCheckoutSession, verifyWebhook } from "./lib/stripe";
 import { CHECKS, findCheck } from "./lib/checks";
 import { encryptToken, decryptToken, gtokenKey } from "./lib/tokens";
@@ -234,7 +234,7 @@ export default {
       }
 
       if (path === "/api/credits" && request.method === "GET") {
-        return json({ balance: await getCredits(env, userId), costs: COSTS });
+        return json({ balance: await getCredits(env, userId), costs: await getCosts(env) });
       }
       if (path === "/api/billing/packs" && request.method === "GET") {
         const cfg = await getConfig(env);
@@ -541,10 +541,11 @@ export default {
         if (!cv) return json({ error: "No CV uploaded yet" }, { status: 400 });
         const jobs = (await env.JOBS_CACHE.get<JobListing[]>(JOBS_KEY, "json")) ?? [];
 
-        const paidMatch = await charge(env, userId, COSTS.matchAll);
+        const { matchAll: matchAllCost } = await getCosts(env);
+        const paidMatch = await charge(env, userId, matchAllCost);
         if (!paidMatch.ok) {
           return json(
-            { error: "Not enough credits to match all jobs", balance: paidMatch.balance, cost: COSTS.matchAll },
+            { error: "Not enough credits to match all jobs", balance: paidMatch.balance, cost: matchAllCost },
             { status: 402 },
           );
         }
@@ -582,6 +583,8 @@ export default {
                   .filter((p) => p && p.id && p.credits > 0 && p.priceCents > 0)
                   .map((p) => ({ id: String(p.id), label: String(p.label || p.id), credits: Math.round(p.credits), priceCents: Math.round(p.priceCents) }))
               : current.packs,
+            costs: patch.costs ? cleanCosts(patch.costs, current.costs) : current.costs,
+            prompts: patch.prompts ? cleanPrompts(patch.prompts, current.prompts) : current.prompts,
             // Keep the existing key when the client sends back the masked value.
             openaiApiKey:
               patch.openaiApiKey && !patch.openaiApiKey.includes("•")
@@ -591,6 +594,66 @@ export default {
           await saveConfig(env, next);
           return json({ config: maskConfig(next) });
         }
+      }
+
+      // The built-in AI instructions (shown as the starting point in the editor).
+      if (path === "/api/admin/prompts/defaults" && request.method === "GET") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        return json({ prompts: DEFAULT_PROMPTS });
+      }
+
+      // Check the saved OpenAI key really works (lists models; costs nothing).
+      if (path === "/api/admin/openai/test" && request.method === "POST") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        const cfg = await getConfig(env);
+        if (!cfg.openaiApiKey) return json({ ok: false, message: "No OpenAI key saved yet." });
+        try {
+          const res = await fetch("https://api.openai.com/v1/models", {
+            headers: { Authorization: `Bearer ${cfg.openaiApiKey}` },
+            signal: AbortSignal.timeout(8000),
+          });
+          if (res.ok) {
+            const data = (await res.json()) as { data?: { id: string }[] };
+            const hasModel = (data.data ?? []).some((m) => m.id === cfg.openaiModel);
+            return json({
+              ok: true,
+              message: hasModel
+                ? `Key works, and model "${cfg.openaiModel}" is available.`
+                : `Key works, but model "${cfg.openaiModel}" isn't available to this key — pick another model.`,
+            });
+          }
+          return json({
+            ok: false,
+            message:
+              res.status === 401
+                ? "OpenAI rejected this key (401). Check it was copied correctly."
+                : res.status === 429
+                  ? "OpenAI says the account has no quota left (429). Check billing on platform.openai.com."
+                  : `OpenAI returned HTTP ${res.status}.`,
+          });
+        } catch {
+          return json({ ok: false, message: "Couldn't reach OpenAI — try again." });
+        }
+      }
+
+      // Users: everyone who has used VacancyPal while signed in, with counts.
+      if (path === "/api/admin/users" && request.method === "GET") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0) || 0);
+        const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
+        return json(await listUsers(env, offset, q));
+      }
+      // Add or remove credits for a user (support, refunds, promotions).
+      if (path === "/api/admin/credits" && request.method === "POST") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        const b = (await request.json()) as { userId?: string; amount?: number };
+        const amount = Math.round(Number(b.amount));
+        if (!b.userId?.includes("@") || !Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 100_000) {
+          return json({ error: "Give a user and a non-zero amount" }, { status: 400 });
+        }
+        const current = await getCredits(env, b.userId);
+        const balance = await addCredits(env, b.userId, Math.max(amount, -current)); // never below zero
+        return json({ balance });
       }
 
       // --- Admin allowlist: invite / remove other admins ---
@@ -628,10 +691,11 @@ export default {
         const jobs = await getJobs(env);
         if (jobs.length === 0) return json({ error: "No jobs cached yet" }, { status: 400 });
 
-        const paid = await charge(env, userId, COSTS.quickMatch);
+        const { quickMatch: quickCost } = await getCosts(env);
+        const paid = await charge(env, userId, quickCost);
         if (!paid.ok) {
           return json(
-            { error: "Not enough credits for Quick Match", balance: paid.balance, cost: COSTS.quickMatch },
+            { error: "Not enough credits for Quick Match", balance: paid.balance, cost: quickCost },
             { status: 402 },
           );
         }
@@ -678,7 +742,7 @@ export default {
       if (path === "/api/profile/from-cv" && request.method === "POST") {
         const cv = await env.JOBS_CACHE.get<StoredCV>(`cv:${userId}`, "json");
         if (!cv) return json({ error: "Upload a CV first" }, { status: 400 });
-        const paid = await charge(env, userId, COSTS.optimise);
+        const paid = await charge(env, userId, (await getCosts(env)).optimise);
         if (!paid.ok) {
           return json({ error: "Not enough credits", balance: paid.balance }, { status: 402 });
         }
@@ -1069,9 +1133,10 @@ export default {
         const email = await env.JOBS_CACHE.get(`cidmap:${cid}`);
         if (!email) return json({ error: "Candidate not found" }, { status: 404 });
 
-        const paid = await charge(env, userId, COSTS.unlockContact);
+        const { unlockContact: unlockCost } = await getCosts(env);
+        const paid = await charge(env, userId, unlockCost);
         if (!paid.ok) {
-          return json({ error: "Not enough credits", balance: paid.balance, cost: COSTS.unlockContact }, { status: 402 });
+          return json({ error: "Not enough credits", balance: paid.balance, cost: unlockCost }, { status: 402 });
         }
         unlocked[cid] = email;
         await env.JOBS_CACHE.put(ukey, JSON.stringify(unlocked));
@@ -1204,10 +1269,11 @@ export default {
         const job = (await getJobs(env)).find((j) => j.id === jobId);
         if (!job) return json({ error: "Job not found" }, { status: 404 });
 
-        const paid = await charge(env, userId, COSTS.optimise);
+        const { optimise: optimiseCost } = await getCosts(env);
+        const paid = await charge(env, userId, optimiseCost);
         if (!paid.ok) {
           return json(
-            { error: "Not enough credits to optimise a CV", balance: paid.balance, cost: COSTS.optimise },
+            { error: "Not enough credits to optimise a CV", balance: paid.balance, cost: optimiseCost },
             { status: 402 },
           );
         }
@@ -1733,6 +1799,7 @@ async function autoApplyForUser(
   }
 
   const profile = await getProfile(env, userId);
+  const { optimise: optimiseCost } = await getCosts(env);
   const file = await env.JOBS_CACHE.get<{ name: string; type: string; data: string }>(`cvfile:${userId}`, "json");
   let detailFetches = 0;
   let sent = 0;
@@ -1757,7 +1824,7 @@ async function autoApplyForUser(
     // Cover note: free template, or AI-tailored when the user opted in (charged per job).
     let coverNote = templateCoverNote(job);
     let optimised = false;
-    if (prefs.autoApplyUseAI && (await charge(env, userId, COSTS.optimise)).ok) {
+    if (prefs.autoApplyUseAI && (await charge(env, userId, optimiseCost)).ok) {
       try {
         const t = await tailorApplication(cv.markdown, job, detail, env);
         if (t.coverNote) {
@@ -1765,7 +1832,7 @@ async function autoApplyForUser(
           optimised = true;
         }
       } catch {
-        await addCredits(env, userId, COSTS.optimise); // refund on AI failure
+        await addCredits(env, userId, optimiseCost); // refund on AI failure
       }
     }
 
@@ -2104,4 +2171,115 @@ async function processJobAlerts(env: Env): Promise<void> {
 
   if (pending.length <= ALERTS_PER_RUN) await env.JOBS_CACHE.delete(ALERTS_KEY);
   else await env.JOBS_CACHE.put(ALERTS_KEY, JSON.stringify({ ...queue, done: [...done] }), { expirationTtl: 60 * 60 * 24 });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin helpers: prices, prompts, user list
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Keep prices whole numbers between 0 and 10,000 credits. */
+function cleanCosts(patch: Partial<AppConfig["costs"]>, current: AppConfig["costs"]): AppConfig["costs"] {
+  const next = { ...current };
+  for (const k of Object.keys(current) as (keyof AppConfig["costs"])[]) {
+    const v = Number(patch[k]);
+    if (patch[k] !== undefined && Number.isFinite(v)) next[k] = Math.min(10_000, Math.max(0, Math.round(v)));
+  }
+  return next;
+}
+
+/** An empty prompt means "use the default". */
+function cleanPrompts(patch: AppConfig["prompts"], current: AppConfig["prompts"]): AppConfig["prompts"] {
+  const next = { ...current };
+  for (const k of Object.keys(DEFAULT_PROMPTS) as PromptKey[]) {
+    if (!(k in patch)) continue;
+    const v = String(patch[k] ?? "").trim().slice(0, 4000);
+    if (v && v !== DEFAULT_PROMPTS[k]) next[k] = v;
+    else delete next[k];
+  }
+  return next;
+}
+
+/** All keys under a prefix (KV lists 1000 at a time). */
+async function listKeyNames(env: Env, prefix: string): Promise<string[]> {
+  const names: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await env.JOBS_CACHE.list({ prefix, cursor });
+    names.push(...page.keys.map((k) => k.name.slice(prefix.length)));
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  return names;
+}
+
+export type AdminUserRow = {
+  email: string;
+  name: string | null;
+  credits: number;
+  cvs: number;
+  applications: number;
+  employer: Employer["status"] | null;
+  availability: Profile["availability"] | null;
+  mainProfession: string | null;
+  autoApply: boolean;
+  notificationDevices: number;
+};
+
+const USERS_PAGE = 50;
+
+/**
+ * Everyone who has signed in and done something (credits, profile, CVs,
+ * preferences or an employer account all leave a record). Totals cover all
+ * users; per-user details are loaded one page at a time to stay within the
+ * Worker's storage-read budget.
+ */
+async function listUsers(env: Env, offset: number, q: string) {
+  const [credits, profiles, cvs, prefs, employers, gtokens, pushsubs] = await Promise.all(
+    ["credits:", "profile:", "cvs:", "prefs:", "employer:", "gtoken:", PUSH_SUBS_PREFIX].map((p) => listKeyNames(env, p)),
+  );
+  const all = [...new Set([...credits, ...profiles, ...cvs, ...prefs, ...employers])]
+    .filter((e) => e.includes("@"))
+    .sort((a, b) => a.localeCompare(b));
+  const matching = q ? all.filter((e) => e.toLowerCase().includes(q)) : all;
+  const pageEmails = matching.slice(offset, offset + USERS_PAGE);
+  const autoOn = new Set(gtokens);
+  const devicesOn = new Set(pushsubs);
+
+  const users: AdminUserRow[] = await Promise.all(
+    pageEmails.map(async (email) => {
+      const [balance, profile, cvList, applied, employer, subs] = await Promise.all([
+        env.JOBS_CACHE.get(`credits:${email}`),
+        env.JOBS_CACHE.get<Profile>(`profile:${email}`, "json"),
+        env.JOBS_CACHE.get<StoredCV[]>(`cvs:${email}`, "json"),
+        env.JOBS_CACHE.get<string[]>(`applied:${email}`, "json"),
+        env.JOBS_CACHE.get<Employer>(`employer:${email}`, "json"),
+        devicesOn.has(email) ? getSubs(env, email) : Promise.resolve([]),
+      ]);
+      return {
+        email,
+        name: profile?.name ?? null,
+        credits: balance === null ? 0 : Number(balance) || 0,
+        cvs: cvList?.length ?? 0,
+        applications: applied?.length ?? 0,
+        employer: employer?.status ?? null,
+        availability: profile?.availability ?? null,
+        mainProfession: profile?.mainProfession ?? null,
+        autoApply: autoOn.has(email),
+        notificationDevices: subs.length,
+      };
+    }),
+  );
+
+  return {
+    users,
+    total: matching.length,
+    offset,
+    pageSize: USERS_PAGE,
+    totals: {
+      users: all.length,
+      withCv: new Set(cvs).size,
+      employers: employers.length,
+      autoApplyOn: gtokens.length,
+      notificationsOn: pushsubs.length,
+    },
+  };
 }

@@ -4,6 +4,7 @@ import type { JobListing, JobScore, StoredCV } from "@/lib/types";
 import { CompanyLogo, isExpired, formatDate } from "./CompanyLogo";
 import { RadialApply } from "./RadialApply";
 
+import { useCosts } from "@/lib/useCosts";
 function scoreColor(score: number): string {
   if (score >= 75) return "bg-green-100 text-green-700";
   if (score >= 50) return "bg-brand-100 text-brand-700";
@@ -29,6 +30,7 @@ export function JobTile({
   onApply: (job: JobListing, cvId?: string) => void;
   onOptimise?: (job: JobListing, cvId?: string) => void;
 }) {
+  const costs = useCosts();
   const expired = isExpired(job.expiryDate);
   return (
     <div className="glass flex min-w-0 flex-col rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-xl">
@@ -97,7 +99,7 @@ export function JobTile({
             {onOptimise && (
               <RadialApply
                 mode="optimise"
-                cost={3}
+                cost={costs.optimise}
                 cvs={cvs}
                 preparing={!!optimising}
                 onApply={(cvId) => onOptimise(job, cvId)}

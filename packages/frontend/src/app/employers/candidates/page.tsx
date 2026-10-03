@@ -20,6 +20,7 @@ import {
 import { api } from "@/lib/api";
 import type { CandidateCard } from "@/lib/types";
 
+import { useCosts } from "@/lib/useCosts";
 export default function CandidateBrowsePage() {
   const { status } = useSession();
   const [sectors, setSectors] = useState<Record<string, CandidateCard[]>>({});
@@ -212,6 +213,7 @@ function CandidateTile({
   onUnlock: () => void;
   onMessage: () => void;
 }) {
+  const costs = useCosts();
   return (
     <div className="glass flex flex-col rounded-2xl p-5">
       <div className="flex items-center gap-3">
@@ -291,7 +293,7 @@ function CandidateTile({
             disabled={unlocking}
             className="flex flex-1 items-center justify-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
-            <Lock className="h-3.5 w-3.5" /> {unlocking ? "…" : "Unlock · 20"}
+            <Lock className="h-3.5 w-3.5" /> {unlocking ? "…" : `Unlock · ${costs.unlockContact}`}
           </button>
         )}
         <button

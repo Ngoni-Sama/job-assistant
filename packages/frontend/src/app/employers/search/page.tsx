@@ -21,6 +21,7 @@ import { SECTORS } from "@/lib/sectors";
 import type { CandidateMatch, RecruiterCv, RecruiterSearchResult, Employer, CandidateCard } from "@/lib/types";
 
 
+import { useCosts } from "@/lib/useCosts";
 const SAMPLE_PROMPTS = [
   "Registered nurse, 3+ years, Harare",
   "Sales & marketing with FMCG experience",
@@ -298,6 +299,7 @@ function MatchCard({
   onShortlist: () => void;
   onHide: () => void;
 }) {
+  const costs = useCosts();
   const pct = Math.round(m.score * 100);
   return (
     <div className="glass rounded-2xl p-4">
@@ -344,7 +346,7 @@ function MatchCard({
             </a>
           ) : (
             <button onClick={onUnlock} className="flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50">
-              <Lock className="h-3.5 w-3.5" /> Unlock contact · 20 cr
+              <Lock className="h-3.5 w-3.5" /> Unlock contact · {costs.unlockContact} cr
             </button>
           )
         ) : null}
