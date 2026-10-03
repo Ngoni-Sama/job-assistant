@@ -80,6 +80,21 @@ export interface Prefs {
   autoApplyKeywords?: string[];
   autoApplyDailyLimit?: number;
   autoApplyUseAI?: boolean;
+  notify?: NotifyPrefs;
+}
+
+export type NotifyType = "message" | "interest" | "jobs" | "autoApply" | "credits";
+
+/** Notification switches. A missing key means "on". */
+export interface NotifyPrefs {
+  message?: boolean;
+  interest?: boolean;
+  jobs?: boolean;
+  autoApply?: boolean;
+  credits?: boolean;
+  sound?: boolean;
+  quietStart?: string | null; // "HH:MM", Zimbabwe time
+  quietEnd?: string | null;
 }
 
 export interface AutoApplyStatus {
@@ -202,6 +217,7 @@ export interface Thread {
   candidateName: string;
   messages: Message[];
   updatedAt: string;
+  readAt?: { employer?: string; candidate?: string };
 }
 
 export interface ThreadSummary {
@@ -210,12 +226,14 @@ export interface ThreadSummary {
   lastMessage: string;
   updatedAt: string;
   unreadFrom: "employer" | "candidate" | null;
+  unread?: number;
 }
 
 export interface CandidateCard {
   id: string;
   name: string;
   headline: string;
+  mainProfession?: string;
   sector: string;
   availability: Availability;
   location?: string;
@@ -230,6 +248,8 @@ export interface Profile {
   availability: Availability;
   headline: string;
   sector: string;
+  mainProfession?: string;
+  otherRoles?: string[];
   name?: string;
   location?: string;
   yearsExperience?: number;

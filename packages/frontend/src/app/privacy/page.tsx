@@ -19,7 +19,7 @@ export default async function PrivacyPage() {
   );
 
   return (
-    <LegalPage title="Privacy Policy" updated="1 October 2026">
+    <LegalPage title="Privacy Policy" updated="2 October 2026">
       <P>
         {name} (“we”, “us”) helps job seekers in Zimbabwe and Southern Africa find jobs and apply to them, and helps
         employers find candidates. This policy explains what information we collect, how we use it, and the choices
@@ -48,6 +48,11 @@ export default async function PrivacyPage() {
           <>
             <b>Payments</b> — credit top-ups are processed by Pesepay. We receive the payment reference, amount and
             status. We never see or store your card details or mobile-money PIN.
+          </>,
+          <>
+            <b>Notifications</b> — if you turn on notifications, we store the push address your browser issues for
+            your device, and your notification settings, so we can alert you to new jobs, employer messages and
+            auto-apply results. You can switch them off at any time in Settings.
           </>,
           <>
             <b>Technical data</b> — basic logs and anonymous usage statistics needed to run, secure and improve the
@@ -110,12 +115,13 @@ export default async function PrivacyPage() {
         items={[
           <>
             <b>Employers</b> — if you mark yourself as available, approved employers can see your profile card (name,
-            headline, skills, sector, location and verification badges). Your email address is only revealed to an
+            main profession, headline, skills, sector, location and verification badges). Your email address is only revealed to an
             approved employer who unlocks your contact details.
           </>,
           <>
             <b>Service providers</b> — hosting and infrastructure (Cloudflare, our web host), payments (Pesepay), sign-in
-            and email (Google), and AI processing (section 4). They may use the data only to provide their service to
+            and email (Google), notification delivery (your browser&apos;s push service, for example Google or Apple),
+            and AI processing (section 4). They may use the data only to provide their service to
             us.
           </>,
           <>

@@ -28,6 +28,7 @@ import {
 import { api } from "@/lib/api";
 import { AuthButton } from "./AuthButton";
 import { NotificationBell } from "./NotificationBell";
+import { useLive } from "./LiveUpdates";
 
 type Item = { href: string; label: string; icon: typeof Zap };
 
@@ -59,6 +60,7 @@ export function Nav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [siteName, setSiteName] = useState("VacancyPal");
   const [scrolled, setScrolled] = useState(false);
+  const { unread } = useLive();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -120,14 +122,22 @@ export function Nav() {
                   moreOpen ? "bg-white/80 text-brand-700" : "text-gray-600 hover:bg-white/50"
                 }`}
               >
-                More <ChevronDown className={`h-4 w-4 transition-transform ${moreOpen ? "rotate-180" : ""}`} />
+                More
+                {unread > 0 && <span className="h-2 w-2 rounded-full bg-red-500" aria-label={`${unread} unread messages`} />}
+                <ChevronDown className={`h-4 w-4 transition-transform ${moreOpen ? "rotate-180" : ""}`} />
               </button>
               {moreOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setMoreOpen(false)} />
                   <div className="glass-strong absolute right-0 z-20 mt-2 w-52 rounded-2xl p-2 shadow-xl">
                     {secondaryItems.map((item) => (
-                      <NavLink key={item.href} item={item} active={pathname === item.href} block />
+                      <NavLink
+                        key={item.href}
+                        item={item}
+                        active={pathname === item.href}
+                        badge={item.href === "/messages" ? unread : 0}
+                        block
+                      />
                     ))}
                   </div>
                 </>
@@ -150,10 +160,13 @@ export function Nav() {
           {/* Mobile: hamburger */}
           <button
             onClick={() => setMenuOpen((v) => !v)}
-            className="rounded-full p-2 text-gray-600 hover:bg-white/50 md:hidden"
+            className="relative rounded-full p-2 text-gray-600 hover:bg-white/50 md:hidden"
             aria-label="Menu"
           >
             {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {unread > 0 && !menuOpen && (
+              <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500" />
+            )}
           </button>
         </div>
       </div>
@@ -162,7 +175,13 @@ export function Nav() {
       {menuOpen && (
         <nav className="grid grid-cols-2 gap-1 border-t border-white/40 p-2 md:hidden">
           {allItems.map((item) => (
-            <NavLink key={item.href} item={item} active={pathname === item.href} block />
+            <NavLink
+              key={item.href}
+              item={item}
+              active={pathname === item.href}
+              badge={item.href === "/messages" ? unread : 0}
+              block
+            />
           ))}
         </nav>
       )}
@@ -171,7 +190,18 @@ export function Nav() {
   );
 }
 
-function NavLink({ item, active, block }: { item: Item; active: boolean; block?: boolean }) {
+function NavLink({
+  item,
+  active,
+  block,
+  badge = 0,
+}: {
+  item: Item;
+  active: boolean;
+  block?: boolean;
+  /** Unread count shown next to the label. */
+  badge?: number;
+}) {
   const Icon = item.icon;
   return (
     <Link
@@ -182,6 +212,11 @@ function NavLink({ item, active, block }: { item: Item; active: boolean; block?:
     >
       <Icon className="h-4 w-4" />
       {item.label}
+      {badge > 0 && (
+        <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+          {badge > 9 ? "9+" : badge}
+        </span>
+      )}
     </Link>
   );
 }

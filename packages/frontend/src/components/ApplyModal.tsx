@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import type { Application, StoredCV } from "@/lib/types";
 import { cvToPdfBlob, cvToDocxBlob, blobToBase64 } from "@/lib/cvexport";
 import { playCoinSound } from "@/lib/sound";
+import { offerPush } from "@/lib/push";
 
 type GenFormat = "pdf" | "docx" | "none";
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -134,6 +135,8 @@ export function ApplyModal({
       setSent(true);
       playCoinSound();
       onSent(application.jobId);
+      // They'll want to hear about new jobs and any reply.
+      offerPush("apply");
     } catch (e) {
       setError((e as Error).message);
       setMailto(

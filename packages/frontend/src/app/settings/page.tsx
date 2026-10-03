@@ -6,6 +6,8 @@ import { Plus, Trash2, Globe, AlertTriangle, Radar } from "lucide-react";
 import { api, apiBase } from "@/lib/api";
 import type { Availability, Prefs, Profile, ScrapeSource } from "@/lib/types";
 import { AutoApplyCard } from "@/components/AutoApplyCard";
+import { NotificationSettings } from "@/components/NotificationSettings";
+import { ProfessionFields } from "@/components/ProfessionFields";
 
 const API_URL = apiBase;
 
@@ -147,7 +149,10 @@ export default function SettingsPage() {
             className="mt-1 w-full rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
           />
         </div>
+        {status === "authenticated" && <ProfessionFields profile={profile} save={saveProfile} />}
       </section>
+
+      {status === "authenticated" && <NotificationSettings prefs={prefs} savePrefs={savePrefs} />}
 
       {status === "authenticated" && (
         <AutoApplyCard prefs={prefs} savePrefs={savePrefs} suggestedSector={profile?.sector} />

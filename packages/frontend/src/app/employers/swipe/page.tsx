@@ -112,7 +112,10 @@ function SwipeCard({ c }: { c: CandidateCard }) {
           </span>
         </div>
       </div>
-      {c.headline && <p className="mt-4 text-gray-700">{c.headline}</p>}
+      {c.mainProfession && (
+        <p className="mt-4 text-sm font-semibold text-brand-700">{c.mainProfession}</p>
+      )}
+      {c.headline && <p className={`${c.mainProfession ? "mt-1" : "mt-4"} text-gray-700`}>{c.headline}</p>}
       <div className="mt-4 space-y-1.5 text-sm text-gray-500">
         {c.location && (
           <p className="flex items-center gap-1.5">

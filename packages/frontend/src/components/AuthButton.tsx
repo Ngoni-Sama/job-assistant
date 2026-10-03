@@ -2,6 +2,7 @@
 
 import { useSession, signIn, signOut } from "next-auth/react";
 import { LogIn, LogOut } from "lucide-react";
+import { disablePush } from "@/lib/push";
 
 /** Optional Google sign-in. Shows the avatar/name when signed in. */
 export function AuthButton() {
@@ -27,7 +28,11 @@ export function AuthButton() {
           {session.user.name ?? session.user.email}
         </span>
         <button
-          onClick={() => signOut()}
+          onClick={async () => {
+            // Stop this device getting the account's notifications once signed out.
+            await disablePush().catch(() => {});
+            await signOut();
+          }}
           className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
         >
           <LogOut className="h-3.5 w-3.5" /> Sign out

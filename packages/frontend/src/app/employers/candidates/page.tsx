@@ -23,6 +23,7 @@ import type { CandidateCard } from "@/lib/types";
 export default function CandidateBrowsePage() {
   const { status } = useSession();
   const [sectors, setSectors] = useState<Record<string, CandidateCard[]>>({});
+  const [professionFilter, setProfessionFilter] = useState("");
   const [unlocked, setUnlocked] = useState<Record<string, string>>({});
   const [unlocking, setUnlocking] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -90,7 +91,20 @@ export default function CandidateBrowsePage() {
   }
 
   if (selected) {
-    const cards = sectors[selected] ?? [];
+    const all = sectors[selected] ?? [];
+    const q = professionFilter.trim().toLowerCase();
+    // Main-profession matches lead; headline and skills still count.
+    const cards = q
+      ? all
+          .filter((c) =>
+            [c.mainProfession, c.headline, ...(c.skills ?? [])].some((v) => v?.toLowerCase().includes(q)),
+          )
+          .sort(
+            (a, b) =>
+              Number(!!b.mainProfession?.toLowerCase().includes(q)) -
+              Number(!!a.mainProfession?.toLowerCase().includes(q)),
+          )
+      : all;
     return (
       <div className="space-y-6">
         <button
@@ -99,9 +113,23 @@ export default function CandidateBrowsePage() {
         >
           <ChevronLeft className="h-4 w-4" /> All sectors
         </button>
-        <h1 className="text-2xl font-bold">
-          {selected} <span className="text-gray-400">({cards.length})</span>
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold">
+            {selected} <span className="text-gray-400">({cards.length})</span>
+          </h1>
+          <input
+            value={professionFilter}
+            onChange={(e) => setProfessionFilter(e.target.value)}
+            placeholder="Filter by profession, e.g. Nurse"
+            aria-label="Filter by profession"
+            className="w-full rounded-full border px-4 py-2 text-sm focus:border-brand-500 focus:outline-none sm:w-64"
+          />
+        </div>
+        {cards.length === 0 && q && (
+          <p className="glass rounded-2xl p-6 text-center text-sm text-gray-500">
+            No candidates in {selected} match “{professionFilter.trim()}”.
+          </p>
+        )}
         {error && <div className="rounded-2xl bg-red-50/80 p-3 text-sm text-red-700">{error}</div>}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {cards.map((c) => (
@@ -205,6 +233,15 @@ function CandidateTile({
         </div>
       </div>
 
+      {c.mainProfession && (
+        <span
+          title={`Main profession: ${c.mainProfession}`}
+          className="mt-3 inline-flex max-w-full items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700"
+        >
+          <Briefcase className="h-3 w-3 shrink-0" />
+          <span className="truncate">{c.mainProfession}</span>
+        </span>
+      )}
       {c.headline && <p className="mt-3 text-sm text-gray-700">{c.headline}</p>}
 
       <div className="mt-3 space-y-1 text-xs text-gray-500">

@@ -99,6 +99,31 @@ export interface Prefs {
   autoApplyKeywords?: string[]; // matched against the job title
   autoApplyDailyLimit?: number; // 1..20, default 5
   autoApplyUseAI?: boolean; // AI-tailor each application (costs credits)
+  notify?: NotifyPrefs;
+}
+
+/** What a user can be notified about (push). */
+export type NotifyType = "message" | "interest" | "jobs" | "autoApply" | "credits";
+
+/** Notification switches. A missing key means "on". */
+export interface NotifyPrefs {
+  message?: boolean; // an employer / candidate messaged you
+  interest?: boolean; // an employer shortlisted you or unlocked your contact
+  jobs?: boolean; // new jobs matching your profession / sectors
+  autoApply?: boolean; // auto-apply sent applications or needs attention
+  credits?: boolean; // a credit top-up went through
+  sound?: boolean; // in-app chime + device notification sound
+  quietStart?: string | null; // "HH:MM" Zimbabwe time — notifications arrive silently
+  quietEnd?: string | null;
+}
+
+/** One browser/device registered for push. */
+export interface PushSub {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  ua?: string;
+  at: string;
 }
 
 /** Per-user auto-apply activity log. */
@@ -163,6 +188,8 @@ export interface Thread {
   candidateName: string;
   messages: Message[];
   updatedAt: string;
+  /** When each side last opened the thread (drives "Seen" and unread dots). */
+  readAt?: { employer?: string; candidate?: string };
 }
 
 /** Thread summary for inbox lists. */
@@ -172,6 +199,7 @@ export interface ThreadSummary {
   lastMessage: string;
   updatedAt: string;
   unreadFrom: Message["from"] | null;
+  unread: number; // messages I haven't opened yet
 }
 
 /** Privacy-safe candidate card for the employer browse (no contact details). */
@@ -179,6 +207,7 @@ export interface CandidateCard {
   id: string; // hashed id — not the email
   name: string;
   headline: string;
+  mainProfession?: string;
   sector: string;
   availability: Availability;
   location?: string;
@@ -194,6 +223,10 @@ export interface Profile {
   availability: Availability;
   headline: string;
   sector: string;
+  /** The one role the candidate is known for, e.g. "Registered Nurse". */
+  mainProfession?: string;
+  /** Up to 5 other roles they'd also take. */
+  otherRoles?: string[];
   name?: string;
   location?: string;
   yearsExperience?: number;

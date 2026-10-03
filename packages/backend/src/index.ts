@@ -9,6 +9,8 @@ import type {
   JobDetail,
   JobListing,
   Message,
+  NotifyPrefs,
+  NotifyType,
   Prefs,
   Profile,
   Thread,
@@ -37,6 +39,19 @@ import { PACKS, createCheckoutSession, verifyWebhook } from "./lib/stripe";
 import { CHECKS, findCheck } from "./lib/checks";
 import { encryptToken, decryptToken, gtokenKey } from "./lib/tokens";
 import { getAccessToken, sendGmail, GoogleAuthRevoked } from "./lib/gmail";
+import {
+  PUSH_SUBS_PREFIX,
+  addSub,
+  deleteSub,
+  getSubs,
+  getVapid,
+  inQuietHours,
+  isPushEndpoint,
+  isTime,
+  notifyEnabled,
+  sendPush,
+} from "./lib/push";
+import { jobAlertText, jobsForUser, type SlimJob } from "./lib/alerts";
 
 const JOBS_KEY = "jobs:all";
 const EXPIRED_KEY = "jobs:expired";
@@ -69,6 +84,9 @@ const PROTECTED = new Set([
   "POST /api/cvs/rename",
   "POST /api/cvs/update",
   "DELETE /api/cvs",
+  "POST /api/push/subscribe",
+  "DELETE /api/push/subscribe",
+  "POST /api/push/test",
 ]);
 
 export default {
@@ -156,6 +174,14 @@ export default {
           }
           await env.JOBS_CACHE.put(`paid:${b.reference}`, JSON.stringify({ userId: pending.userId, credits: pending.credits, at: new Date().toISOString() }));
           const balance = await addCredits(env, pending.userId, pending.credits);
+          ctx.waitUntil(
+            notify(env, pending.userId, "credits", {
+              title: "Top-up successful",
+              body: `${pending.credits} credits added. Your balance is now ${balance}.`,
+              url: "/billing",
+              tag: "credits",
+            }),
+          );
           return json({ credited: pending.credits, balance });
         }
         return json({ error: "Not found" }, { status: 404 });
@@ -205,6 +231,55 @@ export default {
         } catch (err) {
           return json({ error: (err as Error).message }, { status: 502 });
         }
+      }
+
+      // --- Push notifications ---
+      // The public key a browser needs to subscribe (safe to expose).
+      if (path === "/api/push/key" && request.method === "GET") {
+        return json({ publicKey: (await getVapid(env)).publicKey });
+      }
+      if (path === "/api/push/subscribe" && request.method === "POST") {
+        const b = (await request.json()) as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
+        if (!b.endpoint || !b.keys?.p256dh || !b.keys?.auth || !isPushEndpoint(b.endpoint)) {
+          return json({ error: "Invalid subscription" }, { status: 400 });
+        }
+        const devices = await addSub(env, userId, {
+          endpoint: b.endpoint,
+          p256dh: b.keys.p256dh,
+          auth: b.keys.auth,
+          ua: (request.headers.get("user-agent") ?? "").slice(0, 160),
+          at: new Date().toISOString(),
+        });
+        return json({ ok: true, devices });
+      }
+      if (path === "/api/push/subscribe" && request.method === "DELETE") {
+        const b = (await request.json()) as { endpoint?: string };
+        if (b.endpoint) await deleteSub(env, userId, b.endpoint);
+        return json({ ok: true });
+      }
+      // Send a test notification to the caller's own devices.
+      if (path === "/api/push/test" && request.method === "POST") {
+        const prefs = await getPrefs(env, userId);
+        const sent = await sendPush(
+          env,
+          userId,
+          {
+            type: "test",
+            title: "VacancyPal notifications are on",
+            body: "You'll hear about new jobs, employer messages and auto-apply here.",
+            url: "/settings#notifications",
+            tag: "test",
+            silent: prefs.notify?.sound === false || inQuietHours(prefs.notify),
+          },
+          { ttl: 60, urgency: "high" },
+        );
+        return json({ ok: true, sent });
+      }
+      // Unread messages (for the nav badge) + how many devices get my notifications.
+      if (path === "/api/unread" && request.method === "GET") {
+        if (userId === "demo") return json({ messages: 0, devices: 0 });
+        const [messages, subs] = await Promise.all([unreadTotal(env, userId), getSubs(env, userId)]);
+        return json({ messages, devices: subs.length });
       }
 
       // Upload + process a CV (PDF → Markdown)
@@ -360,6 +435,7 @@ export default {
       // Trigger a scrape across all enabled sources
       if (path === "/api/scrape" && request.method === "POST") {
         const { jobs, stats } = await runScrape(env);
+        ctx.waitUntil(processJobAlerts(env));
         return json({ success: true, count: jobs.length, stats, jobs });
       }
 
@@ -550,10 +626,18 @@ export default {
         if (userId === "demo") return json({ error: "Sign in to update your profile" }, { status: 401 });
         const patch = (await request.json()) as Partial<Profile>;
         const current = await getProfile(env, userId);
+        const clean = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
         const next: Profile = {
+          // Keep everything already on the profile (name, skills… from CV auto-fill).
+          ...current,
           availability: patch.availability ?? current.availability,
           headline: (patch.headline ?? current.headline).slice(0, 120),
           sector: patch.sector ?? current.sector,
+          mainProfession:
+            patch.mainProfession !== undefined ? clean(patch.mainProfession, 60) || undefined : current.mainProfession,
+          otherRoles: Array.isArray(patch.otherRoles)
+            ? [...new Set(patch.otherRoles.map((r) => clean(r, 60)).filter(Boolean))].slice(0, MAX_OTHER_ROLES)
+            : current.otherRoles,
           updatedAt: new Date().toISOString(),
         };
         await env.JOBS_CACHE.put(profileKey(userId), JSON.stringify(next));
@@ -843,7 +927,20 @@ export default {
           const { candidate } = (await request.json()) as { candidate?: CandidateCard };
           if (!candidate?.id) return json({ error: "candidate required" }, { status: 400 });
           const list = (await env.JOBS_CACHE.get<CandidateCard[]>(skey, "json")) ?? [];
-          if (!list.some((c) => c.id === candidate.id)) list.push(candidate);
+          if (!list.some((c) => c.id === candidate.id)) {
+            list.push(candidate);
+            const email = await env.JOBS_CACHE.get(`cidmap:${candidate.id}`);
+            if (email) {
+              ctx.waitUntil(
+                notify(env, email, "interest", {
+                  title: "An employer shortlisted you",
+                  body: `${employer.company} added you to their shortlist. Keep your profile and CV up to date.`,
+                  url: "/profile",
+                  tag: "interest",
+                }),
+              );
+            }
+          }
           await env.JOBS_CACHE.put(skey, JSON.stringify(list));
           return json({ shortlist: list });
         }
@@ -880,6 +977,7 @@ export default {
           from: "employer",
           text: text.trim(),
         });
+        ctx.waitUntil(afterMessage(env, thread, "employer"));
         return json({ thread });
       }
 
@@ -900,7 +998,10 @@ export default {
           from: role,
           text: text.trim(),
         });
-        return json({ thread: updated });
+        ctx.waitUntil(afterMessage(env, updated, role));
+        // Replying means I've seen everything above.
+        const readAt = await markThreadRead(env, updated, role, userId);
+        return json({ thread: { ...updated, readAt } });
       }
 
       // List my threads (works for both roles).
@@ -914,8 +1015,11 @@ export default {
         const id = decodeURIComponent(path.slice("/api/thread/".length));
         const thread = await env.JOBS_CACHE.get<Thread>(`thread:${id}`, "json");
         if (!thread) return json({ error: "Thread not found" }, { status: 404 });
-        if (!participantRole(thread, userId)) return json({ error: "Not a participant" }, { status: 403 });
-        return json({ thread });
+        const role = participantRole(thread, userId);
+        if (!role) return json({ error: "Not a participant" }, { status: 403 });
+        // Opening the thread marks the other side's messages as read.
+        const readAt = await markThreadRead(env, thread, role, userId);
+        return json({ thread: { ...thread, readAt } });
       }
 
       // Unlock a candidate's contact — costs credits. Approved employers only.
@@ -941,6 +1045,14 @@ export default {
         }
         unlocked[cid] = email;
         await env.JOBS_CACHE.put(ukey, JSON.stringify(unlocked));
+        ctx.waitUntil(
+          notify(env, email, "interest", {
+            title: "An employer unlocked your contact",
+            body: `${employer.company} can now contact you about a role. Watch your email and messages.`,
+            url: "/messages",
+            tag: "interest",
+          }),
+        );
         return json({ email, balance: paid.balance });
       }
 
@@ -981,6 +1093,7 @@ export default {
           autoApplyKeywords: body.autoApplyKeywords !== undefined ? list(body.autoApplyKeywords) : cur.autoApplyKeywords ?? [],
           autoApplyDailyLimit: Math.min(20, Math.max(1, Math.round(Number(body.autoApplyDailyLimit ?? cur.autoApplyDailyLimit ?? 5)) || 5)),
           autoApplyUseAI: body.autoApplyUseAI ?? cur.autoApplyUseAI ?? false,
+          notify: mergeNotify(cur.notify, body.notify),
         };
         await env.JOBS_CACHE.put(prefsKey(userId), JSON.stringify(prefs));
         // Turning auto-apply off removes the stored Google token immediately.
@@ -1143,8 +1256,14 @@ export default {
   // Cron: "0 */6 * * *" refreshes the job cache; AUTO_APPLY_CRON runs auto-apply
   // in its own invocation (separate time/subrequest budget).
   async scheduled(event: ScheduledController, env: Env): Promise<void> {
-    if (event.cron === AUTO_APPLY_CRON) await runAutoApply(env);
-    else await runScrape(env);
+    if (event.cron === AUTO_APPLY_CRON) {
+      // Finish any job alerts the last scrape didn't get to, then auto-apply.
+      await processJobAlerts(env).catch((err) => console.error("job alerts failed", err));
+      await runAutoApply(env);
+    } else {
+      await runScrape(env);
+      await processJobAlerts(env).catch((err) => console.error("job alerts failed", err));
+    }
   },
 } satisfies ExportedHandler<Env>;
 
@@ -1324,6 +1443,7 @@ async function listThreads(env: Env, userId: string): Promise<ThreadSummary[]> {
   const empIds = (await env.JOBS_CACHE.get<string[]>(`empthreads:${userId}`, "json")) ?? [];
   const candIds = (await env.JOBS_CACHE.get<string[]>(`candthreads:${userId}`, "json")) ?? [];
   const ids = [...new Set([...empIds, ...candIds])];
+  const unread = await getUnread(env, userId);
   const out: ThreadSummary[] = [];
   for (const id of ids) {
     const t = await env.JOBS_CACHE.get<Thread>(`thread:${id}`, "json");
@@ -1335,7 +1455,8 @@ async function listThreads(env: Env, userId: string): Promise<ThreadSummary[]> {
       withName: role === "employer" ? t.candidateName : t.employerCompany,
       lastMessage: last?.text ?? "",
       updatedAt: t.updatedAt,
-      unreadFrom: last && last.from !== role ? last.from : null,
+      unreadFrom: unread[t.id] && last && last.from !== role ? last.from : null,
+      unread: unread[t.id] ?? 0,
     });
   }
   return out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -1364,10 +1485,15 @@ async function buildCandidateDoc(env: Env, email: string): Promise<RagDoc | null
   const pr = await env.JOBS_CACHE.get<Profile>(profileKey(email), "json");
   if (!pr || pr.availability === "not_looking") return null;
   const cv = await env.JOBS_CACHE.get<StoredCV>(`cv:${email}`, "json");
-  const text = [pr.headline, (pr.skills ?? []).join(", "), pr.education, cv?.markdown ?? ""].filter(Boolean).join("\n").trim();
+  const roles = [pr.mainProfession, ...(pr.otherRoles ?? [])].filter(Boolean).join(", ");
+  const text = [roles, pr.headline, (pr.skills ?? []).join(", "), pr.education, cv?.markdown ?? ""].filter(Boolean).join("\n").trim();
   if (!text) return null;
   const cid = candidateId(email);
-  return { id: cid, name: pr.name || "Candidate", headline: pr.headline, sector: pr.sector || "Other", location: pr.location, skills: pr.skills, source: "platform", text };
+  // The main profession leads the headline so it shows on search results too.
+  const headline = pr.mainProfession && !pr.headline.toLowerCase().includes(pr.mainProfession.toLowerCase())
+    ? [pr.mainProfession, pr.headline].filter(Boolean).join(" · ")
+    : pr.headline;
+  return { id: cid, name: pr.name || "Candidate", headline, sector: pr.sector || "Other", location: pr.location, skills: pr.skills, source: "platform", text };
 }
 
 /** Re-index a candidate after their profile or CV changes (write-time embedding). */
@@ -1393,6 +1519,7 @@ async function listCandidatesBySector(env: Env): Promise<Record<string, Candidat
       id: cid,
       name: p.name || "Candidate",
       headline: p.headline,
+      mainProfession: p.mainProfession,
       sector,
       availability: p.availability,
       location: p.location,
@@ -1484,7 +1611,23 @@ async function runAutoApply(env: Env): Promise<void> {
   for (const k of keys.slice(0, AUTO_MAX_USERS_PER_RUN)) {
     const userId = k.name.slice("gtoken:".length);
     try {
-      await autoApplyForUser(env, userId, jobs);
+      const result = await autoApplyForUser(env, userId, jobs);
+      if (result.sent > 0) {
+        const titles = result.titles ?? [];
+        await notify(env, userId, "autoApply", {
+          title: `Auto-apply sent ${result.sent} application${result.sent === 1 ? "" : "s"}`,
+          body: titles.slice(0, 2).join(" · ") + (titles.length > 2 ? ` and ${titles.length - 2} more` : ""),
+          url: "/applications",
+          tag: "auto-apply",
+        });
+      } else if (result.error && /authorize Gmail again/i.test(result.error)) {
+        await notify(env, userId, "autoApply", {
+          title: "Auto-apply needs your attention",
+          body: result.error,
+          url: "/settings",
+          tag: "auto-apply",
+        });
+      }
     } catch (err) {
       console.error("auto-apply failed for", userId, err);
     }
@@ -1513,14 +1656,15 @@ async function autoApplyForUser(
   env: Env,
   userId: string,
   jobs: JobListing[],
-): Promise<{ sent: number; error?: string }> {
+): Promise<{ sent: number; error?: string; titles?: string[] }> {
   const log: AutoApplyLog = (await env.JOBS_CACHE.get<AutoApplyLog>(autoLogKey(userId), "json")) ?? { sent: [] };
+  const titles: string[] = []; // jobs applied to in this run
   const finish = async (sent: number, error?: string) => {
     log.lastRun = new Date().toISOString();
     log.lastError = error;
     log.sent = log.sent.slice(-100);
     await env.JOBS_CACHE.put(autoLogKey(userId), JSON.stringify(log));
-    return { sent, error };
+    return { sent, error, titles };
   };
 
   if (!(await getConfig(env)).features.autoApplyAllowed) return finish(0, "Auto-apply is switched off by the site admin.");
@@ -1633,6 +1777,7 @@ async function autoApplyForUser(
     applied.add(job.id);
     await env.JOBS_CACHE.put(appliedKey(userId), JSON.stringify([...applied]));
     log.sent.push({ jobId: job.id, title: job.title, company: job.company, to, at });
+    titles.push(job.title);
     recentTo.add(to.toLowerCase());
     remaining--;
     sent++;
@@ -1694,6 +1839,7 @@ async function runScrape(env: Env): Promise<{ jobs: JobListing[]; stats: ScrapeS
   // in an archive rather than deleted.
   const existingCurrent = (await env.JOBS_CACHE.get<JobListing[]>(JOBS_KEY, "json")) ?? [];
   const existingExpired = (await env.JOBS_CACHE.get<JobListing[]>(EXPIRED_KEY, "json")) ?? [];
+  const known = new Set([...existingCurrent, ...existingExpired].map(postingKey));
   const deduped = dedupeJobs([...existingCurrent, ...existingExpired, ...collected]);
 
   // Classify sector for every job (re-runs on older entries too).
@@ -1709,6 +1855,18 @@ async function runScrape(env: Env): Promise<{ jobs: JobListing[]; stats: ScrapeS
   await env.JOBS_CACHE.put(JOBS_KEY, JSON.stringify(current));
   await env.JOBS_CACHE.put(EXPIRED_KEY, JSON.stringify(expired));
   await env.JOBS_CACHE.put(STATS_KEY, JSON.stringify(stats));
+
+  // Jobs nobody has seen before → queue job alerts (skipped on the very first
+  // scrape, when everything would count as "new").
+  const fresh = existingCurrent.length ? current.filter((j) => !known.has(postingKey(j))) : [];
+  if (fresh.length) {
+    const queue: AlertQueue = {
+      at: new Date().toISOString(),
+      jobs: fresh.slice(0, 80).map((j) => ({ id: j.id, title: j.title, company: j.company, sector: j.sector })),
+      done: [],
+    };
+    await env.JOBS_CACHE.put(ALERTS_KEY, JSON.stringify(queue), { expirationTtl: 60 * 60 * 24 });
+  }
   return { jobs: current, stats };
 }
 
@@ -1721,11 +1879,16 @@ function dedupeJobs(jobs: JobListing[]): JobListing[] {
   const byId = Array.from(new Map(jobs.map((j) => [j.id, j])).values());
   const seen = new Map<string, JobListing>();
   for (const j of byId) {
-    const key = `${j.title} ${j.company}`.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const key = postingKey(j);
     const prev = seen.get(key);
     if (!prev || richness(j) > richness(prev)) seen.set(key, j);
   }
   return Array.from(seen.values());
+}
+
+/** Same posting on two job boards → same key (title + company, normalised). */
+function postingKey(j: { title: string; company: string }): string {
+  return `${j.title} ${j.company}`.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 function richness(j: JobListing): number {
@@ -1769,4 +1932,146 @@ function hostLabel(url: string): string {
   } catch {
     return url;
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notifications, unread tracking and job alerts
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MAX_OTHER_ROLES = 5;
+
+/**
+ * Push a notification to a user's devices, honouring their settings: a type
+ * that's switched off is skipped; with sound off or during quiet hours it
+ * arrives silently. Never throws — a failed push must not break the request.
+ */
+async function notify(
+  env: Env,
+  userId: string,
+  type: NotifyType,
+  n: { title: string; body: string; url: string; tag?: string },
+): Promise<void> {
+  try {
+    if ((await getSubs(env, userId)).length === 0) return;
+    const prefs = await getPrefs(env, userId);
+    if (!notifyEnabled(prefs.notify, type)) return;
+    await sendPush(
+      env,
+      userId,
+      {
+        type,
+        ...n,
+        silent: prefs.notify?.sound === false || inQuietHours(prefs.notify),
+        badge: await unreadTotal(env, userId),
+      },
+      { urgency: type === "message" ? "high" : "normal" },
+    );
+  } catch (err) {
+    console.error("notify failed", type, err);
+  }
+}
+
+/** Merge a settings patch into the stored notification switches. */
+function mergeNotify(cur: NotifyPrefs | undefined, patch: NotifyPrefs | undefined): NotifyPrefs | undefined {
+  if (!patch || typeof patch !== "object") return cur;
+  const next: NotifyPrefs = { ...(cur ?? {}) };
+  for (const k of ["message", "interest", "jobs", "autoApply", "credits", "sound"] as const) {
+    if (typeof patch[k] === "boolean") next[k] = patch[k];
+  }
+  for (const k of ["quietStart", "quietEnd"] as const) {
+    if (patch[k] === null) next[k] = null;
+    else if (isTime(patch[k])) next[k] = patch[k];
+  }
+  return next;
+}
+
+// Unread messages per thread, per user — one small KV record so the nav badge
+// costs a single read.
+const unreadKey = (userId: string) => `unread:${userId}`;
+
+async function getUnread(env: Env, userId: string): Promise<Record<string, number>> {
+  return (await env.JOBS_CACHE.get<Record<string, number>>(unreadKey(userId), "json")) ?? {};
+}
+
+async function unreadTotal(env: Env, userId: string): Promise<number> {
+  return Object.values(await getUnread(env, userId)).reduce((n, v) => n + v, 0);
+}
+
+/** After a message is saved: count it as unread for the other side and notify them. */
+async function afterMessage(env: Env, thread: Thread, from: Message["from"]): Promise<void> {
+  const recipient = from === "employer" ? thread.candidateEmail : thread.employerUserId;
+  const sender = from === "employer" ? thread.employerCompany : thread.candidateName;
+  const unread = await getUnread(env, recipient);
+  unread[thread.id] = (unread[thread.id] ?? 0) + 1;
+  await env.JOBS_CACHE.put(unreadKey(recipient), JSON.stringify(unread));
+
+  const text = thread.messages[thread.messages.length - 1]?.text ?? "";
+  await notify(env, recipient, "message", {
+    title: sender || "New message",
+    body: text.length > 110 ? `${text.slice(0, 110)}…` : text,
+    url: `/messages?t=${encodeURIComponent(thread.id)}`,
+    tag: `thread-${thread.id}`,
+  });
+}
+
+// Read markers live outside the thread record so "mark as read" can never
+// overwrite a message that arrives at the same moment.
+const threadReadKey = (id: string) => `threadread:${id}`;
+
+/**
+ * Record that `role` has read the thread up to now (only writes when there is
+ * something new from the other side) and return both sides' read times.
+ */
+async function markThreadRead(
+  env: Env,
+  thread: Thread,
+  role: Message["from"],
+  userId: string,
+): Promise<NonNullable<Thread["readAt"]>> {
+  const readAt = (await env.JOBS_CACHE.get<NonNullable<Thread["readAt"]>>(threadReadKey(thread.id), "json")) ?? {};
+  const lastFromOther = [...thread.messages].reverse().find((m) => m.from !== role);
+  const mine = readAt[role];
+  if (lastFromOther && (!mine || mine < lastFromOther.at)) {
+    readAt[role] = new Date().toISOString();
+    await env.JOBS_CACHE.put(threadReadKey(thread.id), JSON.stringify(readAt));
+  }
+  const unread = await getUnread(env, userId);
+  if (unread[thread.id]) {
+    delete unread[thread.id];
+    await env.JOBS_CACHE.put(unreadKey(userId), JSON.stringify(unread));
+  }
+  return readAt;
+}
+
+// Job alerts: after a scrape finds brand-new jobs, each subscribed user hears
+// about the ones that fit them — main profession first.
+const ALERTS_KEY = "alerts:queue";
+const ALERTS_PER_RUN = 40; // users per cron run (bounds subrequests); the rest continue next run
+
+type AlertQueue = { at: string; jobs: SlimJob[]; done: string[] };
+
+/** Work through the alert queue: up to ALERTS_PER_RUN subscribed users per call. */
+async function processJobAlerts(env: Env): Promise<void> {
+  const queue = await env.JOBS_CACHE.get<AlertQueue>(ALERTS_KEY, "json");
+  if (!queue || !queue.jobs.length) return;
+  const done = new Set(queue.done);
+  const { keys } = await env.JOBS_CACHE.list({ prefix: PUSH_SUBS_PREFIX, limit: 1000 });
+  const pending = keys.map((k) => k.name.slice(PUSH_SUBS_PREFIX.length)).filter((u) => !done.has(u));
+
+  for (const userId of pending.slice(0, ALERTS_PER_RUN)) {
+    done.add(userId);
+    try {
+      const [prefs, profile] = await Promise.all([getPrefs(env, userId), getProfile(env, userId)]);
+      if (!notifyEnabled(prefs.notify, "jobs")) continue;
+      const applied = new Set(await getApplied(env, userId));
+      const { main, other } = jobsForUser(queue.jobs.filter((j) => !applied.has(j.id)), profile, prefs);
+      const text = jobAlertText(main, other, profile.mainProfession);
+      if (text) await notify(env, userId, "jobs", { ...text, tag: "jobs" });
+    } catch (err) {
+      console.error("job alert failed for", userId, err);
+    }
+  }
+
+  if (pending.length <= ALERTS_PER_RUN) await env.JOBS_CACHE.delete(ALERTS_KEY);
+  else await env.JOBS_CACHE.put(ALERTS_KEY, JSON.stringify({ ...queue, done: [...done] }), { expirationTtl: 60 * 60 * 24 });
 }

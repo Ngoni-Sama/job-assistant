@@ -172,6 +172,13 @@ export const api = {
   replyThread: (threadId: string, text: string) =>
     req<{ thread: Thread }>("/api/messages/reply", jsonBody({ threadId, text })),
   getThreads: () => req<{ threads: ThreadSummary[] }>("/api/threads"),
+  getUnread: () => req<{ messages: number; devices: number }>("/api/unread"),
+  getPushKey: () => req<{ publicKey: string }>("/api/push/key"),
+  pushSubscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    req<{ ok: boolean; devices: number }>("/api/push/subscribe", jsonBody(sub)),
+  pushUnsubscribe: (endpoint: string) =>
+    req<{ ok: boolean }>("/api/push/subscribe", { ...jsonBody({ endpoint }), method: "DELETE" }),
+  pushTest: () => req<{ ok: boolean; sent: number }>("/api/push/test", { method: "POST" }),
   getThread: (threadId: string) =>
     req<{ thread: Thread }>(`/api/thread/${encodeURIComponent(threadId)}`),
   getAdminEmployers: () => req<{ employers: Employer[] }>("/api/admin/employers"),

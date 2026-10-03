@@ -110,6 +110,12 @@ export default function ProfilePage() {
           )}
           <div className="min-w-0">
             <h2 className="truncate text-2xl font-extrabold">{name}</h2>
+            {profile.mainProfession && (
+              <span className="mb-0.5 mr-1 inline-flex max-w-full items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold">
+                <Briefcase className="h-3 w-3 shrink-0" />
+                <span className="truncate">{profile.mainProfession}</span>
+              </span>
+            )}
             <p className="truncate text-white/90">{profile.headline || "Add a headline"}</p>
             <span className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${avail.cls}`}>
               <BadgeCheck className="h-3 w-3" /> {avail.label}
@@ -133,6 +139,19 @@ export default function ProfilePage() {
           />
         </div>
 
+        {profile.otherRoles && profile.otherRoles.length > 0 && (
+          <div className="border-t border-white/40 p-6">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Also open to</p>
+            <div className="flex flex-wrap gap-2">
+              {profile.otherRoles.map((r) => (
+                <span key={r} className="rounded-full bg-violet-50 px-3 py-1 text-sm text-violet-700">
+                  {r}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {profile.skills && profile.skills.length > 0 && (
           <div className="border-t border-white/40 p-6">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Skills</p>
@@ -148,7 +167,8 @@ export default function ProfilePage() {
       </div>
 
       <p className="text-center text-xs text-gray-400">
-        Set availability and headline in <a href="/settings" className="underline">Settings</a>. Your
+        Set your main profession, availability and headline in{" "}
+        <a href="/settings" className="underline">Settings</a>. Your
         Google photo is used as your avatar.
       </p>
     </div>

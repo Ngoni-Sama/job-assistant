@@ -34,3 +34,37 @@ export function playCoinSound(): void {
     /* audio unavailable — ignore */
   }
 }
+
+/**
+ * A soft two-note "ding" for an incoming message or alert — gentler than the
+ * coin chime (which celebrates something the user just did).
+ */
+export function playMessageSound(): void {
+  try {
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const now = ctx.currentTime;
+    for (const [freq, at] of [
+      [880, 0],
+      [1318.51, 0.12],
+    ] as const) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, now + at);
+      gain.gain.exponentialRampToValueAtTime(0.2, now + at + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + at);
+      osc.stop(now + at + 0.32);
+    }
+    setTimeout(() => ctx.close().catch(() => {}), 700);
+  } catch {
+    /* audio unavailable — ignore */
+  }
+}

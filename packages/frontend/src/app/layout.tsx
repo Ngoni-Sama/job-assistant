@@ -6,6 +6,7 @@ import { Nav } from "@/components/Nav";
 import { Providers } from "@/components/Providers";
 import { SiteBanner } from "@/components/SiteBanner";
 import { Footer } from "@/components/Footer";
+import { LiveUpdates } from "@/components/LiveUpdates";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -41,12 +42,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={jakarta.variable}>
       <body className="font-sans">
         <Providers>
-          <div className="min-h-screen">
-            <SiteBanner />
-            <Nav />
-            <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
-            <Footer />
-          </div>
+          <LiveUpdates>
+            <div className="min-h-screen">
+              <SiteBanner />
+              <Nav />
+              <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+              <Footer />
+            </div>
+          </LiveUpdates>
         </Providers>
         <Analytics />
       </body>
