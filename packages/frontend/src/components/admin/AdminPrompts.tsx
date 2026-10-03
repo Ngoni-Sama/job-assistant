@@ -14,6 +14,11 @@ const TASKS: { key: PromptKey; title: string; body: string }[] = [
   { key: "matcher", title: "Job match scoring", body: "Scores how well a CV fits one job and lists matched / missing skills." },
   { key: "quickMatch", title: "Quick Match", body: "Picks the jobs a candidate is a strong fit for out of all listings." },
   { key: "profile", title: "Profile from CV", body: "Fills in the candidate profile (name, headline, skills…) from their CV." },
+  {
+    key: "atsCv",
+    title: "ATS CV Creator",
+    body: "Writes the headline, summary, achievement bullets and skill order for the CV Creator. Invented numbers, employers or skills are removed by the app regardless of this prompt.",
+  },
 ];
 
 /**

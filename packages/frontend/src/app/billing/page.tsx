@@ -16,6 +16,7 @@ import {
   CreditCard,
   Smartphone,
   UserCheck,
+  FileText,
 } from "lucide-react";
 import { api, payments } from "@/lib/api";
 import type { CreditPack } from "@/lib/types";
@@ -173,11 +174,12 @@ function BillingContent() {
       </div>
 
       {/* What things cost */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <CostCard icon={Sparkles} label="AI Apply" cost={costs.optimise} />
         <CostCard icon={Send} label="Match all jobs" cost={costs.matchAll} />
         <CostCard icon={Wand2} label="Quick Match" cost={costs.quickMatch} />
         <CostCard icon={UserCheck} label="Unlock a candidate" cost={costs.unlockContact} />
+        <CostCard icon={FileText} label="ATS CV (AI-written)" cost={costs.atsCv} />
       </div>
 
       {error && <div className="rounded-2xl bg-red-50/80 p-3 text-sm text-red-700">{error}</div>}

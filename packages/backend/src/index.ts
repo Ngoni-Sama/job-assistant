@@ -35,6 +35,7 @@ import { extractProfile } from "./lib/ai/profileextract";
 import { cleanCvMarkdown } from "./lib/cvclean";
 import { rankCandidates, indexDoc, type RagDoc } from "./lib/ai/rag";
 import { charge, getCredits, addCredits, getCosts } from "./lib/credits";
+import { writeAtsCv, type AtsCvInput } from "./lib/ai/atscv";
 import { PACKS, createCheckoutSession, verifyWebhook } from "./lib/stripe";
 import { CHECKS, findCheck } from "./lib/checks";
 import { encryptToken, decryptToken, gtokenKey } from "./lib/tokens";
@@ -88,6 +89,7 @@ const PROTECTED = new Set([
   "POST /api/push/subscribe",
   "DELETE /api/push/subscribe",
   "POST /api/push/test",
+  "POST /api/cv/ats-write",
 ]);
 
 export default {
@@ -340,6 +342,52 @@ export default {
         if (!file && id) file = await env.JOBS_CACHE.get(`cvfile:${userId}`, "json");
         if (!file) return json({ error: "No original CV on file" }, { status: 404 });
         return json(file);
+      }
+
+      // ATS CV Creator: AI writes the CV from the user's details (paid).
+      // Credits are refunded if the AI can't produce a usable CV.
+      if (path === "/api/cv/ats-write" && request.method === "POST") {
+        const body = (await request.json().catch(() => null)) as Partial<AtsCvInput> | null;
+        const text = (v: unknown, n: number) => (typeof v === "string" ? v.slice(0, n) : "");
+        const input: AtsCvInput = {
+          targetRole: text(body?.targetRole, 120),
+          jobDescription: text(body?.jobDescription, 8000),
+          headline: text(body?.headline, 120),
+          summary: text(body?.summary, 2000),
+          experience: (Array.isArray(body?.experience) ? body!.experience : [])
+            .slice(0, 12)
+            .map((e) => ({
+              role: text(e?.role, 120),
+              company: text(e?.company, 120),
+              start: text(e?.start, 40),
+              end: text(e?.end, 40),
+              details: text(e?.details, 3000),
+            }))
+            .filter((e) => e.role || e.company),
+          education: (Array.isArray(body?.education) ? body!.education : [])
+            .slice(0, 8)
+            .map((e) => ({ qualification: text(e?.qualification, 160), institution: text(e?.institution, 160), year: text(e?.year, 20) }))
+            .filter((e) => e.qualification || e.institution),
+          skills: (Array.isArray(body?.skills) ? body!.skills : []).map((s) => text(s, 60).trim()).filter(Boolean).slice(0, 40),
+          certifications: (Array.isArray(body?.certifications) ? body!.certifications : []).map((s) => text(s, 160).trim()).filter(Boolean).slice(0, 15),
+          languages: text(body?.languages, 200),
+        };
+        if (!input.experience.length && !input.summary && !input.skills.length) {
+          return json({ error: "Add at least a role, a summary or some skills first." }, { status: 400 });
+        }
+        const { atsCv: atsCost } = await getCosts(env);
+        const paid = await charge(env, userId, atsCost);
+        if (!paid.ok) {
+          return json({ error: "Not enough credits to write your CV", balance: paid.balance, cost: atsCost }, { status: 402 });
+        }
+        try {
+          const cv = await writeAtsCv(env, input);
+          return json({ cv, balance: paid.balance, cost: atsCost });
+        } catch (err) {
+          console.error("ATS CV writer failed", err);
+          const balance = atsCost ? await addCredits(env, userId, atsCost) : paid.balance; // refund
+          return json({ error: "The AI couldn't write your CV just now — you haven't been charged. Please try again.", balance }, { status: 502 });
+        }
       }
 
       // --- Multiple CVs ---

@@ -13,12 +13,13 @@ export interface ActionCosts {
   optimise: number; // AI Apply: tailor one application (also auto-apply with AI)
   matchAll: number; // score all cached jobs
   unlockContact: number; // employer reveals one candidate's contact details
+  atsCv: number; // ATS CV Creator: AI writes the whole CV from the user's details
 }
 
-export const DEFAULT_COSTS: ActionCosts = { quickMatch: 10, optimise: 3, matchAll: 5, unlockContact: 20 };
+export const DEFAULT_COSTS: ActionCosts = { quickMatch: 10, optimise: 3, matchAll: 5, unlockContact: 20, atsCv: 40 };
 
 /** AI tasks whose instructions an admin can rewrite. */
-export type PromptKey = "cvWriter" | "matcher" | "quickMatch" | "profile";
+export type PromptKey = "cvWriter" | "matcher" | "quickMatch" | "profile" | "atsCv";
 
 /**
  * Default instructions per task. The required output format (JSON shape) is
@@ -39,6 +40,14 @@ export const DEFAULT_PROMPTS: Record<PromptKey, string> = {
     "candidate is a STRONG fit for and has a realistic chance of qualifying for.",
   profile:
     "You extract a candidate profile from a CV. Use only facts present in the CV. Omit a field if it is unknown.",
+  atsCv:
+    "You are an expert CV writer who knows how applicant-tracking systems (ATS) read CVs. From the candidate's " +
+    "details, write: a professional headline (max 10 words); a 3-4 sentence summary; and for each role 3-5 " +
+    "achievement bullets that start with a strong action verb (Led, Managed, Delivered, Improved…), use plain " +
+    "words an ATS can read, and include numbers ONLY where the candidate gave them. Avoid weak phrases like " +
+    "'responsible for' or 'duties included'. If a target role or job advert is given, use its wording where it " +
+    "honestly matches the candidate's experience. Then list the candidate's own skills, most relevant first. " +
+    "Write in clear British English suitable for Zimbabwe and southern Africa.",
 };
 
 const MAX_PROMPT = 4000;

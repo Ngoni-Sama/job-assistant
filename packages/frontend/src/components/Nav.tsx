@@ -24,6 +24,7 @@ import {
   X,
   Send,
   ShieldCheck,
+  FileText,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AuthButton } from "./AuthButton";
@@ -48,6 +49,8 @@ const secondary: Item[] = [
   { href: "/messages", label: "Messages", icon: MessageSquare },
   { href: "/profile", label: "Profile", icon: User },
   { href: "/upload", label: "Upload CV", icon: Upload },
+  { href: "/cv-builder", label: "ATS CV Creator", icon: FileText },
+  { href: "/pricing", label: "Pricing", icon: Coins },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

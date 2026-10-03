@@ -33,6 +33,7 @@ const PRICED_ACTIONS: { key: keyof ActionCosts; label: string; body: string }[] 
   { key: "quickMatch", label: "Quick Match", body: "Analyse all listings against the CV" },
   { key: "matchAll", label: "Match all jobs", body: "Score the latest jobs against the CV" },
   { key: "unlockContact", label: "Unlock a candidate", body: "Employer reveals one candidate's contact details" },
+  { key: "atsCv", label: "ATS CV (AI-written)", body: "CV Creator: AI writes the summary, bullets and skills (the ATS score check stays free)" },
 ];
 import { api, payments } from "@/lib/api";
 import type { ActionCosts, AppConfig, CandidateCheck, CreditPack, Employer } from "@/lib/types";
@@ -433,7 +434,7 @@ export default function AdminPage() {
                 </button>
                 <button
                   onClick={() => {
-                    const defaults = { quickMatch: 10, optimise: 3, matchAll: 5, unlockContact: 20 };
+                    const defaults = { quickMatch: 10, optimise: 3, matchAll: 5, unlockContact: 20, atsCv: 40 };
                     setCostsDraft(defaults);
                     save({ costs: defaults }, "Prices reset to defaults.");
                   }}

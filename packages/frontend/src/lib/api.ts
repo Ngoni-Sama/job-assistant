@@ -1,6 +1,8 @@
 import type {
   AdminUsersPage,
   PromptKey,
+  AtsCvRequest,
+  AtsCvResult,
   Announcement,
   AppConfig,
   AutoApplyStatus,
@@ -131,6 +133,8 @@ export const api = {
       "/api/cvs/create",
       jsonBody({ fileName, markdown, fileData: file?.data, fileType: file?.type }),
     ),
+  atsWriteCv: (input: AtsCvRequest) =>
+    req<{ cv: AtsCvResult; balance: number; cost: number }>("/api/cv/ats-write", jsonBody(input)),
   setPrimaryCv: (id: string) => req<{ cvs: StoredCV[]; primaryId: string }>("/api/cvs/primary", jsonBody({ id })),
   renameCv: (id: string, fileName: string) => req<{ cvs: StoredCV[] }>("/api/cvs/rename", jsonBody({ id, fileName })),
   updateCv: (id: string, markdown: string) => req<{ cvs: StoredCV[] }>("/api/cvs/update", jsonBody({ id, markdown })),

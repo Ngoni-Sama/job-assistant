@@ -140,9 +140,33 @@ export interface ActionCosts {
   optimise: number;
   matchAll: number;
   unlockContact: number;
+  atsCv: number;
 }
 
-export type PromptKey = "cvWriter" | "matcher" | "quickMatch" | "profile";
+export type PromptKey = "cvWriter" | "matcher" | "quickMatch" | "profile" | "atsCv";
+
+/** What the ATS CV Creator sends to the AI (the user's own facts). */
+export interface AtsCvRequest {
+  targetRole?: string;
+  jobDescription?: string;
+  headline?: string;
+  summary?: string;
+  experience: { role: string; company: string; start?: string; end?: string; details: string }[];
+  education: { qualification: string; institution: string; year?: string }[];
+  skills: string[];
+  certifications: string[];
+  languages?: string;
+}
+
+/** The AI's rewrite, already checked server-side against the user's facts. */
+export interface AtsCvResult {
+  headline: string;
+  summary: string;
+  experience: { bullets: string[] }[];
+  skills: string[];
+  /** AI suggestions dropped because they weren't backed by the user's details. */
+  removed: number;
+}
 
 export interface AdminUserRow {
   email: string;

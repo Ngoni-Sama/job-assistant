@@ -16,6 +16,11 @@ import {
   Building2,
   Mail,
   ShieldCheck,
+  CheckCircle2,
+  AlertCircle,
+  FileText,
+  LogIn,
+  Send,
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -130,6 +135,93 @@ export default function LandingPage() {
         ))}
       </section>
 
+      {/* The problem */}
+      <section className="glass-strong rounded-3xl p-8 md:p-10">
+        <h2 className="text-center text-3xl font-extrabold tracking-tight">
+          Stop scrolling job boards and hoping for the best.
+        </h2>
+        <p className="mx-auto mt-2 max-w-2xl text-center text-gray-600">
+          Sending the same CV to fifty adverts and hearing nothing back isn’t bad luck — most CVs are screened out by
+          software before anyone reads them. VacancyPal fixes the parts you can control.
+        </p>
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          {[
+            { before: "Hours searching ten different job sites", after: "Live jobs from Zimbabwe’s top boards, in one place" },
+            { before: "One generic CV for every job", after: "An ATS-ready CV, tailored to each role" },
+            { before: "Applying and never hearing back", after: "Matched jobs only, sent from your own Gmail" },
+          ].map((p) => (
+            <div key={p.before} className="rounded-2xl bg-white/60 p-5">
+              <p className="text-sm text-gray-500 line-through decoration-red-300">{p.before}</p>
+              <p className="mt-2 flex gap-2 font-semibold text-gray-900">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" /> {p.after}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="space-y-6">
+        <h2 className="text-center text-3xl font-extrabold tracking-tight">How it works</h2>
+        <ol className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { icon: LogIn, title: "Sign in with Google", body: "Free, in one tap — plus free credits to try the AI." },
+            { icon: FileText, title: "Build an ATS-ready CV", body: "Check your free ATS score, then let AI polish it — or upload the CV you have." },
+            { icon: Zap, title: "Swipe jobs that fit", body: "We match live jobs to your profession. Swipe right on the ones you want." },
+            { icon: Send, title: "Apply in seconds", body: "Each application is tailored and sent from your Gmail — or switch on Auto-apply." },
+          ].map(({ icon: Icon, title, body }, i) => (
+            <li key={title} className="glass relative rounded-2xl p-6">
+              <span className="absolute right-5 top-4 text-4xl font-extrabold text-brand-100">{i + 1}</span>
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-violet-600 text-white">
+                <Icon className="h-5 w-5" />
+              </div>
+              <h3 className="mt-4 text-lg font-bold">{title}</h3>
+              <p className="mt-1 text-sm text-gray-600">{body}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* ATS CV Creator */}
+      <section className="glass rounded-3xl p-8 md:p-10">
+        <div className="grid items-center gap-8 md:grid-cols-2">
+          <div className="space-y-4">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100/70 px-3 py-1 text-xs font-medium text-brand-700">
+              <ShieldCheck className="h-3.5 w-3.5" /> ATS-friendly CV Creator
+            </span>
+            <h2 className="text-3xl font-extrabold tracking-tight">Get shortlisted, not filtered out.</h2>
+            <p className="text-gray-600">
+              Applicant-tracking systems scan for clear headings, the advert’s keywords and real results. Our CV
+              Creator scores your CV against them as you type — free — and AI rewrites it into strong,
+              keyword-matched bullets without inventing a single fact.
+            </p>
+            <ul className="space-y-1.5 text-sm text-gray-700">
+              {[
+                "Free ATS score with fixes you can act on",
+                "Paste a job advert to see which keywords you’re missing",
+                "PDF and Word downloads with real, selectable text",
+              ].map((t) => (
+                <li key={t} className="flex gap-2">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" /> {t}
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap gap-3 pt-1">
+              <Link
+                href="/cv-builder"
+                className="flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-3 font-medium text-white shadow-lg transition-transform hover:scale-105"
+              >
+                Check my CV free <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link href="/pricing" className="glass flex items-center gap-2 rounded-full px-6 py-3 font-medium text-gray-700">
+                See pricing
+              </Link>
+            </div>
+          </div>
+          <AtsPreview />
+        </div>
+      </section>
+
       {/* Features */}
       <section className="space-y-6">
         <h2 className="text-center text-3xl font-extrabold tracking-tight">
@@ -208,6 +300,43 @@ export default function LandingPage() {
           {authed ? "Open dashboard" : "Get started free"} <ArrowRight className="h-4 w-4" />
         </button>
       </section>
+    </div>
+  );
+}
+
+/** Illustrative ATS score card for the CV Creator section. */
+function AtsPreview() {
+  const checks: [string, boolean][] = [
+    ["Contact details", true],
+    ["Bullets start with action verbs", true],
+    ["Results with numbers", true],
+    ["No weak phrases like “responsible for”", false],
+    ["Keywords from the advert · 14/18", true],
+  ];
+  return (
+    <div className="glass-strong mx-auto w-full max-w-sm space-y-4 rounded-3xl p-6" aria-hidden>
+      <div className="flex items-center gap-4">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full border-8 border-green-500/80 text-2xl font-extrabold text-green-600">
+          86
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">ATS score</p>
+          <p className="text-lg font-bold">Strong</p>
+          <p className="text-xs text-gray-500">Accountant · Harare</p>
+        </div>
+      </div>
+      <ul className="space-y-2 text-sm">
+        {checks.map(([label, ok]) => (
+          <li key={label} className="flex gap-2">
+            {ok ? (
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+            ) : (
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            )}
+            <span className="text-gray-700">{label}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
