@@ -23,6 +23,7 @@ import { json, preflight } from "./lib/utils/cors";
 import { DEFAULT_SOURCES, isSupported, scrapeSource } from "./lib/scraping/registry";
 import { searchGoogleJobs } from "./lib/scraping/google";
 import { fetchJobDetail } from "./lib/scraping/detail";
+import { decodeEntities } from "./lib/scraping/shared";
 import { isCurrent } from "./lib/utils/date";
 import { categorize } from "./lib/categorize";
 import { processCV } from "./lib/ai/extractor";
@@ -252,6 +253,7 @@ export default {
         return json({
           site: cfg.site,
           payments: { provider: cfg.payments.provider, currency: cfg.payments.currency, freeCredits: cfg.payments.freeCredits },
+          costs: cfg.costs, // credit price per action (public — shown on /pricing)
         });
       }
       if (path === "/api/billing/checkout" && request.method === "POST") {
@@ -1987,8 +1989,25 @@ async function runScrape(env: Env): Promise<{ jobs: JobListing[]; stats: ScrapeS
   const known = new Set([...existingCurrent, ...existingExpired].map(postingKey));
   const deduped = dedupeJobs([...existingCurrent, ...existingExpired, ...collected]);
 
-  // Classify sector for every job (re-runs on older entries too).
-  for (const job of deduped) job.sector = categorize(job.title, job.description);
+  // Classify sector for every job (re-runs on older entries too), and keep the
+  // date we first saw each posting (job pages publish it as datePosted).
+  const firstSeen = new Map<string, string>();
+  for (const j of [...existingCurrent, ...existingExpired]) {
+    if (!j.firstSeen) continue;
+    firstSeen.set(j.id, j.firstSeen);
+    firstSeen.set(postingKey(j), j.firstSeen);
+  }
+  const now = new Date().toISOString();
+  // Some boards double-encode entities ("&amp;#8211;"), so decode twice; this also
+  // cleans jobs stored before the fix.
+  const clean = (s: string) => decodeEntities(decodeEntities(s ?? "")).replace(/\s+/g, " ").trim();
+  for (const job of deduped) {
+    job.title = clean(job.title);
+    job.company = clean(job.company);
+    job.location = clean(job.location);
+    job.sector = categorize(job.title, job.description);
+    job.firstSeen = job.firstSeen || firstSeen.get(job.id) || firstSeen.get(postingKey(job)) || now;
+  }
 
   const current = deduped.filter((j) => isCurrent(j.expiryDate)).sort(byExpiry);
   const expired = deduped

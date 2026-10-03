@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useSession, signIn } from "next-auth/react";
 import {
@@ -11,7 +10,7 @@ import {
   Mail,
   Phone,
   ExternalLink,
-  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Application, JobDetailFull, JobListing, StoredCV } from "@/lib/types";
@@ -20,27 +19,34 @@ import { JobTile } from "@/components/JobTile";
 import { RadialApply } from "@/components/RadialApply";
 import { ApplyModal } from "@/components/ApplyModal";
 import { RichText } from "@/components/RichText";
-
 import { useCosts } from "@/lib/useCosts";
-export default function JobDetailPage() {
+import { cityOf, cityPath, sectorPath } from "@/lib/seo";
+
+type Initial = { job: JobListing; detail: JobDetailFull | null; similar: JobListing[] };
+
+/**
+ * Job page UI. The server passes the job in `initial` so the title, details and
+ * links are in the page HTML (search engines, fast first paint); without it
+ * (API unreachable at render time) the browser loads it instead.
+ */
+export function JobDetailClient({ id, initial }: { id: string; initial?: Initial }) {
   const costs = useCosts();
-  const params = useParams<{ id: string }>();
   const { status } = useSession();
-  const [job, setJob] = useState<JobListing | null>(null);
-  const [detail, setDetail] = useState<JobDetailFull | null>(null);
-  const [similar, setSimilar] = useState<JobListing[]>([]);
+  const [job, setJob] = useState<JobListing | null>(initial?.job ?? null);
+  const [detail, setDetail] = useState<JobDetailFull | null>(initial?.detail ?? null);
+  const [similar, setSimilar] = useState<JobListing[]>(initial?.similar ?? []);
   const [cvs, setCvs] = useState<StoredCV[]>([]);
   const [activeCvId, setActiveCvId] = useState<string | undefined>();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initial);
   const [preparing, setPreparing] = useState(false);
   const [optimising, setOptimising] = useState(false);
   const [active, setActive] = useState<Application | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!params?.id) return;
+    if (initial || !id) return;
     api
-      .getJob(params.id)
+      .getJob(id)
       .then((r) => {
         setJob(r.job);
         setDetail(r.detail);
@@ -48,7 +54,7 @@ export default function JobDetailPage() {
       })
       .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false));
-  }, [params?.id]);
+  }, [id, initial]);
 
   useEffect(() => {
     if (status === "authenticated") api.getCvs().then((r) => setCvs(r.cvs)).catch(() => {});
@@ -104,9 +110,31 @@ export default function JobDetailPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <Link href="/jobs" className="flex items-center gap-1 text-sm text-gray-600 hover:text-brand-700">
-        <ChevronLeft className="h-4 w-4" /> All jobs
-      </Link>
+      <nav aria-label="Breadcrumb">
+        <ol className="flex flex-wrap items-center gap-1 text-sm text-gray-600">
+          <li>
+            <Link href="/jobs" className="hover:text-brand-700">
+              Jobs
+            </Link>
+          </li>
+          {job.sector && job.sector !== "Other" && (
+            <li className="flex items-center gap-1">
+              <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+              <Link href={sectorPath(job.sector)} className="hover:text-brand-700">
+                {job.sector}
+              </Link>
+            </li>
+          )}
+          {cityOf(job.location) && (
+            <li className="flex items-center gap-1">
+              <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
+              <Link href={cityPath(cityOf(job.location))} className="hover:text-brand-700">
+                {cityOf(job.location)}
+              </Link>
+            </li>
+          )}
+        </ol>
+      </nav>
 
       {/* Hero */}
       <div className="glass-strong rounded-3xl p-6">

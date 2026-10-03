@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage, H, P, List } from "@/components/LegalPage";
 import { getSiteInfo } from "@/lib/server/site";
+import { pageMeta } from "@/lib/seo";
 
 export const revalidate = 3600;
 
-export const metadata: Metadata = {
-  title: "Terms of Service — VacancyPal",
-  description: "The terms that apply when you use VacancyPal as a job seeker or employer.",
-};
+export const metadata: Metadata = pageMeta({
+  title: "Terms of Service",
+  description:
+    "The terms that apply when you use VacancyPal to find jobs in Zimbabwe, build a CV and apply — as a job seeker or as an employer hiring talent.",
+  path: "/terms",
+});
 
 export default async function TermsPage() {
   const { name, supportEmail } = await getSiteInfo();

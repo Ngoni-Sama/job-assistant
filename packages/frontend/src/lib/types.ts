@@ -14,6 +14,8 @@ export interface JobListing {
   logo?: string;
   salary?: string;
   applyEmail?: string;
+  /** ISO time the job was first scraped (≈ date posted). */
+  firstSeen?: string;
 }
 
 export interface JobDetailFull {

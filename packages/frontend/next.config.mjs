@@ -5,6 +5,8 @@ const lowResource = process.env.LOW_RESOURCE_BUILD === "1";
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
+  compress: true,
   // Serve images as-is: avoids the native `sharp` dependency on shared hosting.
   images: { unoptimized: true },
   ...(lowResource

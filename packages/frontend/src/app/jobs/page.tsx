@@ -1,143 +1,46 @@
-"use client";
+import type { Metadata } from "next";
+import { JobsClient } from "@/components/JobsClient";
+import { BrowseJobs } from "@/components/BrowseJobs";
+import { JsonLd } from "@/components/JsonLd";
+import { fetchJobs } from "@/lib/server/jobs";
+import { groupByCity, groupBySector, openJobs, slimJob } from "@/lib/jobGroups";
+import { SITE_URL, jobPath, pageMeta } from "@/lib/seo";
 
-import { useEffect, useMemo, useState } from "react";
-import { useSession, signIn } from "next-auth/react";
-import { Sparkles } from "lucide-react";
-import { api } from "@/lib/api";
-import type { Application, JobListing, StoredCV } from "@/lib/types";
-import { JobTile } from "@/components/JobTile";
-import { ApplyModal } from "@/components/ApplyModal";
-import { JobFilters, useJobFilters } from "@/components/JobFilters";
+type Props = { searchParams: Promise<{ q?: string | string[] }> };
 
-export default function JobsPage() {
-  const { status } = useSession();
-  const authed = status === "authenticated";
-  const [jobs, setJobs] = useState<JobListing[]>([]);
-  const [cvs, setCvs] = useState<StoredCV[]>([]);
-  const [activeCvId, setActiveCvId] = useState<string | undefined>();
-  const [applied, setApplied] = useState<Set<string>>(new Set());
-  const [mySector, setMySector] = useState("");
-  const [forYou, setForYou] = useState(false);
-  const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [preparingId, setPreparingId] = useState<string | null>(null);
-  const [optimisingId, setOptimisingId] = useState<string | null>(null);
-  const [active, setActive] = useState<Application | null>(null);
-  const [error, setError] = useState("");
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const { q } = await searchParams;
+  const jobs = openJobs(await fetchJobs());
+  const meta = pageMeta({
+    title: "Latest jobs in Zimbabwe",
+    description: `${jobs.length ? `${jobs.length} open vacancies` : "Open vacancies"} in Harare, Bulawayo and across Zimbabwe — updated every few hours. Search by title, company or town and apply in minutes.`,
+    path: "/jobs",
+  });
+  // Search results pages aren't indexed (the canonical /jobs page is).
+  return q ? { ...meta, robots: { index: false, follow: true } } : meta;
+}
 
-  useEffect(() => {
-    api
-      .getJobs()
-      .then((j) => setJobs(j.jobs))
-      .finally(() => setLoading(false));
-    // Per-user data only when signed in (avoids 401 noise for guests).
-    if (authed) {
-      api.getApplied().then((a) => setApplied(new Set(a.applied))).catch(() => {});
-      api.getCvs().then((r) => setCvs(r.cvs)).catch(() => {});
-      api
-        .getProfile()
-        .then((p) => {
-          setMySector(p.profile.sector || "");
-          if (p.profile.sector) setForYou(true); // default to For You when we know the sector
-        })
-        .catch(() => {});
-    }
-  }, [authed]);
-
-  const filters = useJobFilters(jobs);
-
-  const results = useMemo(() => {
-    let list = filters.filtered;
-    if (forYou && mySector) list = list.filter((j) => j.sector === mySector);
-    return list.filter((j) =>
-      `${j.title} ${j.company} ${j.location}`.toLowerCase().includes(query.toLowerCase()),
-    );
-  }, [filters.filtered, forYou, mySector, query]);
-
-  async function apply(job: JobListing, cvId?: string) {
-    if (status !== "authenticated") return signIn("google");
-    setPreparingId(job.id);
-    setActiveCvId(cvId);
-    setError("");
-    try {
-      const { application, autoSent } = await api.prepareApplication(job.id, cvId);
-      if (autoSent) setApplied((prev) => new Set(prev).add(job.id));
-      else setActive(application);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setPreparingId(null);
-    }
-  }
-
-  async function optimise(job: JobListing, cvId?: string) {
-    if (status !== "authenticated") return signIn("google");
-    setOptimisingId(job.id);
-    setActiveCvId(cvId);
-    setError("");
-    try {
-      const { application } = await api.optimiseApplication(job.id, cvId);
-      setActive(application);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setOptimisingId(null);
-    }
-  }
-
+export default async function JobsPage({ searchParams }: Props) {
+  const { q } = await searchParams;
+  const all = await fetchJobs();
+  const jobs = openJobs(all);
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Latest jobs in Zimbabwe",
+    numberOfItems: jobs.length,
+    itemListElement: jobs.slice(0, 50).map((j, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE_URL}${jobPath(j)}`,
+      name: j.title,
+    })),
+  };
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">My Jobs</h1>
-        {mySector && (
-          <button
-            onClick={() => setForYou((v) => !v)}
-            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium ${
-              forYou ? "bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-md" : "glass"
-            }`}
-          >
-            <Sparkles className="h-4 w-4" /> For You · {mySector}
-          </button>
-        )}
-      </div>
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search by title, company, or location…"
-        className="w-full rounded-md border px-4 py-2 text-sm focus:border-brand-500 focus:outline-none"
-      />
-      {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-      {jobs.length > 0 && <JobFilters {...filters} />}
-      {loading ? (
-        <p className="text-gray-500">Loading…</p>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {results.map((job) => (
-            <JobTile
-              key={job.id}
-              job={job}
-              applied={applied.has(job.id)}
-              preparing={preparingId === job.id}
-              optimising={optimisingId === job.id}
-              cvs={cvs}
-              onApply={apply}
-              onOptimise={optimise}
-            />
-          ))}
-        </div>
-      )}
-      {!loading && results.length === 0 && (
-        <p className="text-gray-500">No jobs match your search or filters.</p>
-      )}
-
-      {active && (
-        <ApplyModal
-          application={active}
-          cvId={activeCvId}
-          onClose={() => setActive(null)}
-          onSent={(jobId) => setApplied((prev) => new Set(prev).add(jobId))}
-        />
-      )}
+    <div className="space-y-10">
+      {jobs.length > 0 && <JsonLd data={itemList} />}
+      <JobsClient initialJobs={all.map(slimJob)} initialQuery={(Array.isArray(q) ? q[0] : q) ?? ""} />
+      <BrowseJobs sectors={groupBySector(jobs)} cities={groupByCity(jobs)} />
     </div>
   );
 }

@@ -35,6 +35,7 @@ export interface JobListing {
   logo?: string; // absolute company logo URL, when detected
   salary?: string; // e.g. "TBA", "$500"
   applyEmail?: string; // populated lazily when a detail page is viewed
+  firstSeen?: string; // ISO time we first scraped this posting (≈ date posted)
 }
 
 /** A user-configurable place to scrape jobs from. */

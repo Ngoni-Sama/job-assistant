@@ -108,8 +108,8 @@ export function Nav() {
       <div className="flex items-center justify-between px-4 py-2.5">
         <Link href="/" className="flex items-center" aria-label={`${siteName} home`}>
           {/* Pin mark on phones, full wordmark from sm up. */}
-          <Image src="/brand/logo-mark.png" alt={siteName} width={237} height={264} priority className="h-9 w-auto sm:hidden" />
-          <Image src="/brand/logo.png" alt={siteName} width={988} height={264} priority className="hidden h-9 w-auto sm:block" />
+          <Image src="/brand/logo-mark-nav.webp" alt={siteName} width={97} height={108} priority className="h-9 w-auto sm:hidden" />
+          <Image src="/brand/logo-nav.webp" alt={siteName} width={404} height={108} priority className="hidden h-9 w-auto sm:block" />
         </Link>
 
         <div className="flex items-center gap-2">

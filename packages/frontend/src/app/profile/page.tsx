@@ -99,7 +99,7 @@ export default function ProfilePage() {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={session.user.image}
-              alt=""
+              alt={session.user.name ? `${session.user.name}'s profile photo` : "Your profile photo"}
               className="h-20 w-20 rounded-full border-4 border-white/40"
               referrerPolicy="no-referrer"
             />

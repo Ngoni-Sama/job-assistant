@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo";
 import Link from "next/link";
 import { LegalPage, H, P, List } from "@/components/LegalPage";
 import { getSiteInfo } from "@/lib/server/site";
 
 export const revalidate = 3600;
 
-export const metadata: Metadata = {
-  title: "How VacancyPal uses Gmail — VacancyPal",
+export const metadata: Metadata = pageMeta({
+  title: "How VacancyPal uses Gmail",
   description:
     "VacancyPal asks for one Gmail permission — to send job applications from your own Gmail, when you press Send or through Auto-apply if you switch it on.",
-};
+  path: "/how-we-use-gmail",
+});
 
 /**
  * Plain-language explanation of the gmail.send permission for users and for

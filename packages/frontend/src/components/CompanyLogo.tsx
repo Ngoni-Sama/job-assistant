@@ -13,7 +13,11 @@ export function CompanyLogo({ src, name, size = 44 }: { src?: string; name: stri
     return (
       <img
         src={src}
-        alt={name}
+        alt={name && name !== "N/A" ? `${name} logo` : "Company logo"}
+        width={size}
+        height={size}
+        loading="lazy"
+        decoding="async"
         onError={() => setBroken(true)}
         style={dim}
         className="shrink-0 rounded-xl border border-white/50 bg-white object-contain p-1"
@@ -40,8 +44,10 @@ export function isExpired(expiryDate?: string): boolean {
 
 export function formatDate(iso?: string): string {
   if (!iso) return "";
-  const d = new Date(iso + "T00:00:00");
+  // Fixed locale + UTC: pages are server-rendered, so the server and the browser
+  // must print the same text ("3 Oct 2026") or React reports a hydration mismatch.
+  const d = new Date(iso + "T00:00:00Z");
   return isNaN(d.getTime())
     ? iso
-    : d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 }

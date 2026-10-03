@@ -2,13 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage, H, P, List } from "@/components/LegalPage";
 import { getSiteInfo } from "@/lib/server/site";
+import { pageMeta } from "@/lib/seo";
 
 export const revalidate = 3600;
 
-export const metadata: Metadata = {
-  title: "Privacy Policy — VacancyPal",
+export const metadata: Metadata = pageMeta({
+  title: "Privacy Policy",
   description: "How VacancyPal collects, uses and protects your information, including data from your Google account.",
-};
+  path: "/privacy",
+});
 
 export default async function PrivacyPage() {
   const { name, supportEmail } = await getSiteInfo();

@@ -51,8 +51,7 @@ export default function VerificationPage() {
     }
   }
 
-  if (loading) return <p className="text-gray-500">Loading…</p>;
-
+  // The heading and intro render straight away (and in the server HTML); only the checks wait for data.
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="glass-strong rounded-3xl p-8 text-center">
@@ -76,6 +75,7 @@ export default function VerificationPage() {
         </div>
       )}
 
+      {loading && <p className="text-center text-gray-500">Loading checks…</p>}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {catalog.map((c) => {
           const Icon = ICON[c.category] ?? FileCheck2;
@@ -87,7 +87,7 @@ export default function VerificationPage() {
                   <Icon className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold leading-tight">{c.name}</h3>
+                  <h2 className="font-semibold leading-tight">{c.name}</h2>
                   <span className="text-xs text-gray-400">{c.category}</span>
                 </div>
               </div>

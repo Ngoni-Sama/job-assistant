@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession, signIn } from "next-auth/react";
 import { Radar, MapPin, Info, ArrowRight, LocateFixed } from "lucide-react";
+import { jobPath } from "@/lib/seo";
 import { api } from "@/lib/api";
 import type { Application, JobListing, StoredCV } from "@/lib/types";
 import { CompanyLogo } from "@/components/CompanyLogo";
@@ -178,7 +179,7 @@ export default function NearbyPage() {
               onApply={(cvId) => optimise(selected, cvId)}
             />
             <Link
-              href={`/jobs/${encodeURIComponent(selected.id)}`}
+              href={jobPath(selected)}
               className="flex items-center gap-1 rounded-full border border-white/50 bg-white/50 px-4 py-2 text-sm text-gray-700"
             >
               Show more <ArrowRight className="h-3.5 w-3.5" />

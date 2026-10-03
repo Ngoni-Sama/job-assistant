@@ -5,6 +5,8 @@ import { CompanyLogo, isExpired, formatDate } from "./CompanyLogo";
 import { RadialApply } from "./RadialApply";
 
 import { useCosts } from "@/lib/useCosts";
+import { jobPath } from "@/lib/seo";
+
 function scoreColor(score: number): string {
   if (score >= 75) return "bg-green-100 text-green-700";
   if (score >= 50) return "bg-brand-100 text-brand-700";
@@ -20,8 +22,11 @@ export function JobTile({
   cvs = [],
   onApply,
   onOptimise,
+  headingLevel = 3,
 }: {
   job: JobListing;
+  /** Heading level for the job title (keeps the page outline in order). */
+  headingLevel?: 2 | 3;
   score?: JobScore;
   applied?: boolean;
   preparing?: boolean;
@@ -32,12 +37,17 @@ export function JobTile({
 }) {
   const costs = useCosts();
   const expired = isExpired(job.expiryDate);
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   return (
     <div className="glass flex min-w-0 flex-col rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-xl">
       <div className="flex items-start gap-3">
         <CompanyLogo src={job.logo} name={job.company} />
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-semibold leading-tight">{job.title}</h3>
+          <Heading className="truncate font-semibold leading-tight">
+            <Link href={jobPath(job)} className="block truncate hover:text-brand-700">
+              {job.title}
+            </Link>
+          </Heading>
           <p className="truncate text-sm text-gray-600">{job.company}</p>
         </div>
         {score && (
@@ -108,7 +118,8 @@ export function JobTile({
           </>
         )}
         <Link
-          href={`/jobs/${encodeURIComponent(job.id)}`}
+          href={jobPath(job)}
+          aria-label={`View ${job.title}`}
           className="flex items-center gap-1 rounded-full border border-white/50 bg-white/50 px-3 py-2 text-sm text-gray-700 hover:bg-white/70"
         >
           <Eye className="h-3.5 w-3.5" /> View
