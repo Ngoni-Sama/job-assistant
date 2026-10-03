@@ -5,6 +5,7 @@ import { slimJob, type JobGroup } from "@/lib/jobGroups";
 import { JobsClient } from "@/components/JobsClient";
 import { BrowseJobs } from "@/components/BrowseJobs";
 import { JsonLd } from "@/components/JsonLd";
+import { ShareButtons } from "@/components/ShareButtons";
 import { SITE_URL, jobPath } from "@/lib/seo";
 
 /** Shared layout for the sector and town landing pages (server-rendered). */
@@ -67,6 +68,9 @@ export function JobLanding({
         </ol>
       </nav>
       <JobsClient initialJobs={jobs.map(slimJob)} heading={heading} intro={intro} loadAll={false} />
+      <div className="glass rounded-2xl p-4">
+        <ShareButtons path={path} label="Share these jobs" text={`${heading} — ${jobs.length} open on VacancyPal`} />
+      </div>
       {jobs.length === 0 && (
         <p className="glass rounded-2xl p-6 text-gray-600">
           No open jobs here right now — new jobs arrive every few hours.{" "}

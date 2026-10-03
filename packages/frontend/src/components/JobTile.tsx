@@ -6,6 +6,7 @@ import { RadialApply } from "./RadialApply";
 
 import { useCosts } from "@/lib/useCosts";
 import { jobPath } from "@/lib/seo";
+import { ShareIconButton } from "./ShareButtons";
 
 function scoreColor(score: number): string {
   if (score >= 75) return "bg-green-100 text-green-700";
@@ -50,6 +51,7 @@ export function JobTile({
           </Heading>
           <p className="truncate text-sm text-gray-600">{job.company}</p>
         </div>
+        <ShareIconButton compact path={jobPath(job)} text={`${job.title} — apply on VacancyPal`} />
         {score && (
           <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${scoreColor(score.score)}`}>
             {score.score}%
@@ -62,7 +64,7 @@ export function JobTile({
           <MapPin className="h-3.5 w-3.5" /> {job.location}
         </span>
         {job.sector && (
-          <span className="rounded-full bg-violet-100/70 px-2 py-0.5 text-violet-700">{job.sector}</span>
+          <span className="rounded-full bg-accent-100/80 px-2 py-0.5 text-accent-800">{job.sector}</span>
         )}
         {job.jobType && (
           <span className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">{job.jobType}</span>

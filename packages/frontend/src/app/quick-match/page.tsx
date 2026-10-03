@@ -82,7 +82,7 @@ export default function QuickMatchPage() {
         <button
           onClick={run}
           disabled={running}
-          className="mt-5 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-3 font-medium text-white shadow-lg transition-transform hover:scale-105 disabled:opacity-60"
+          className="mt-5 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-6 py-3 font-medium text-white shadow-lg transition-transform hover:scale-105 disabled:opacity-60"
         >
           <Wand2 className={`h-5 w-5 ${running ? "animate-pulse" : ""}`} />
           {running ? "Analysing listings…" : "Run Quick Match"}

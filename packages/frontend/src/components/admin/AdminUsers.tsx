@@ -152,7 +152,7 @@ export function AdminUsers() {
                             <span className="rounded-full bg-green-50 px-2 py-0.5 text-[11px] text-green-700">Looking</span>
                           )}
                           {u.autoApply && (
-                            <span className="flex items-center gap-0.5 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] text-violet-700">
+                            <span className="flex items-center gap-0.5 rounded-full bg-accent-50 px-2 py-0.5 text-[11px] text-accent-800">
                               <Zap className="h-3 w-3" /> Auto-apply
                             </span>
                           )}

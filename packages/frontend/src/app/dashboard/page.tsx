@@ -202,7 +202,7 @@ export default function DashboardPage() {
             <button
               onClick={runMatch}
               disabled={matching || jobs.length === 0}
-              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm text-white shadow-md disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-2 text-sm text-white shadow-md disabled:opacity-50"
             >
               <Sparkles className={`h-4 w-4 ${matching ? "animate-pulse" : ""}`} />
               {matching ? "Matching…" : "Match to my CV"}
@@ -210,7 +210,7 @@ export default function DashboardPage() {
           ) : (
             <button
               onClick={() => signIn("google")}
-              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm text-white shadow-md"
+              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-2 text-sm text-white shadow-md"
             >
               <LogIn className="h-4 w-4" /> Sign in
             </button>

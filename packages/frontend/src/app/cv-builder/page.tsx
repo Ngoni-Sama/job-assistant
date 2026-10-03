@@ -29,6 +29,7 @@ import { api } from "@/lib/api";
 import { cvToPdfBlob, cvToDocxBlob, blobToBase64 } from "@/lib/cvexport";
 import { scoreCv, type AtsReport } from "@/lib/atsScore";
 import { useCosts } from "@/lib/useCosts";
+import { ShareButtons } from "@/components/ShareButtons";
 
 type Job = { role: string; company: string; start: string; end: string; bullets: string };
 type Edu = { qualification: string; institution: string; year: string };
@@ -344,6 +345,13 @@ export default function CvBuilderPage() {
             <CheckCircle2 className="h-4 w-4 text-green-600" /> AI never invents jobs, numbers or skills
           </li>
         </ul>
+        <div className="mt-4">
+          <ShareButtons
+            path="/cv-builder"
+            label="Share"
+            text="Check your CV's ATS score free on VacancyPal's ATS CV Creator"
+          />
+        </div>
       </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -438,7 +446,7 @@ export default function CvBuilderPage() {
             <button
               onClick={writeWithAi}
               disabled={writing}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-[1.02] disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-[1.02] disabled:opacity-60"
             >
               {writing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {writing ? "Writing your CV…" : "Write my CV with AI"}

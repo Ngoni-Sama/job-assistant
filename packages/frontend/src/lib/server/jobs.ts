@@ -24,7 +24,11 @@ export type JobPageData = { job: JobListing; detail: JobDetailFull | null; simil
 /** One job with its detail. `null` = no such job; `undefined` = the API couldn't be reached. */
 export async function fetchJob(id: string): Promise<JobPageData | null | undefined> {
   try {
-    const res = await fetch(`${WORKER_BASE}/api/job/${encodeURIComponent(id)}`, { next: { revalidate: REVALIDATE } });
+    const secret = process.env.WORKER_INTERNAL_SECRET;
+    const res = await fetch(`${WORKER_BASE}/api/job/${encodeURIComponent(id)}`, {
+      headers: secret ? { "x-internal-secret": secret } : undefined,
+      next: { revalidate: REVALIDATE },
+    });
     if (res.status === 404) return null;
     if (!res.ok) return undefined;
     return (await res.json()) as JobPageData;

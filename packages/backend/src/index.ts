@@ -538,6 +538,17 @@ export default {
       // Single job + full detail (sections, apply info). Detail is cached after
       // the first fetch so repeat visits never re-scrape.
       if (path.startsWith("/api/job/") && request.method === "GET") {
+        // A cache miss here fetches the original job board's page, so cap how fast one
+        // visitor can pull job details (bulk scraping could get us blocked upstream).
+        // The website's own server renders every job page from one IP — it's exempt.
+        const internal = !!env.INTERNAL_SECRET && request.headers.get("x-internal-secret") === env.INTERNAL_SECRET;
+        if (env.JOB_DETAIL_LIMITER && !internal) {
+          const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
+          const { success } = await env.JOB_DETAIL_LIMITER.limit({ key: ip });
+          if (!success) {
+            return json({ error: "Too many requests — please slow down and try again in a minute." }, { status: 429, headers: { "Retry-After": "60" } });
+          }
+        }
         const id = decodeURIComponent(path.slice("/api/job/".length));
         const current = await getJobs(env);
         const expiredPool = (await env.JOBS_CACHE.get<JobListing[]>(EXPIRED_KEY, "json")) ?? [];

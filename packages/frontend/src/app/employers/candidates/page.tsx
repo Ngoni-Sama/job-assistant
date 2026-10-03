@@ -158,7 +158,7 @@ export default function CandidateBrowsePage() {
           <div className="flex flex-wrap gap-2">
             <Link
               href="/employers/search"
-              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-md"
+              className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-2 text-sm font-medium text-white shadow-md"
             >
               <Sparkles className="h-4 w-4" /> Find talent with AI
             </Link>
@@ -185,7 +185,7 @@ export default function CandidateBrowsePage() {
               onClick={() => setSelected(sector)}
               className="glass rounded-2xl p-6 text-left transition-transform hover:-translate-y-0.5 hover:shadow-xl"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-violet-600 text-white">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-800 text-white">
                 <Briefcase className="h-5 w-5" />
               </div>
               <h3 className="mt-4 text-lg font-bold">{sector}</h3>
@@ -217,7 +217,7 @@ function CandidateTile({
   return (
     <div className="glass flex flex-col rounded-2xl p-5">
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-brand-600 to-violet-600 text-lg font-bold text-white">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-800 text-lg font-bold text-white">
           {c.name.charAt(0)}
         </div>
         <div className="min-w-0">
@@ -291,7 +291,7 @@ function CandidateTile({
           <button
             onClick={onUnlock}
             disabled={unlocking}
-            className="flex flex-1 items-center justify-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-1 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             <Lock className="h-3.5 w-3.5" /> {unlocking ? "…" : `Unlock · ${costs.unlockContact}`}
           </button>

@@ -262,7 +262,7 @@ export default function RecruiterSearchPage() {
         <button
           onClick={() => runSearch(input)}
           disabled={!input.trim()}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-brand-600 to-violet-600 text-white disabled:opacity-40"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-brand-500 to-brand-800 text-white disabled:opacity-40"
         >
           <Send className="h-4 w-4" />
         </button>
@@ -310,7 +310,7 @@ function MatchCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="truncate font-semibold">{m.name}</h3>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${m.source === "mine" ? "bg-violet-100 text-violet-700" : "bg-emerald-100 text-emerald-700"}`}>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${m.source === "mine" ? "bg-accent-100 text-accent-800" : "bg-emerald-100 text-emerald-700"}`}>
               {m.source === "mine" ? "My upload" : "Platform"}
             </span>
           </div>

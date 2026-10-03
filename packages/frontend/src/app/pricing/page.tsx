@@ -85,7 +85,7 @@ export default function PricingPage() {
         </span>
         <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">
           Pay for results,{" "}
-          <span className="bg-gradient-to-r from-brand-600 to-violet-600 bg-clip-text text-transparent">not monthly fees.</span>
+          <span className="bg-gradient-to-r from-brand-500 to-brand-800 bg-clip-text text-transparent">not monthly fees.</span>
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-lg text-gray-600">
           Searching, swiping and applying are free. Buy credits only for the AI that does the heavy lifting — like an
@@ -107,7 +107,7 @@ export default function PricingPage() {
               className={`glass relative flex flex-col rounded-3xl p-6 ${isPopular ? "ring-2 ring-brand-500 md:-translate-y-2" : ""}`}
             >
               {(isPopular || isBest) && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-3 py-0.5 text-xs font-semibold text-white">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-accent-400 to-accent-500 px-3 py-0.5 text-xs font-semibold text-gray-900 shadow-sm">
                   {isPopular ? "Most popular" : "Best value"}
                 </span>
               )}
@@ -145,7 +145,7 @@ export default function PricingPage() {
               <button
                 onClick={start}
                 className={`mt-6 flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium ${
-                  isPopular ? "bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-lg" : "border bg-white/70 text-gray-800 hover:bg-white"
+                  isPopular ? "bg-gradient-to-r from-brand-500 to-brand-800 text-white shadow-lg" : "border bg-white/70 text-gray-800 hover:bg-white"
                 }`}
               >
                 {authed ? `Buy ${p.label}` : "Sign up free"} <ArrowRight className="h-4 w-4" />
@@ -238,7 +238,7 @@ export default function PricingPage() {
         <p className="mx-auto mt-2 max-w-lg text-gray-600">See how your CV scores before you spend anything.</p>
         <Link
           href="/cv-builder"
-          className="mt-5 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-7 py-3 font-medium text-white shadow-lg transition-transform hover:scale-105"
+          className="mt-5 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-7 py-3 font-medium text-white shadow-lg transition-transform hover:scale-105"
         >
           Open the CV Creator <ArrowRight className="h-4 w-4" />
         </Link>

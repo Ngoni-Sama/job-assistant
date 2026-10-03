@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ShareButtons } from "@/components/ShareButtons";
 import { useState } from "react";
 import { useSession, signIn } from "next-auth/react";
 import {
@@ -62,7 +63,7 @@ export function LandingPage() {
           </div>
           <Link
             href={`/jobs${keyword.trim() || city.trim() ? `?q=${encodeURIComponent(`${keyword} ${city}`.trim())}` : ""}`}
-            className="rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-2.5 text-sm font-medium text-white"
+            className="rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-6 py-2.5 text-sm font-medium text-white"
           >
             Search
           </Link>
@@ -91,7 +92,7 @@ export function LandingPage() {
             </span>
             <h2 className="text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
               Sit back, relax —{" "}
-              <span className="bg-gradient-to-r from-brand-600 to-violet-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-brand-500 to-brand-800 bg-clip-text text-transparent">
                 let AI apply for you.
               </span>
             </h2>
@@ -102,7 +103,7 @@ export function LandingPage() {
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => (authed ? (window.location.href = "/dashboard") : signIn("google"))}
-                className="flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-3 font-medium text-white shadow-lg transition-transform hover:scale-105"
+                className="flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-6 py-3 font-medium text-white shadow-lg transition-transform hover:scale-105"
               >
                 {authed ? "Go to dashboard" : "Get started free"} <ArrowRight className="h-4 w-4" />
               </button>
@@ -173,8 +174,8 @@ export function LandingPage() {
             { icon: Send, title: "Apply in seconds", body: "Each application is tailored and sent from your Gmail — or switch on Auto-apply." },
           ].map(({ icon: Icon, title, body }, i) => (
             <li key={title} className="glass relative rounded-2xl p-6">
-              <span className="absolute right-5 top-4 text-4xl font-extrabold text-brand-100">{i + 1}</span>
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-violet-600 text-white">
+              <span className="absolute right-5 top-4 text-4xl font-extrabold text-accent-200">{i + 1}</span>
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-800 text-white">
                 <Icon className="h-5 w-5" />
               </div>
               <h3 className="mt-4 text-lg font-bold">{title}</h3>
@@ -211,7 +212,7 @@ export function LandingPage() {
             <div className="flex flex-wrap gap-3 pt-1">
               <Link
                 href="/cv-builder"
-                className="flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-3 font-medium text-white shadow-lg transition-transform hover:scale-105"
+                className="flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-6 py-3 font-medium text-white shadow-lg transition-transform hover:scale-105"
               >
                 Check my CV free <ArrowRight className="h-4 w-4" />
               </Link>
@@ -236,7 +237,7 @@ export function LandingPage() {
             { icon: Zap, title: "Swipe 2 Match", body: "Swipe right on the jobs you love. Green for yes, red for no — matching made effortless." },
           ].map(({ icon: Icon, title, body }) => (
             <div key={title} className="glass rounded-2xl p-6">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-violet-600 text-white">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-800 text-white">
                 <Icon className="h-5 w-5" />
               </div>
               <h3 className="mt-4 text-lg font-bold">{title}</h3>
@@ -249,7 +250,7 @@ export function LandingPage() {
       {/* Applications from the user's own Gmail (also explains the Gmail permission) */}
       <section className="glass rounded-3xl p-8 md:p-10">
         <div className="flex flex-col gap-6 md:flex-row md:items-start">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-600 to-violet-600 text-white">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-800 text-white">
             <Mail className="h-6 w-6" />
           </div>
           <div className="space-y-3">
@@ -297,10 +298,17 @@ export function LandingPage() {
         </p>
         <button
           onClick={() => (authed ? (window.location.href = "/dashboard") : signIn("google"))}
-          className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-8 py-3 font-medium text-white shadow-lg transition-transform hover:scale-105"
+          className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-8 py-3 font-medium text-white shadow-lg transition-transform hover:scale-105"
         >
           {authed ? "Open dashboard" : "Get started free"} <ArrowRight className="h-4 w-4" />
         </button>
+        <div className="mt-6 flex justify-center">
+          <ShareButtons
+            path="/"
+            label="Tell a friend"
+            text="VacancyPal — the latest jobs in Zimbabwe, an ATS-ready CV and one-swipe applications"
+          />
+        </div>
       </section>
     </div>
   );
@@ -348,8 +356,8 @@ function HeroIllustration() {
     <svg viewBox="0 0 400 320" className="w-full drop-shadow-xl" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#2563eb" />
-          <stop offset="1" stopColor="#7c3aed" />
+          <stop offset="0" stopColor="#0071fa" />
+          <stop offset="1" stopColor="#003bbc" />
         </linearGradient>
       </defs>
       <rect x="40" y="30" width="220" height="150" rx="18" fill="white" opacity="0.7" />

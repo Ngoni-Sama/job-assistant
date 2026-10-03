@@ -22,7 +22,7 @@ export default async function TermsPage() {
   );
 
   return (
-    <LegalPage title="Terms of Service" updated="1 October 2026">
+    <LegalPage title="Terms of Service" updated="3 October 2026">
       <P>
         These terms apply when you use {name} (vacancypal.co.zw). By creating an account or using the service you agree
         to them. If you don’t agree, please don’t use {name}.
@@ -96,6 +96,12 @@ export default async function TermsPage() {
       <P>
         Don’t misuse {name}: no fraud or impersonation, no spam, no scraping or automated abuse of the service, no
         attempts to break its security, and nothing illegal, harmful or offensive.
+      </P>
+      <P>
+        The {name} name, logo, design, text, software and the way listings are gathered and presented belong to {name}.
+        You may share links to pages, but you may not copy, frame, mirror, resell or republish the site or its content,
+        bulk-download or scrape listings or candidate profiles, use the content to train AI models, or build a copy of
+        the service, without our written permission.
       </P>
 
       <H>9. Your content</H>

@@ -186,7 +186,7 @@ export default function MessagesPage() {
               <div key={i} className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
                 <div
                   className={`max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm ${
-                    mine ? "bg-gradient-to-r from-brand-600 to-violet-600 text-white" : "bg-white text-gray-700"
+                    mine ? "bg-gradient-to-r from-brand-500 to-brand-800 text-white" : "bg-white text-gray-700"
                   }`}
                 >
                   {m.text}
@@ -239,7 +239,7 @@ export default function MessagesPage() {
             onClick={() => send()}
             disabled={sending || !text.trim()}
             aria-label="Send"
-            className="flex items-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+            className="flex items-center gap-1 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-2 text-sm text-white disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
           </button>

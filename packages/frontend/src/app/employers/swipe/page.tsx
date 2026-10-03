@@ -97,7 +97,7 @@ function SwipeCard({ c }: { c: CandidateCard }) {
   return (
     <div className="glass-strong flex h-[440px] flex-col rounded-3xl p-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-600 to-violet-600 text-xl font-bold text-white">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-800 text-xl font-bold text-white">
           {c.name.charAt(0)}
         </div>
         <div className="min-w-0">
@@ -107,7 +107,7 @@ function SwipeCard({ c }: { c: CandidateCard }) {
               <BadgeCheck className="h-5 w-5 shrink-0 text-brand-600" aria-label="Verified" />
             )}
           </h3>
-          <span className="rounded-full bg-violet-100/70 px-2 py-0.5 text-xs font-medium text-violet-700">
+          <span className="rounded-full bg-accent-100/80 px-2 py-0.5 text-xs font-medium text-accent-800">
             {c.sector}
           </span>
         </div>

@@ -129,7 +129,7 @@ export function JobsClient({
           <button
             onClick={() => setForYou((v) => !v)}
             className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium ${
-              forYou ? "bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-md" : "glass"
+              forYou ? "bg-gradient-to-r from-brand-500 to-brand-800 text-white shadow-md" : "glass"
             }`}
           >
             <Sparkles className="h-4 w-4" /> For You · {mySector}

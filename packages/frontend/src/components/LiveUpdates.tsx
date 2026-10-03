@@ -229,7 +229,7 @@ export function LiveUpdates({ children }: { children: React.ReactNode }) {
       {offer && (
         <div className="glass-strong fixed bottom-4 left-3 right-3 z-40 rounded-2xl p-4 shadow-xl sm:left-auto sm:right-4 sm:w-96">
           <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-violet-600 text-white">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-800 text-white">
               <Bell className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
@@ -244,7 +244,7 @@ export function LiveUpdates({ children }: { children: React.ReactNode }) {
                 <button
                   onClick={turnOnPush}
                   disabled={busy}
-                  className="rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                  className="rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-1.5 text-xs font-medium text-white disabled:opacity-60"
                 >
                   {busy ? "Turning on…" : "Turn on"}
                 </button>
@@ -260,7 +260,7 @@ export function LiveUpdates({ children }: { children: React.ReactNode }) {
       {askProfession && !offer && (
         <div className="glass-strong fixed bottom-4 left-3 right-3 z-40 rounded-2xl p-4 shadow-xl sm:left-auto sm:right-4 sm:w-96">
           <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-violet-600 text-white">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-800 text-white">
               <Briefcase className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
@@ -281,7 +281,7 @@ export function LiveUpdates({ children }: { children: React.ReactNode }) {
                 <button
                   onClick={saveProfession}
                   disabled={busy || !profession.trim()}
-                  className="rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                  className="rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-1.5 text-xs font-medium text-white disabled:opacity-60"
                 >
                   Save
                 </button>

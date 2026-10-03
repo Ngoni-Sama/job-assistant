@@ -70,7 +70,7 @@ export function AdminPrompts({
               <div>
                 <p className="text-sm font-medium">
                   {t.title}{" "}
-                  <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] ${custom ? "bg-violet-100 text-violet-700" : "bg-gray-100 text-gray-500"}`}>
+                  <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] ${custom ? "bg-accent-100 text-accent-800" : "bg-gray-100 text-gray-500"}`}>
                     {custom ? "Custom" : "Default"}
                   </span>
                 </p>

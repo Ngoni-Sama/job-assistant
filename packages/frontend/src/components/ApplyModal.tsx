@@ -336,7 +336,7 @@ export function ApplyModal({
               {!gmailReady ? (
                 <button
                   onClick={() => grantGmail()}
-                  className="flex items-center gap-1 rounded-md bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm text-white"
+                  className="flex items-center gap-1 rounded-md bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-2 text-sm text-white"
                 >
                   <Mail className="h-4 w-4" /> Allow Gmail sending
                 </button>
@@ -344,7 +344,7 @@ export function ApplyModal({
               <button
                 onClick={sendViaGmail}
                 disabled={sending || !to.trim()}
-                className="flex items-center gap-1 rounded-md bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+                className="flex items-center gap-1 rounded-md bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-2 text-sm text-white disabled:opacity-50"
               >
                 {to.trim() ? <Mail className="h-4 w-4" /> : <Send className="h-4 w-4" />}
                 {sending ? "Sending…" : "Send from my Gmail"}

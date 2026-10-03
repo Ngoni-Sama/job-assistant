@@ -74,6 +74,12 @@ binding = "AI"
 binding = "JOBS_CACHE"
 id = "8d2630d4b5404fb3abcdb7523237061a"
 
+# Per-IP limit on GET /api/job/:id (120 requests a minute; the website's server is exempt).
+[[env.production.ratelimits]]
+name = "JOB_DETAIL_LIMITER"
+namespace_id = "1001"
+simple = { limit = 120, period = 60 }
+
 [env.production.triggers]
 crons = ["0 */6 * * *", "30 */3 * * *"]
 

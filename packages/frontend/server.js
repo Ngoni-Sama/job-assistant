@@ -30,9 +30,8 @@ app.prepare().then(() => {
       return;
     }
     // Browsers remember to use HTTPS for a year (ignored on plain http, so it's safe).
+    // (Frame, sniffing and referrer headers are set in next.config.mjs.)
     res.setHeader("Strict-Transport-Security", "max-age=31536000");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
     handle(req, res);
   }).listen(port, () => {
     console.log(`VacancyPal ready on port ${port}`);

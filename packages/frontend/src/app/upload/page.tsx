@@ -24,7 +24,7 @@ export default function UploadPage() {
       {/* No-CV path: build one from scratch. */}
       <Link
         href="/cv-builder"
-        className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-brand-600 to-violet-600 p-4 text-white shadow-md transition-transform hover:scale-[1.01]"
+        className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-brand-500 to-brand-800 p-4 text-white shadow-md transition-transform hover:scale-[1.01]"
       >
         <span className="flex items-center gap-3">
           <Sparkles className="h-6 w-6 shrink-0" />

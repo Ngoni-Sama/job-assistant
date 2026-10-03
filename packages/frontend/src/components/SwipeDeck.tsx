@@ -150,7 +150,7 @@ function Card({
       {children}
       <div className="mt-2">
         {job.sector && (
-          <span className="rounded-full bg-violet-100/70 px-2.5 py-1 text-xs font-medium text-violet-700">
+          <span className="rounded-full bg-accent-100/80 px-2.5 py-1 text-xs font-medium text-accent-800">
             {job.sector}
           </span>
         )}

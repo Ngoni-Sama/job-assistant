@@ -20,7 +20,8 @@ import { RadialApply } from "@/components/RadialApply";
 import { ApplyModal } from "@/components/ApplyModal";
 import { RichText } from "@/components/RichText";
 import { useCosts } from "@/lib/useCosts";
-import { cityOf, cityPath, sectorPath } from "@/lib/seo";
+import { cityOf, cityPath, companyName, jobPath, sectorPath } from "@/lib/seo";
+import { ShareButtons } from "@/components/ShareButtons";
 
 type Initial = { job: JobListing; detail: JobDetailFull | null; similar: JobListing[] };
 
@@ -148,7 +149,7 @@ export function JobDetailClient({ id, initial }: { id: string; initial?: Initial
                 <MapPin className="h-4 w-4" /> {job.location}
               </span>
               {job.sector && (
-                <span className="rounded-full bg-violet-100/70 px-2 py-0.5 text-xs text-violet-700">
+                <span className="rounded-full bg-accent-100/80 px-2 py-0.5 text-xs text-accent-800">
                   {job.sector}
                 </span>
               )}
@@ -196,6 +197,16 @@ export function JobDetailClient({ id, initial }: { id: string; initial?: Initial
           >
             Source <ExternalLink className="h-4 w-4" />
           </a>
+        </div>
+
+        <div className="mt-5 border-t border-white/60 pt-4">
+          <ShareButtons
+            path={jobPath(job)}
+            label="Share this job"
+            text={`${job.title}${companyName(job.company) ? ` at ${companyName(job.company)}` : ""}${
+              cityOf(job.location) ? ` (${cityOf(job.location)})` : ""
+            } — apply on VacancyPal`}
+          />
         </div>
       </div>
 

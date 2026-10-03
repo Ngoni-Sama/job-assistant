@@ -18,7 +18,7 @@ export default function NotFound() {
       <div className="flex flex-wrap justify-center gap-3">
         <Link
           href="/jobs"
-          className="flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-2.5 text-sm font-medium text-white"
+          className="flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-6 py-2.5 text-sm font-medium text-white"
         >
           Browse open jobs <ArrowRight className="h-4 w-4" />
         </Link>

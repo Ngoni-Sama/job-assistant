@@ -122,7 +122,7 @@ export default function NearbyPage() {
           <button
             onClick={findLocation}
             disabled={locating}
-            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-md disabled:opacity-60"
+            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-2 text-sm font-medium text-white shadow-md disabled:opacity-60"
           >
             <LocateFixed className={`h-4 w-4 ${locating ? "animate-pulse" : ""}`} />
             {locating ? "Locating…" : "Find my location"}

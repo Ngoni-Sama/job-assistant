@@ -161,7 +161,7 @@ export function AutoApplyCard({
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Or job-title keywords</p>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {keywords.map((k) => (
-            <span key={k} className="flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-1 text-xs text-violet-700">
+            <span key={k} className="flex items-center gap-1 rounded-full bg-accent-100 px-2.5 py-1 text-xs text-accent-800">
               {k}
               <button onClick={() => savePrefs({ autoApplyKeywords: keywords.filter((x) => x !== k) })} aria-label={`Remove ${k}`}>
                 <X className="h-3 w-3" />
@@ -207,7 +207,7 @@ export function AutoApplyCard({
             onChange={(e) => savePrefs({ autoApplyUseAI: e.target.checked })}
             className="h-4 w-4"
           />
-          <Sparkles className="h-4 w-4 text-violet-600" /> AI-tailored cover note
+          <Sparkles className="h-4 w-4 text-accent-700" /> AI-tailored cover note
           <span className="flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">
             <Coins className="h-3 w-3" /> 3 each
           </span>
@@ -224,7 +224,7 @@ export function AutoApplyCard({
           <button
             onClick={runNow}
             disabled={running}
-            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             <Play className="h-4 w-4" /> {running ? "Applying…" : "Run now"}
           </button>

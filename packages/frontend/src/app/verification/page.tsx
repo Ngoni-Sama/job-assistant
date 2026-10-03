@@ -83,7 +83,7 @@ export default function VerificationPage() {
           return (
             <div key={c.id} className="glass flex flex-col rounded-2xl p-5">
               <div className="flex items-center gap-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-violet-600 text-white">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-800 text-white">
                   <Icon className="h-5 w-5" />
                 </div>
                 <div>
@@ -105,7 +105,7 @@ export default function VerificationPage() {
                   <button
                     onClick={() => order(c.id)}
                     disabled={busy === c.id}
-                    className="flex w-full items-center justify-center gap-1 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-1 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
                   >
                     <Coins className="h-3.5 w-3.5" />
                     {busy === c.id ? "…" : `Order · ${c.credits} credits`}

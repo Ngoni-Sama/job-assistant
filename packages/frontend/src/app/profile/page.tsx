@@ -83,7 +83,7 @@ export default function ProfilePage() {
         <button
           onClick={autofill}
           disabled={filling}
-          className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm text-white shadow-md disabled:opacity-60"
+          className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-2 text-sm text-white shadow-md disabled:opacity-60"
         >
           <Wand2 className={`h-4 w-4 ${filling ? "animate-pulse" : ""}`} />
           {filling ? "Reading your CV…" : "Auto-fill from CV"}
@@ -94,7 +94,7 @@ export default function ProfilePage() {
 
       {/* Resume card */}
       <div className="glass-strong overflow-hidden rounded-3xl">
-        <div className="flex items-center gap-4 bg-gradient-to-r from-brand-600 to-violet-600 p-6 text-white">
+        <div className="flex items-center gap-4 bg-gradient-to-r from-brand-500 to-brand-800 p-6 text-white">
           {session?.user?.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -144,7 +144,7 @@ export default function ProfilePage() {
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Also open to</p>
             <div className="flex flex-wrap gap-2">
               {profile.otherRoles.map((r) => (
-                <span key={r} className="rounded-full bg-violet-50 px-3 py-1 text-sm text-violet-700">
+                <span key={r} className="rounded-full bg-accent-50 px-3 py-1 text-sm text-accent-800">
                   {r}
                 </span>
               ))}

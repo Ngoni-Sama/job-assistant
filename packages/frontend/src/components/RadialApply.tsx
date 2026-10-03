@@ -19,7 +19,7 @@ const CONFIG = {
     single: "Apply",
     open: "Apply with…",
     className:
-      "bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-md hover:scale-[1.03]",
+      "bg-gradient-to-r from-brand-500 to-brand-800 text-white shadow-md hover:scale-[1.03]",
     itemClass: "text-brand-700",
   },
   optimise: {
@@ -28,7 +28,7 @@ const CONFIG = {
     single: "AI Apply",
     open: "AI Apply…",
     className: "border border-brand-200 bg-white/70 text-brand-700 hover:bg-white",
-    itemClass: "text-violet-700",
+    itemClass: "text-accent-800",
   },
 } as const;
 

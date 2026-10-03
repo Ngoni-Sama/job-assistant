@@ -204,7 +204,7 @@ function BillingContent() {
                   className={`glass relative flex flex-col rounded-2xl p-6 text-center ${best ? "ring-2 ring-brand-500" : ""}`}
                 >
                   {best && (
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-3 py-0.5 text-xs font-semibold text-white">
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-3 py-0.5 text-xs font-semibold text-white">
                       Best value
                     </span>
                   )}
@@ -218,7 +218,7 @@ function BillingContent() {
                   <button
                     onClick={() => buy(p.id)}
                     disabled={busy !== null}
-                    className="mt-4 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-md disabled:opacity-50"
+                    className="mt-4 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-2 text-sm font-medium text-white shadow-md disabled:opacity-50"
                   >
                     {busy === p.id ? "Redirecting to Pesepay…" : "Top up"}
                   </button>

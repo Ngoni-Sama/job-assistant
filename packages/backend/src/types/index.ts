@@ -17,6 +17,8 @@ export interface Env {
   GOOGLE_CLIENT_ID?: string; // OAuth client used to refresh tokens for auto-apply (same client as the website)
   GOOGLE_CLIENT_SECRET?: string;
   TOKEN_KEY?: string; // base64 32-byte AES key encrypting stored Google refresh tokens
+  /** Cloudflare rate limiter for the job-detail endpoint (prod only; absent locally). */
+  JOB_DETAIL_LIMITER?: { limit(options: { key: string }): Promise<{ success: boolean }> };
 }
 
 export interface JobListing {

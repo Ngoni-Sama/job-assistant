@@ -80,14 +80,14 @@ export default function EmployersPage() {
           {!loaded ? null : !authed ? (
             <button
               onClick={() => signIn("google")}
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-3 font-medium text-white"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-6 py-3 font-medium text-white"
             >
               Sign in to register <ArrowRight className="h-4 w-4" />
             </button>
           ) : employer?.status === "approved" ? (
             <Link
               href="/employers/candidates"
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-6 py-3 font-medium text-white"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-6 py-3 font-medium text-white"
             >
               <Users className="h-4 w-4" /> Browse candidates
             </Link>
@@ -137,7 +137,7 @@ export default function EmployersPage() {
               <button
                 type="submit"
                 disabled={busy}
-                className="w-full rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="w-full rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 {busy ? "Submitting…" : "Submit for vetting"}
               </button>
@@ -158,7 +158,7 @@ export default function EmployersPage() {
               <span className="absolute right-4 top-4 text-3xl font-extrabold text-brand-100">
                 {i + 1}
               </span>
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-violet-600 text-white">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-800 text-white">
                 <s.icon className="h-5 w-5" />
               </div>
               <h3 className="mt-4 font-bold">{s.title}</h3>

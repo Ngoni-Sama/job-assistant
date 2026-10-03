@@ -27,7 +27,7 @@ export function CompanyLogo({ src, name, size = 44 }: { src?: string; name: stri
   return (
     <div
       style={dim}
-      className="flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-violet-600 text-white"
+      className="flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-800 text-white"
       title={name}
     >
       <Building2 className="h-5 w-5" />

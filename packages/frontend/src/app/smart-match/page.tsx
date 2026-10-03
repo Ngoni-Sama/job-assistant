@@ -274,7 +274,7 @@ export default function SmartMatchPage() {
                 onClick={() => toggleSector(sec)}
                 aria-pressed={sectors.includes(sec)}
                 className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  sectors.includes(sec) ? "bg-violet-600 text-white" : "bg-white/70 text-gray-600 hover:bg-white"
+                  sectors.includes(sec) ? "bg-accent-700 text-white" : "bg-white/70 text-gray-600 hover:bg-white"
                 }`}
               >
                 {sec} <span className="opacity-70">{sectorCounts.get(sec)}</span>
@@ -350,7 +350,7 @@ export default function SmartMatchPage() {
                 </p>
                 <button
                   onClick={() => signIn("google")}
-                  className="mt-4 w-full rounded-full bg-gradient-to-r from-brand-600 to-violet-600 px-4 py-2 text-sm font-medium text-white"
+                  className="mt-4 w-full rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-2 text-sm font-medium text-white"
                 >
                   Continue with Google
                 </button>
