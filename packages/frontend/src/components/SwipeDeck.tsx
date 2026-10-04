@@ -125,7 +125,7 @@ export function SwipeDeck({
           <Heart className="h-7 w-7" />
         </button>
       </div>
-      <p className="mt-3 text-center text-xs text-gray-400">
+      <p className="mt-3 text-center text-xs text-gray-500">
         Swipe or drag · ← skip · → interested
       </p>
     </div>
@@ -161,7 +161,7 @@ function Card({
       </p>
       <p className="mt-1 flex items-center gap-1.5 text-gray-500">
         <MapPin className="h-4 w-4" /> {job.location}
-        {job.jobType && <span className="ml-1 text-gray-400">· {job.jobType}</span>}
+        {job.jobType && <span className="ml-1 text-gray-500">· {job.jobType}</span>}
       </p>
       {job.description && (
         <p className="mt-4 line-clamp-5 text-sm text-gray-600">{job.description}</p>

@@ -19,6 +19,12 @@ body {
   background-attachment: fixed;
 }
 
+/* Visible keyboard focus everywhere (mouse/touch clicks don't trigger :focus-visible on buttons). */
+:where(a, button, [role="button"], select, summary):focus-visible {
+  outline: 2px solid #0071fa;
+  outline-offset: 2px;
+}
+
 @layer components {
   /* Frosted-glass surface used across cards, the nav, and panels. */
   .glass {
@@ -34,7 +40,7 @@ body {
   }
   /* Form input / textarea */
   .input {
-    @apply w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none;
+    @apply w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30;
   }
   /* Floating action button. */
   .fab {

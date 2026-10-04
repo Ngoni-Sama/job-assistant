@@ -24,7 +24,7 @@ export function BrowseJobs({
                 <Link
                   href={`/jobs/sector/${g.slug}`}
                   aria-current={g.slug === current ? "page" : undefined}
-                  className={`inline-block rounded-full px-3 py-1.5 text-sm ${
+                  className={`inline-flex min-h-11 items-center rounded-full px-4 text-sm ${
                     g.slug === current ? "bg-brand-600 text-white" : "bg-white/70 text-gray-700 hover:bg-white"
                   }`}
                 >
@@ -44,7 +44,7 @@ export function BrowseJobs({
                 <Link
                   href={`/jobs/location/${g.slug}`}
                   aria-current={g.slug === current ? "page" : undefined}
-                  className={`inline-block rounded-full px-3 py-1.5 text-sm ${
+                  className={`inline-flex min-h-11 items-center rounded-full px-4 text-sm ${
                     g.slug === current ? "bg-brand-600 text-white" : "bg-white/70 text-gray-700 hover:bg-white"
                   }`}
                 >

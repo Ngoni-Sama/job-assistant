@@ -123,7 +123,7 @@ export default function CandidateBrowsePage() {
             onChange={(e) => setProfessionFilter(e.target.value)}
             placeholder="Filter by profession, e.g. Nurse"
             aria-label="Filter by profession"
-            className="w-full rounded-full border px-4 py-2 text-sm focus:border-brand-500 focus:outline-none sm:w-64"
+            className="w-full rounded-full border px-4 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 sm:w-64"
           />
         </div>
         {cards.length === 0 && q && (
@@ -174,8 +174,18 @@ export default function CandidateBrowsePage() {
       </div>
 
       {sectorList.length === 0 ? (
-        <div className="glass rounded-2xl p-8 text-center text-gray-500">
-          No available candidates yet. Check back soon.
+        <div className="glass mx-auto max-w-md space-y-3 rounded-3xl p-8 text-center">
+          <p className="text-lg font-bold text-gray-900">No candidates to show yet</p>
+          <p className="text-sm text-gray-600">
+            Candidates appear here as job seekers mark themselves available. Describe who you need and we’ll search
+            every CV for you.
+          </p>
+          <a
+            href="/employers/search"
+            className="inline-flex min-h-11 items-center rounded-full bg-brand-600 px-5 text-sm font-semibold text-white"
+          >
+            Search for talent
+          </a>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

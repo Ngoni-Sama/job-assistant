@@ -7,6 +7,8 @@ import { api } from "@/lib/api";
 import type { Thread, ThreadSummary } from "@/lib/types";
 import { useLive, type PushData } from "@/components/LiveUpdates";
 import { offerPush } from "@/lib/push";
+import Link from "next/link";
+import { useMode } from "@/lib/mode";
 import { playMessageSound } from "@/lib/sound";
 
 /** One-tap replies, by side of the conversation. */
@@ -233,7 +235,7 @@ export default function MessagesPage() {
             onKeyDown={(e) => e.key === "Enter" && send()}
             placeholder="Type a message…"
             maxLength={2000}
-            className="min-w-0 flex-1 rounded-full border px-4 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            className="min-w-0 flex-1 rounded-full border px-4 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
           />
           <button
             onClick={() => send()}
@@ -255,9 +257,7 @@ export default function MessagesPage() {
       </h1>
       {error && <p className="text-sm text-red-600">{error}</p>}
       {threads.length === 0 ? (
-        <div className="glass rounded-2xl p-8 text-center text-gray-500">
-          No conversations yet.
-        </div>
+        <EmptyMessages />
       ) : (
         <div className="space-y-2">
           {threads.map((t) => {
@@ -285,6 +285,29 @@ export default function MessagesPage() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+/** First-use empty state: what will show up here and how to get there. */
+function EmptyMessages() {
+  const mode = useMode();
+  const hiring = mode === "employer";
+  return (
+    <div className="glass mx-auto max-w-md space-y-3 rounded-3xl p-8 text-center">
+      <MessageSquare className="mx-auto h-10 w-10 text-brand-600" />
+      <p className="text-lg font-bold">No messages yet</p>
+      <p className="text-sm text-gray-600">
+        {hiring
+          ? "Find a candidate you like and send them a message — your conversations show up here."
+          : "When an employer is interested in you, their message shows up here. A complete, visible profile gets you contacted sooner."}
+      </p>
+      <Link
+        href={hiring ? "/employers/search" : "/profile"}
+        className="inline-flex min-h-11 items-center rounded-full bg-brand-600 px-5 text-sm font-semibold text-white"
+      >
+        {hiring ? "Find talent" : "Complete my profile"}
+      </Link>
     </div>
   );
 }

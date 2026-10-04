@@ -87,7 +87,7 @@ export default function PricingPage() {
           Pay for results,{" "}
           <span className="bg-gradient-to-r from-brand-500 to-brand-800 bg-clip-text text-transparent">not monthly fees.</span>
         </h1>
-        <p className="mx-auto mt-3 max-w-xl text-lg text-gray-600">
+        <p className="mx-auto mt-3 max-w-xl text-left text-lg text-gray-600 sm:text-center">
           Searching, swiping and applying are free. Buy credits only for the AI that does the heavy lifting — like an
           ATS-ready CV for about {approx(costs.atsCv)}.
         </p>
@@ -162,7 +162,7 @@ export default function PricingPage() {
           { icon: Smartphone, label: "EcoCash" },
           { icon: Smartphone, label: "OneMoney" },
         ].map((m) => (
-          <span key={m.label} className="flex items-center gap-1 rounded-full border bg-white/70 px-2 py-0.5 text-[11px] text-gray-600">
+          <span key={m.label} className="flex items-center gap-1 rounded-full border bg-white/70 px-2 py-0.5 text-xs text-gray-600">
             <m.icon className="h-3 w-3" /> {m.label}
           </span>
         ))}

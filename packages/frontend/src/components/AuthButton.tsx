@@ -33,9 +33,11 @@ export function AuthButton() {
             await disablePush().catch(() => {});
             await signOut();
           }}
-          className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+          aria-label="Sign out"
+          title="Sign out"
+          className="flex h-10 min-w-10 items-center justify-center gap-1 rounded-full border border-gray-200 px-2.5 text-sm text-gray-600 hover:bg-gray-50"
         >
-          <LogOut className="h-3.5 w-3.5" /> Sign out
+          <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Sign out</span>
         </button>
       </div>
     );
@@ -44,7 +46,7 @@ export function AuthButton() {
   return (
     <button
       onClick={() => signIn("google")}
-      className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm text-white hover:bg-brand-700"
+      className="flex h-10 items-center gap-1.5 rounded-full bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
     >
       <LogIn className="h-4 w-4" /> Sign in
     </button>

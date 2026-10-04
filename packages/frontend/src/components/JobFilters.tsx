@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { SlidersHorizontal, X } from "lucide-react";
 import type { JobListing } from "@/lib/types";
 
 type Facet = "sector" | "location" | "jobType" | "source";
@@ -70,43 +70,137 @@ export function useJobFilters(jobs: JobListing[]) {
 
 type FiltersProps = ReturnType<typeof useJobFilters>;
 
-export function JobFilters({ facets, sel, toggle, clear, activeCount }: FiltersProps) {
+/**
+ * Job filters. Desktop: an always-open panel. Phones: one "Filters" button plus
+ * the active filters as removable chips, so the jobs are on the first screen;
+ * the full list opens as a bottom sheet with "Show N jobs" in thumb reach.
+ */
+export function JobFilters({ facets, sel, toggle, clear, activeCount, filtered }: FiltersProps) {
+  const [open, setOpen] = useState(false);
   const visible = facets.filter((f) => f.options.length > 1);
+
+  // Lock page scroll behind the sheet.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   if (visible.length === 0) return null;
 
-  return (
-    <div className="space-y-2 rounded-lg border bg-white p-3">
-      {visible.map(({ facet, options }) => (
-        <div key={facet} className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 w-16 shrink-0 text-xs font-medium uppercase tracking-wide text-gray-400">
-            {FACET_LABELS[facet]}
-          </span>
-          {options.slice(0, 12).map(([value, count]) => {
-            const active = sel[facet].has(value);
+  const active = (Object.keys(sel) as Facet[]).flatMap((f) => [...sel[f]].map((v) => ({ facet: f, value: v })));
+
+  const chips = (size: "sm" | "lg") =>
+    visible.map(({ facet, options }) => (
+      <div
+        key={facet}
+        role="group"
+        aria-label={FACET_LABELS[facet]}
+        className={size === "lg" ? "space-y-2" : "flex items-start gap-2"}
+      >
+        <p
+          className={
+            size === "lg"
+              ? "text-sm font-semibold text-gray-800"
+              : "w-20 shrink-0 pt-2 text-xs font-semibold uppercase tracking-wide text-gray-500"
+          }
+        >
+          {FACET_LABELS[facet]}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {options.slice(0, size === "lg" ? 30 : 12).map(([value, count]) => {
+            const on = sel[facet].has(value);
             return (
               <button
                 key={value}
+                type="button"
                 onClick={() => toggle(facet, value)}
-                className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
-                  active
-                    ? "border-brand-600 bg-brand-600 text-white"
-                    : "border-gray-200 bg-gray-50 text-gray-700 hover:border-brand-300"
-                }`}
+                aria-pressed={on}
+                className={`rounded-full border transition-colors ${
+                  size === "lg" ? "min-h-11 px-4 text-sm" : "min-h-8 px-3 text-xs"
+                } ${on ? "border-brand-600 bg-brand-600 text-white" : "border-gray-200 bg-gray-50 text-gray-700 hover:border-brand-300"}`}
               >
-                {value} <span className={active ? "opacity-80" : "text-gray-400"}>{count}</span>
+                {value} <span className={on ? "opacity-80" : "text-gray-500"}>{count}</span>
               </button>
             );
           })}
         </div>
-      ))}
-      {activeCount > 0 && (
+      </div>
+    ));
+
+  return (
+    <>
+      {/* Phones */}
+      <div className="flex flex-wrap items-center gap-2 md:hidden">
         <button
-          onClick={clear}
-          className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-600"
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex min-h-11 items-center gap-2 rounded-full border border-gray-200 bg-white px-4 text-sm font-medium text-gray-800 shadow-sm"
         >
-          <X className="h-3 w-3" /> Clear {activeCount} filter{activeCount > 1 ? "s" : ""}
+          <SlidersHorizontal className="h-4 w-4" /> Filters
+          {activeCount > 0 && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1.5 text-xs font-bold text-white">
+              {activeCount}
+            </span>
+          )}
         </button>
+        {active.map(({ facet, value }) => (
+          <button
+            key={`${facet}:${value}`}
+            type="button"
+            onClick={() => toggle(facet, value)}
+            aria-label={`Remove filter ${value}`}
+            className="flex min-h-11 items-center gap-1 rounded-full bg-brand-50 px-3 text-sm text-brand-700"
+          >
+            {value} <X className="h-4 w-4" />
+          </button>
+        ))}
+      </div>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end bg-gray-900/50 md:hidden" role="dialog" aria-modal="true" aria-label="Filter jobs">
+          <div className="absolute inset-0" onClick={() => setOpen(false)} />
+          <div className="relative flex max-h-[85vh] w-full flex-col rounded-t-3xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+              <p className="text-lg font-bold">Filter jobs</p>
+              <button onClick={() => setOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100" aria-label="Close filters">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-4">{chips("lg")}</div>
+            <div className="flex gap-3 border-t border-gray-100 px-5 py-3">
+              <button
+                type="button"
+                onClick={clear}
+                disabled={activeCount === 0}
+                className="min-h-12 rounded-full px-5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="min-h-12 flex-1 rounded-full bg-brand-600 px-5 text-sm font-semibold text-white"
+              >
+                Show {filtered.length} {filtered.length === 1 ? "job" : "jobs"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
-    </div>
+
+      {/* Desktop */}
+      <div className="hidden space-y-3 rounded-2xl border border-gray-200 bg-white p-4 md:block">
+        {chips("sm")}
+        {activeCount > 0 && (
+          <button onClick={clear} className="flex min-h-8 items-center gap-1 text-sm text-gray-600 hover:text-red-600">
+            <X className="h-4 w-4" /> Clear {activeCount} filter{activeCount > 1 ? "s" : ""}
+          </button>
+        )}
+      </div>
+    </>
   );
 }

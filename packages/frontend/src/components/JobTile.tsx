@@ -122,7 +122,7 @@ export function JobTile({
         <Link
           href={jobPath(job)}
           aria-label={`View ${job.title}`}
-          className="flex items-center gap-1 rounded-full border border-white/50 bg-white/50 px-3 py-2 text-sm text-gray-700 hover:bg-white/70"
+          className="flex min-h-11 items-center gap-1 rounded-full border border-white/50 bg-white/50 px-3 text-sm text-gray-700 hover:bg-white/70"
         >
           <Eye className="h-3.5 w-3.5" /> View
         </Link>

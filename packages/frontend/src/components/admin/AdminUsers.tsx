@@ -83,7 +83,7 @@ export function AdminUsers() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search by email"
-              className="min-w-0 flex-1 py-2 text-sm outline-none"
+              className="min-w-0 flex-1 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30"
             />
           </div>
           <button type="submit" className="rounded-lg bg-brand-600 px-3 py-2 text-sm text-white">

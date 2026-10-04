@@ -43,7 +43,7 @@ export default function ArchivePage() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search the archive…"
-        className="w-full rounded-md border px-4 py-2 text-sm focus:border-brand-500 focus:outline-none"
+        className="w-full rounded-md border px-4 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
       />
       {jobs.length > 0 && <JobFilters {...filters} />}
 

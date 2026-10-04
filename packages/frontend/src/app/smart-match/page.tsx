@@ -229,7 +229,7 @@ export default function SmartMatchPage() {
               key={m.id}
               onClick={() => (m.id === "forMe" && !authed ? signIn("google") : setMode(m.id))}
               aria-pressed={mode === m.id}
-              className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 min-h-11 rounded-full px-4 text-sm font-medium transition-colors ${
                 mode === m.id ? "bg-brand-600 text-white shadow-sm" : "text-gray-600 hover:bg-white"
               }`}
             >
@@ -273,7 +273,7 @@ export default function SmartMatchPage() {
                 key={sec}
                 onClick={() => toggleSector(sec)}
                 aria-pressed={sectors.includes(sec)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                className={`min-h-10 rounded-full px-3.5 text-sm font-medium transition-colors ${
                   sectors.includes(sec) ? "bg-accent-700 text-white" : "bg-white/70 text-gray-600 hover:bg-white"
                 }`}
               >
@@ -285,10 +285,10 @@ export default function SmartMatchPage() {
 
         {jobTypes.length > 0 && (
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Type</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Type</span>
             <button
               onClick={() => setSelectedCats([])}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              className={`min-h-10 rounded-full px-3.5 text-sm font-medium transition-colors ${
                 selectedCats.length === 0 ? "bg-brand-600 text-white" : "bg-white/70 text-gray-600 hover:bg-white"
               }`}
             >
@@ -298,7 +298,7 @@ export default function SmartMatchPage() {
               <button
                 key={t}
                 onClick={() => toggleCat(t)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                className={`min-h-10 rounded-full px-3.5 text-sm font-medium transition-colors ${
                   selectedCats.includes(t) ? "bg-brand-600 text-white" : "bg-white/70 text-gray-600 hover:bg-white"
                 }`}
               >

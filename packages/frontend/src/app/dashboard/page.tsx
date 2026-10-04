@@ -310,19 +310,19 @@ export default function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <p className={`font-medium ${s.done ? "text-gray-400 line-through" : "text-gray-900"}`}>
                     {s.title}
-                    {s.optional && <span className="ml-2 text-xs font-normal text-gray-400">optional</span>}
+                    {s.optional && <span className="ml-2 text-xs font-normal text-gray-500">optional</span>}
                   </p>
                   {!s.done && <p className="text-sm text-gray-600">{s.body}</p>}
                 </div>
                 {!s.done &&
                   (s.onClick ? (
                     push !== "denied" && (
-                      <button onClick={s.onClick} className="shrink-0 rounded-full bg-brand-600 px-4 py-1.5 text-sm font-medium text-white">
+                      <button onClick={s.onClick} className="flex min-h-10 shrink-0 items-center rounded-full bg-brand-600 px-4 text-sm font-medium text-white">
                         {s.cta}
                       </button>
                     )
                   ) : (
-                    <Link href={s.href!} className="shrink-0 rounded-full bg-brand-600 px-4 py-1.5 text-sm font-medium text-white">
+                    <Link href={s.href!} className="flex min-h-10 shrink-0 items-center rounded-full bg-brand-600 px-4 text-sm font-medium text-white">
                       {s.cta}
                     </Link>
                   ))}
@@ -492,7 +492,7 @@ function Stat({
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0">
-        <p className="text-xl font-extrabold leading-none">{value}</p>
+        <p className="text-2xl font-extrabold leading-none">{value}</p>
         <p className="mt-1 truncate text-xs text-gray-500">{label}</p>
       </div>
     </Link>

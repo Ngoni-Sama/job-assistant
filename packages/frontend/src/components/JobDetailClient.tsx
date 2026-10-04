@@ -114,14 +114,14 @@ export function JobDetailClient({ id, initial }: { id: string; initial?: Initial
       <nav aria-label="Breadcrumb">
         <ol className="flex flex-wrap items-center gap-1 text-sm text-gray-600">
           <li>
-            <Link href="/jobs" className="hover:text-brand-700">
+            <Link href="/jobs" className="inline-block py-2 hover:text-brand-700">
               Jobs
             </Link>
           </li>
           {job.sector && job.sector !== "Other" && (
             <li className="flex items-center gap-1">
               <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-              <Link href={sectorPath(job.sector)} className="hover:text-brand-700">
+              <Link href={sectorPath(job.sector)} className="inline-block py-2 hover:text-brand-700">
                 {job.sector}
               </Link>
             </li>
@@ -129,7 +129,7 @@ export function JobDetailClient({ id, initial }: { id: string; initial?: Initial
           {cityOf(job.location) && (
             <li className="flex items-center gap-1">
               <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-              <Link href={cityPath(cityOf(job.location))} className="hover:text-brand-700">
+              <Link href={cityPath(cityOf(job.location))} className="inline-block py-2 hover:text-brand-700">
                 {cityOf(job.location)}
               </Link>
             </li>
@@ -238,6 +238,18 @@ export function JobDetailClient({ id, initial }: { id: string; initial?: Initial
         </section>
       )}
 
+      {/* Phones: Apply stays in thumb reach while reading (above the bottom menu). */}
+      {!expired && (
+        <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 border-t border-gray-200 bg-white/95 px-4 py-2.5 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
+          <div className="mx-auto flex max-w-md items-center gap-2">
+            <p className="min-w-0 flex-1 truncate text-sm font-semibold">{job.title}</p>
+            <RadialApply mode="apply" cvs={cvs} preparing={preparing} onApply={(cvId) => apply(job.id, cvId)} />
+            <RadialApply mode="optimise" cost={costs.optimise} cvs={cvs} preparing={optimising} onApply={(cvId) => optimise(job.id, cvId)} />
+          </div>
+        </div>
+      )}
+      <div className="h-16 md:hidden" aria-hidden />
+
       {active && (
         <ApplyModal application={active} cvId={activeCvId} onClose={() => setActive(null)} onSent={() => setActive(null)} />
       )}
@@ -250,7 +262,7 @@ function Section({ title, body }: { title: string; body?: string }) {
   return (
     <section className="glass rounded-2xl p-6">
       <h2 className="mb-2 font-bold">{title}</h2>
-      <RichText text={body} className="text-sm leading-relaxed text-gray-700" />
+      <RichText text={body} className="max-w-prose text-sm leading-relaxed text-gray-700 md:text-[15px]" />
     </section>
   );
 }

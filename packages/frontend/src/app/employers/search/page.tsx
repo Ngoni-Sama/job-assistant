@@ -245,7 +245,7 @@ export default function RecruiterSearchPage() {
       </div>
 
       {/* Composer */}
-      <div className="sticky bottom-2 flex items-end gap-2 rounded-2xl bg-white/90 p-2 shadow-lg backdrop-blur">
+      <div className="sticky bottom-20 flex md:bottom-2 items-end gap-2 rounded-2xl bg-white/90 p-2 shadow-lg backdrop-blur">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}

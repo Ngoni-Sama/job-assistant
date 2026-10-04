@@ -164,7 +164,7 @@ export function Nav() {
         }`}
       >
         <div className="flex items-center justify-between px-4 py-2.5">
-          <Link href="/" className="flex items-center" aria-label={`${siteName} home`}>
+          <Link href="/" className="-my-1 flex min-h-11 items-center py-1" aria-label={`${siteName} home`}>
             {/* Pin mark on phones, full wordmark from sm up. */}
             <Image src="/brand/logo-mark-nav.webp" alt={siteName} width={97} height={108} priority className="h-9 w-auto sm:hidden" />
             <Image src="/brand/logo-nav.webp" alt={siteName} width={404} height={108} priority className="hidden h-9 w-auto sm:block" />
@@ -208,7 +208,7 @@ export function Nav() {
             {credits !== null && (
               <Link
                 href="/billing"
-                className="flex items-center gap-1 rounded-full bg-accent-100 px-2.5 py-1 text-xs font-semibold text-accent-800 hover:bg-accent-200"
+                className="flex h-10 items-center gap-1 rounded-full bg-accent-100 px-3 text-sm font-semibold text-accent-800 hover:bg-accent-200"
                 title="Credits — buy more"
               >
                 <Coins className="h-3.5 w-3.5" /> {credits}
@@ -220,7 +220,7 @@ export function Nav() {
             {/* Mobile: hamburger */}
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="relative rounded-full p-2 text-gray-600 hover:bg-white/50 md:hidden"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full text-gray-600 hover:bg-white/50 md:hidden"
               aria-label="Menu"
               aria-expanded={menuOpen}
             >

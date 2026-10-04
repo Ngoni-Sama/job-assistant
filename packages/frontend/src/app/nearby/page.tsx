@@ -178,27 +178,28 @@ export default function NearbyPage() {
           <button
             onClick={findLocation}
             disabled={locating}
-            className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-4 py-2 text-sm font-medium text-white shadow-md disabled:opacity-60"
+            className="flex min-h-11 items-center gap-1.5 rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-4 text-sm font-medium text-white shadow-md disabled:opacity-60"
           >
             <LocateFixed className={`h-4 w-4 ${locating ? "animate-pulse" : ""}`} />
             {locating ? "Locating…" : "Find my location"}
           </button>
-          <div className="glass flex items-center gap-2 rounded-full px-4 py-2">
+          <label className="glass flex min-h-11 cursor-text items-center gap-2 rounded-full px-4 focus-within:ring-2 focus-within:ring-brand-500/40">
             <MapPin className="h-4 w-4 text-gray-400" />
             <input
               value={city}
               onChange={(e) => setCity(e.target.value)}
               placeholder="City"
-              className="w-32 bg-transparent text-sm outline-none"
+              aria-label="Town"
+              className="w-32 bg-transparent py-2 text-base outline-none sm:text-sm"
             />
-          </div>
+          </label>
         </div>
       </div>
       {locNote && <p className="text-sm text-gray-500">{locNote}</p>}
 
       {/* What job? */}
       <div className="glass space-y-3 rounded-2xl p-4">
-        <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2">
+        <label className="flex min-h-11 cursor-text items-center gap-2 rounded-full border border-gray-200 bg-white px-4 focus-within:ring-2 focus-within:ring-brand-500/40">
           <Search className="h-4 w-4 shrink-0 text-gray-400" />
           <input
             type="search"
@@ -206,15 +207,15 @@ export default function NearbyPage() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="What job? e.g. accountant, driver, nurse"
             aria-label="Search for a job near you"
-            className="w-full bg-transparent text-sm outline-none"
+            className="w-full bg-transparent py-2 text-base outline-none sm:text-sm"
           />
-        </div>
+        </label>
         <div className="flex flex-wrap items-center gap-2">
           {canMatch && (
             <button
               onClick={() => setMine((v) => !v)}
               aria-pressed={mine}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${
+              className={`flex min-h-11 items-center gap-1.5 rounded-full px-4 text-sm font-medium ${
                 mine ? "bg-brand-600 text-white" : "border border-gray-200 bg-white text-gray-700"
               }`}
               title={targets.mainProfession ? `Jobs matching ${targets.mainProfession}` : "Jobs matching your profile"}
@@ -226,7 +227,7 @@ export default function NearbyPage() {
             value={sector}
             onChange={(e) => setSector(e.target.value)}
             aria-label="Sector"
-            className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700"
+            className="min-h-11 rounded-full border border-gray-200 bg-white px-3 text-sm text-gray-700"
           >
             <option value="">All sectors</option>
             {sectors.map((s) => (
@@ -239,7 +240,7 @@ export default function NearbyPage() {
             value={jobType}
             onChange={(e) => setJobType(e.target.value)}
             aria-label="Job type"
-            className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700"
+            className="min-h-11 rounded-full border border-gray-200 bg-white px-3 text-sm text-gray-700"
           >
             <option value="">Any type</option>
             {types.map((t) => (
@@ -256,7 +257,7 @@ export default function NearbyPage() {
                 setJobType("");
                 setMine(false);
               }}
-              className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm text-gray-500 hover:bg-white"
+              className="flex min-h-11 items-center gap-1 rounded-full px-3 text-sm text-gray-600 hover:bg-white"
             >
               <X className="h-4 w-4" /> Clear
             </button>
@@ -403,7 +404,9 @@ function RadarScope({
             key={job.id}
             onClick={() => onSelect(job)}
             title={`${job.title} — ${job.company}`}
-            className="absolute -translate-x-1/2 -translate-y-1/2"
+            aria-label={`${job.title}${job.company && job.company !== "N/A" ? ` at ${job.company}` : ""}`}
+            aria-pressed={isSel}
+            className="absolute -translate-x-1/2 -translate-y-1/2 p-2"
             style={{ left: x, top: y }}
           >
             <span className="relative flex">

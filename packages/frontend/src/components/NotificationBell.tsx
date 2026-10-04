@@ -31,7 +31,7 @@ export function NotificationBell() {
 
   return (
     <div className="relative">
-      <button onClick={toggle} className="relative rounded-full p-2 text-gray-600 hover:bg-white/50" aria-label="Updates">
+      <button onClick={toggle} className="relative flex h-10 w-10 items-center justify-center rounded-full text-gray-600 hover:bg-white/50" aria-label="Updates">
         <Bell className="h-5 w-5" />
         {unread > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">

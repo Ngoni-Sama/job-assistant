@@ -74,7 +74,7 @@ export function RadialApply({
         onClick={() => onApply(cvs[0]?.id)}
         disabled={preparing}
         title={mode === "optimise" ? "AI-tailor your CV to this job, then apply" : "Apply with your CV"}
-        className={`flex items-center gap-1 rounded-full px-3 py-2 text-sm transition-transform disabled:opacity-50 ${cfg.className}`}
+        className={`flex min-h-11 items-center gap-1 rounded-full px-4 text-sm transition-transform disabled:opacity-50 ${cfg.className}`}
       >
         <Icon className="h-3.5 w-3.5" /> {preparing ? busyLabel : cfg.single}
         {!preparing && showCoin && <CoinBadge cost={cost!} />}

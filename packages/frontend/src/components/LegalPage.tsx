@@ -16,7 +16,7 @@ export function H({ children }: { children: React.ReactNode }) {
 }
 
 export function P({ children }: { children: React.ReactNode }) {
-  return <p className="leading-relaxed">{children}</p>;
+  return <p className="max-w-prose leading-relaxed">{children}</p>;
 }
 
 export function List({ items }: { items: React.ReactNode[] }) {

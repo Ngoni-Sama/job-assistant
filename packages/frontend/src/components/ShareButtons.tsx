@@ -151,7 +151,7 @@ export function ShareButtons({ path, text, label = "Share" }: { path: string; te
           rel="noopener noreferrer"
           title={`Share on ${name}`}
           aria-label={`Share on ${name}`}
-          className={`flex h-9 w-9 items-center justify-center rounded-full shadow-sm transition-transform hover:scale-110 ${className}`}
+          className={`flex h-11 w-11 items-center justify-center rounded-full shadow-sm transition-transform hover:scale-110 ${className}`}
         >
           <Icon className="h-4 w-4" />
         </a>
@@ -162,7 +162,7 @@ export function ShareButtons({ path, text, label = "Share" }: { path: string; te
           onClick={() => navigator.share({ title: text, text, url: shareUrl(path, "native") }).catch(() => {})}
           title="More ways to share"
           aria-label="More ways to share"
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-white shadow-sm transition-transform hover:scale-110"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-600 text-white shadow-sm transition-transform hover:scale-110"
         >
           <Share2 className="h-4 w-4" />
         </button>
@@ -170,7 +170,7 @@ export function ShareButtons({ path, text, label = "Share" }: { path: string; te
       <button
         type="button"
         onClick={async () => setCopied(await copyOrShow(shareUrl(path)))}
-        className="flex items-center gap-1.5 rounded-full border border-brand-200 bg-white/80 px-3 py-2 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-50"
+        className="flex min-h-11 items-center gap-1.5 rounded-full border border-brand-200 bg-white/80 px-4 text-sm font-medium text-brand-700 transition-colors hover:bg-brand-50"
       >
         {copied ? <Check className="h-4 w-4 text-green-600" /> : <Link2 className="h-4 w-4" />}
         <span aria-live="polite">{copied ? "Link copied" : "Copy link"}</span>
@@ -202,7 +202,7 @@ export function ShareIconButton({ path, text, compact = false }: { path: string;
       aria-label={copied ? "Link copied" : `Share ${text}`}
       className={
         compact
-          ? "-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-brand-50 hover:text-brand-700"
+          ? "-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-brand-50 hover:text-brand-700"
           : "flex items-center gap-1 rounded-full border border-white/50 bg-white/50 px-3 py-2 text-sm text-gray-700 hover:bg-white/70"
       }
     >

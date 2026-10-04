@@ -42,25 +42,25 @@ export function LandingPage() {
           employers come to you.
         </p>
         <div className="mx-auto mt-5 flex max-w-2xl flex-col gap-2 sm:flex-row">
-          <div className="glass flex flex-1 items-center gap-2 rounded-full px-4 py-2">
-            <Search className="h-4 w-4 text-gray-400" />
+          <label className="glass flex min-h-12 flex-1 cursor-text items-center gap-2 rounded-full px-4 focus-within:ring-2 focus-within:ring-brand-500/40">
+            <Search className="h-4 w-4 text-gray-500" />
             <input
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               placeholder="Job title, skill or keyword"
               aria-label="Job title, skill or keyword"
-              className="w-full bg-transparent text-sm outline-none"
+              className="w-full bg-transparent py-3 text-base outline-none sm:text-sm"
             />
-          </div>
-          <div className="glass flex flex-1 items-center gap-2 rounded-full px-4 py-2">
+          </label>
+          <label className="glass flex min-h-12 flex-1 cursor-text items-center gap-2 rounded-full px-4 focus-within:ring-2 focus-within:ring-brand-500/40">
             <input
               value={city}
               onChange={(e) => setCity(e.target.value)}
               placeholder="Town, e.g. Harare"
               aria-label="Town"
-              className="w-full bg-transparent text-sm outline-none"
+              className="w-full bg-transparent py-3 text-base outline-none sm:text-sm"
             />
-          </div>
+          </label>
           <Link
             href={`/jobs${keyword.trim() || city.trim() ? `?q=${encodeURIComponent(`${keyword} ${city}`.trim())}` : ""}`}
             className="rounded-full bg-gradient-to-r from-brand-500 to-brand-800 px-6 py-2.5 text-sm font-medium text-white"
@@ -143,7 +143,7 @@ export function LandingPage() {
         <h2 className="text-center text-3xl font-extrabold tracking-tight">
           Stop scrolling job boards and hoping for the best.
         </h2>
-        <p className="mx-auto mt-2 max-w-2xl text-center text-gray-600">
+        <p className="mx-auto mt-2 max-w-2xl text-gray-600 sm:text-center">
           Sending the same CV to fifty adverts and hearing nothing back isn’t bad luck — most CVs are screened out by
           software before anyone reads them. VacancyPal fixes the parts you can control.
         </p>
@@ -283,7 +283,7 @@ export function LandingPage() {
                 <span>Every application sent appears on your Applications page.</span>
               </li>
             </ul>
-            <Link href="/how-we-use-gmail" className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 underline">
+            <Link href="/how-we-use-gmail" className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-700 underline">
               How VacancyPal uses Gmail <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>

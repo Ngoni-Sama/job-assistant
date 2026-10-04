@@ -146,7 +146,7 @@ export default function SettingsPage() {
             onChange={(e) => setProfile((p) => (p ? { ...p, headline: e.target.value } : p))}
             onBlur={(e) => saveProfile({ headline: e.target.value })}
             placeholder="e.g. Registered Nurse · 5 years · Harare"
-            className="mt-1 w-full rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            className="mt-1 w-full rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
           />
         </div>
         {status === "authenticated" && <ProfessionFields profile={profile} save={saveProfile} />}
@@ -165,8 +165,8 @@ export default function SettingsPage() {
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {categoryOptions.length === 0 ? (
-            <p className="text-sm text-gray-400">
-              No categories yet — refresh jobs on the Dashboard first.
+            <p className="text-sm text-gray-600">
+              Job types appear here once jobs have loaded — please check back in a few minutes.
             </p>
           ) : (
             categoryOptions.map((cat) => {
@@ -202,13 +202,13 @@ export default function SettingsPage() {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://vacancymail.co.zw/jobs/"
-            className="min-w-0 flex-1 rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            className="min-w-0 flex-1 rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
           />
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Label (optional)"
-            className="w-40 rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            className="w-40 rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
           />
           <button
             type="submit"

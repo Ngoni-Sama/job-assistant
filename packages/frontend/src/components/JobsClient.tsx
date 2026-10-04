@@ -142,7 +142,7 @@ export function JobsClient({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search by title, company, or location…"
-        className="w-full rounded-md border px-4 py-2 text-sm focus:border-brand-500 focus:outline-none"
+        className="min-h-11 w-full rounded-xl border px-4 text-base sm:text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
       />
       {error && <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>}
       {jobs.length > 0 && <JobFilters {...filters} />}
@@ -180,7 +180,27 @@ export function JobsClient({
         </div>
       )}
       {!loading && results.length === 0 && (
-        <p className="text-gray-500">No jobs match your search or filters.</p>
+        <div className="glass mx-auto max-w-md space-y-3 rounded-3xl p-8 text-center">
+          <p className="text-lg font-bold">No jobs match that</p>
+          <p className="text-sm text-gray-600">Try fewer words, another town, or clear the filters to see every open job.</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {(query || filters.activeCount > 0 || forYou) && (
+              <button
+                onClick={() => {
+                  setQuery("");
+                  filters.clear();
+                  setForYou(false);
+                }}
+                className="min-h-11 rounded-full bg-brand-600 px-5 text-sm font-semibold text-white"
+              >
+                Clear search and filters
+              </button>
+            )}
+            <a href="/smart-match" className="inline-flex min-h-11 items-center rounded-full border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700">
+              Swipe through jobs
+            </a>
+          </div>
+        </div>
       )}
 
       {active && (

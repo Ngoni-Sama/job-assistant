@@ -88,7 +88,7 @@ export function ProfessionFields({
           onKeyDown={(e) => e.key === "Enter" && commitMain()}
           maxLength={60}
           placeholder="e.g. Registered Nurse"
-          className="mt-1 w-full rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          className="mt-1 w-full rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
         />
         <p className="mt-1 text-xs text-gray-400">
           The one role you&apos;re known for. Employers see it as a badge and can filter by it, and you hear about
@@ -135,7 +135,7 @@ export function ProfessionFields({
             disabled={full}
             maxLength={60}
             placeholder={full ? "Remove one to add another" : "e.g. Bookkeeper"}
-            className="min-w-0 flex-1 rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50"
+            className="min-w-0 flex-1 rounded-md border px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 disabled:bg-gray-50"
           />
           <button
             type="button"

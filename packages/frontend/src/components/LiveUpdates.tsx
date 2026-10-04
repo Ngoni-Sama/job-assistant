@@ -227,7 +227,7 @@ export function LiveUpdates({ children }: { children: React.ReactNode }) {
       )}
 
       {offer && (
-        <div className="popover fixed bottom-4 left-3 right-3 z-40 rounded-2xl p-4 sm:left-auto sm:right-4 sm:w-96">
+        <div className="popover fixed bottom-20 left-3 right-3 z-40 md:bottom-4 rounded-2xl p-4 sm:left-auto sm:right-4 sm:w-96">
           <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-800 text-white">
               <Bell className="h-4 w-4" />
@@ -258,7 +258,7 @@ export function LiveUpdates({ children }: { children: React.ReactNode }) {
       )}
 
       {askProfession && !offer && (
-        <div className="popover fixed bottom-4 left-3 right-3 z-40 rounded-2xl p-4 sm:left-auto sm:right-4 sm:w-96">
+        <div className="popover fixed bottom-20 left-3 right-3 z-40 md:bottom-4 rounded-2xl p-4 sm:left-auto sm:right-4 sm:w-96">
           <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-800 text-white">
               <Briefcase className="h-4 w-4" />
@@ -275,7 +275,7 @@ export function LiveUpdates({ children }: { children: React.ReactNode }) {
                 maxLength={60}
                 placeholder="e.g. Registered Nurse"
                 aria-label="Main profession"
-                className="mt-2 w-full rounded-md border px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
+                className="mt-2 w-full rounded-md border px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30"
               />
               <div className="mt-3 flex gap-2">
                 <button

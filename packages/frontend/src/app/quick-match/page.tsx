@@ -98,9 +98,20 @@ export default function QuickMatchPage() {
             Strong matches — {latest.results.length} of {latest.analyzedCount} jobs
           </h2>
           {latest.results.length === 0 ? (
-            <p className="glass rounded-2xl p-6 text-center text-gray-500">
-              No strong matches this time. Try refreshing jobs or updating your CV.
-            </p>
+            <div className="glass space-y-3 rounded-2xl p-6 text-center">
+              <p className="font-semibold text-gray-900">No strong matches this time</p>
+              <p className="text-sm text-gray-600">
+                A clearer CV usually finds more — check its free ATS score, or browse the jobs yourself.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <a href="/cv-builder" className="inline-flex min-h-11 items-center rounded-full bg-brand-600 px-5 text-sm font-semibold text-white">
+                  Improve my CV
+                </a>
+                <a href="/smart-match" className="inline-flex min-h-11 items-center rounded-full border border-gray-200 bg-white px-5 text-sm font-medium text-gray-700">
+                  Swipe through jobs
+                </a>
+              </div>
+            </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {latest.results.map((r) => (

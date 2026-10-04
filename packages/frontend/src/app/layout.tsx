@@ -6,6 +6,7 @@ import { Nav } from "@/components/Nav";
 import { Providers } from "@/components/Providers";
 import { SiteBanner } from "@/components/SiteBanner";
 import { Footer } from "@/components/Footer";
+import { BottomNav } from "@/components/BottomNav";
 import { LiveUpdates } from "@/components/LiveUpdates";
 import { DEFAULT_DESCRIPTION, INDEXABLE, SITE_NAME, SITE_URL } from "@/lib/seo";
 import { WORKER_BASE } from "@/lib/server/worker";
@@ -70,11 +71,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href={WORKER_BASE} crossOrigin="anonymous" />
         <Providers>
           <LiveUpdates>
-            <div className="min-h-screen">
+            <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
               <SiteBanner />
               <Nav />
               <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
               <Footer />
+              <BottomNav />
             </div>
           </LiveUpdates>
         </Providers>
