@@ -14,7 +14,8 @@ const PACKAGE = "zw.co.vacancypal.app";
 const FINGERPRINTS: string[] = [
   // Upload key — vacancypal-android/keys/vacancypal-upload.jks
   "8A:46:55:AA:1F:80:67:1D:13:04:55:DD:48:E8:1C:44:32:B9:7A:05:09:0F:A1:8C:3E:54:5F:09:7D:58:F6:F3",
-  // App signing key (Google Play) — added once Play Console shows it
+  // App signing key (Google Play) — Play Console → App integrity → App signing
+  "C3:4A:83:FB:25:30:22:2F:23:0B:70:AB:9E:A5:78:AB:27:ED:1A:00:65:29:72:82:76:23:41:7B:95:52:D2:28",
 ];
 
 export const dynamic = "force-dynamic"; // read the server settings at request time
