@@ -22,7 +22,7 @@ export default async function TermsPage() {
   );
 
   return (
-    <LegalPage title="Terms of Service" updated="3 October 2026">
+    <LegalPage title="Terms of Service" updated="7 October 2026">
       <P>
         These terms apply when you use {name} (vacancypal.co.zw). By creating an account or using the service you agree
         to them. If you don’t agree, please don’t use {name}.
@@ -96,6 +96,11 @@ export default async function TermsPage() {
       <P>
         Don’t misuse {name}: no fraud or impersonation, no spam, no scraping or automated abuse of the service, no
         attempts to break its security, and nothing illegal, harmful or offensive.
+      </P>
+      <P>
+        You can report a conversation or block anyone from the menu in that chat. We review every report and may remove
+        content, block messaging or close accounts that break these rules. There is zero tolerance for scams, requests for
+        payment to get a job, harassment, threats, and sexual or hateful content.
       </P>
       <P>
         The {name} name, logo, design, text, software and the way listings are gathered and presented belong to {name}.

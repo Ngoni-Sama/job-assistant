@@ -55,7 +55,7 @@ const SEEKER_MORE: Item[] = [
   { href: "/messages", label: "Messages", icon: MessageSquare, desc: "Chats with employers" },
   { href: "/verification", label: "Verified badge", icon: ShieldCheck, desc: "Checks that make employers trust you" },
   { href: "/archive", label: "Closed jobs", icon: Archive, desc: "Recently closed vacancies" },
-  { href: "/billing", label: "Credits", icon: CreditCard, desc: "Your balance and top-ups" },
+  { href: "/billing", label: "Credits", icon: CreditCard, desc: "Your balance and what things cost" },
   { href: "/settings", label: "Settings", icon: Settings, desc: "Profession, alerts, auto-apply" },
 ];
 
@@ -136,7 +136,12 @@ export function Nav() {
   // Job seekers only see Messages once an employer has started a conversation.
   if (mode === "seeker" && !hasThreads && unread === 0) more = more.filter((i) => i.href !== "/messages");
   if (!authed) more = more.filter((i) => !["/billing", "/messages", "/applications", "/settings"].includes(i.href));
-  if (isAdmin) more = [...more, { href: "/admin", label: "Admin", icon: Shield, desc: "Users, prices, settings" }];
+  if (isAdmin)
+    more = [
+      ...more,
+      { href: "/admin?tab=pricing", label: "AI & pricing", icon: Coins, desc: "AI keys, prices and credit packs" },
+      { href: "/admin", label: "Admin", icon: Shield, desc: "Users, moderation, settings" },
+    ];
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -209,7 +214,7 @@ export function Nav() {
               <Link
                 href="/billing"
                 className="flex h-10 items-center gap-1 rounded-full bg-accent-100 px-3 text-sm font-semibold text-accent-800 hover:bg-accent-200"
-                title="Credits — buy more"
+                title="Your credits"
               >
                 <Coins className="h-3.5 w-3.5" /> {credits}
               </Link>

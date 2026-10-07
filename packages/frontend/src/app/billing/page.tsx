@@ -115,8 +115,8 @@ function BillingContent() {
     return (
       <div className="glass mx-auto max-w-md rounded-2xl p-8 text-center">
         <Lock className="mx-auto h-8 w-8 text-brand-600" />
-        <h1 className="mt-2 text-xl font-bold">Top up credits</h1>
-        <p className="mt-1 text-gray-600">Sign in to view your credits and buy more.</p>
+        <h1 className="mt-2 text-xl font-bold">Your credits</h1>
+        <p className="mt-1 text-gray-600">Sign in to see your credit balance.</p>
         <button onClick={() => signIn("google")} className="mt-4 rounded-full bg-brand-600 px-4 py-2 text-sm text-white">
           Sign in
         </button>
@@ -170,7 +170,9 @@ function BillingContent() {
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight">
           {balance === null ? "—" : balance} credits
         </h1>
-        <p className="mt-1 text-gray-600">Credits power AI Apply, matching and verification. Top up anytime.</p>
+        <p className="mt-1 text-gray-600">
+          Credits power AI Apply, matching and verification.<span className="web-only"> Top up anytime.</span>
+        </p>
       </div>
 
       {/* What things cost */}
@@ -184,7 +186,8 @@ function BillingContent() {
 
       {error && <div className="rounded-2xl bg-red-50/80 p-3 text-sm text-red-700">{error}</div>}
 
-      <section className="space-y-4">
+      {/* Buying is website-only (Google Play rules for the Android app). */}
+      <section className="web-only space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <h2 className="text-lg font-bold">Buy credits</h2>
           <PaymentMethods />

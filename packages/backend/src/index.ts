@@ -30,7 +30,7 @@ import { processCV } from "./lib/ai/extractor";
 import { matchJobToCV } from "./lib/ai/matcher";
 import { tailorApplication } from "./lib/ai/cvwriter";
 import { sendApplication } from "./lib/email";
-import { DEFAULT_PROMPTS, getConfig, saveConfig, type AppConfig, type PromptKey } from "./lib/ai/provider";
+import { CLAUDE_MODELS, DEFAULT_PROMPTS, getConfig, providerFor, saveConfig, type AppConfig, type PromptKey } from "./lib/ai/provider";
 import { quickMatch, type QuickMatchRun } from "./lib/ai/quickmatch";
 import { extractProfile } from "./lib/ai/profileextract";
 import { cleanCvMarkdown } from "./lib/cvclean";
@@ -38,6 +38,9 @@ import { rankCandidates, indexDoc, type RagDoc } from "./lib/ai/rag";
 import { charge, getCredits, addCredits, getCosts } from "./lib/credits";
 import { writeAtsCv, type AtsCvInput } from "./lib/ai/atscv";
 import { interviewQuestions } from "./lib/ai/cvinterview";
+import Anthropic from "@anthropic-ai/sdk";
+import { addReport, deleteAccount, deleteThread, getBlocks, isBlockedBy, listReports, otherParty, resolveReport, setBlock } from "./lib/account";
+import { aiKeyStatus, getAiKeys, keyLooksRight, removeAiKey, setAiKey, KEY_PROVIDERS, type KeyProvider } from "./lib/ai/secrets";
 import { PACKS, createCheckoutSession, verifyWebhook } from "./lib/stripe";
 import { CHECKS, findCheck } from "./lib/checks";
 import { encryptToken, decryptToken, gtokenKey } from "./lib/tokens";
@@ -93,6 +96,9 @@ const PROTECTED = new Set([
   "POST /api/push/test",
   "POST /api/cv/ats-write",
   "POST /api/cv/questions",
+  "POST /api/account/delete",
+  "POST /api/threads/block",
+  "POST /api/threads/report",
 ]);
 
 export default {
@@ -518,6 +524,11 @@ export default {
       }
 
       // --- Scrape sources (user-configurable) ---
+      // Scrape sources are admin-only: changing them could switch off the job feed or
+      // make the Worker fetch arbitrary sites, and the list itself is business info.
+      if (path === "/api/sources" && !(await isAdmin(env, userId))) {
+        return json({ error: "Forbidden" }, { status: 403 });
+      }
       if (path === "/api/sources" && request.method === "GET") {
         return json({ sources: await getSources(env) });
       }
@@ -682,15 +693,93 @@ export default {
               : current.packs,
             costs: patch.costs ? cleanCosts(patch.costs, current.costs) : current.costs,
             prompts: patch.prompts ? cleanPrompts(patch.prompts, current.prompts) : current.prompts,
-            // Keep the existing key when the client sends back the masked value.
-            openaiApiKey:
-              patch.openaiApiKey && !patch.openaiApiKey.includes("•")
-                ? patch.openaiApiKey
-                : current.openaiApiKey,
+            // API keys never live in the config (see lib/ai/secrets.ts).
+            openaiApiKey: undefined,
+            aiProvider: current.aiProvider,
+            docProvider: current.docProvider,
+            openaiModel: current.openaiModel,
+            anthropicModel: current.anthropicModel,
           };
+          if (patch.openaiApiKey && !patch.openaiApiKey.includes("•") && keyLooksRight("openai", patch.openaiApiKey.trim())) {
+            await setAiKey(env, "openai", patch.openaiApiKey.trim());
+          }
           await saveConfig(env, next);
           return json({ config: maskConfig(next) });
         }
+      }
+
+      // --- Reported conversations ---
+      if (path === "/api/admin/reports" && request.method === "GET") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        return json({ reports: await listReports(env) });
+      }
+      if (path === "/api/admin/reports/resolve" && request.method === "POST") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        const { id, action } = (await request.json().catch(() => ({}))) as { id?: string; action?: "dismiss" | "delete-thread" };
+        const report = (await listReports(env)).find((r) => r.id === id);
+        if (!report) return json({ error: "Report not found" }, { status: 404 });
+        if (action === "delete-thread") await deleteThread(env, report.threadId);
+        const reports = await resolveReport(env, report.id, action === "delete-thread" ? "Conversation removed" : "No action needed");
+        return json({ reports });
+      }
+
+      // --- AI & Pricing dashboard: provider keys (encrypted, write-only) + routing ---
+      if (path === "/api/admin/ai" && request.method === "GET") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        await migrateLegacyKey(env);
+        return json(await aiSettings(env));
+      }
+      if (path === "/api/admin/ai/key" && (request.method === "POST" || request.method === "DELETE")) {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        const body = (await request.json().catch(() => ({}))) as { provider?: string; key?: string };
+        const provider = body.provider as KeyProvider;
+        if (!KEY_PROVIDERS.includes(provider)) return json({ error: "Unknown provider" }, { status: 400 });
+        if (request.method === "DELETE") {
+          await removeAiKey(env, provider);
+          return json({ ...(await aiSettings(env)), message: "Key removed." });
+        }
+        const key = String(body.key ?? "").trim();
+        if (!keyLooksRight(provider, key)) {
+          return json(
+            { error: provider === "anthropic" ? "That doesn't look like a Claude API key (they start with sk-ant-)." : "That doesn't look like an OpenAI key (they start with sk-)." },
+            { status: 400 },
+          );
+        }
+        if (!env.TOKEN_KEY) return json({ error: "The server's encryption key (TOKEN_KEY) isn't set, so keys can't be stored safely." }, { status: 500 });
+        // Prove the key works before keeping it.
+        const cfg = await getConfig(env);
+        const test = provider === "anthropic" ? await testClaudeKey(key, cfg.anthropicModel) : await testOpenAIKey(key, cfg.openaiModel);
+        if (!test.ok && !test.keyValid) return json({ error: test.message }, { status: 400 });
+        await setAiKey(env, provider, key);
+        return json({ ...(await aiSettings(env)), message: `Key saved and encrypted. ${test.message}` });
+      }
+      if (path === "/api/admin/ai/test" && request.method === "POST") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        const { provider } = (await request.json().catch(() => ({}))) as { provider?: KeyProvider };
+        const keys = await getAiKeys(env);
+        const cfg = await getConfig(env);
+        if (provider === "anthropic") {
+          if (!keys.anthropic) return json({ ok: false, message: "No Claude key saved yet." });
+          return json(await testClaudeKey(keys.anthropic, cfg.anthropicModel));
+        }
+        if (provider === "openai") {
+          if (!keys.openai) return json({ ok: false, message: "No OpenAI key saved yet." });
+          return json(await testOpenAIKey(keys.openai, cfg.openaiModel));
+        }
+        return json({ error: "Unknown provider" }, { status: 400 });
+      }
+      if (path === "/api/admin/ai/settings" && request.method === "POST") {
+        if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
+        const patch = (await request.json().catch(() => ({}))) as Partial<Pick<AppConfig, "aiProvider" | "docProvider" | "openaiModel" | "anthropicModel">>;
+        const providers = ["workers-ai", "openai", "anthropic"];
+        const current = await getConfig(env);
+        const next: AppConfig = { ...current };
+        if (patch.aiProvider && providers.includes(patch.aiProvider)) next.aiProvider = patch.aiProvider;
+        if (patch.docProvider && providers.includes(patch.docProvider)) next.docProvider = patch.docProvider;
+        if (typeof patch.openaiModel === "string" && /^[\w.:-]{2,80}$/.test(patch.openaiModel.trim())) next.openaiModel = patch.openaiModel.trim();
+        if (typeof patch.anthropicModel === "string" && /^claude-[a-z0-9.-]{2,60}$/.test(patch.anthropicModel.trim())) next.anthropicModel = patch.anthropicModel.trim();
+        await saveConfig(env, next);
+        return json({ ...(await aiSettings(env)), message: "Saved." });
       }
 
       // The built-in AI instructions (shown as the starting point in the editor).
@@ -703,10 +792,11 @@ export default {
       if (path === "/api/admin/openai/test" && request.method === "POST") {
         if (!(await isAdmin(env, userId))) return json({ error: "Forbidden" }, { status: 403 });
         const cfg = await getConfig(env);
-        if (!cfg.openaiApiKey) return json({ ok: false, message: "No OpenAI key saved yet." });
+        const openaiKey = (await getAiKeys(env)).openai;
+        if (!openaiKey) return json({ ok: false, message: "No OpenAI key saved yet." });
         try {
           const res = await fetch("https://api.openai.com/v1/models", {
-            headers: { Authorization: `Bearer ${cfg.openaiApiKey}` },
+            headers: { Authorization: `Bearer ${openaiKey}` },
             signal: AbortSignal.timeout(8000),
           });
           if (res.ok) {
@@ -1159,6 +1249,9 @@ export default {
         if (!cid || !text?.trim()) return json({ error: "candidateId and text required" }, { status: 400 });
         const email = await env.JOBS_CACHE.get(`cidmap:${cid}`);
         if (!email) return json({ error: "Candidate not found" }, { status: 404 });
+        if (await isBlockedBy(env, email, userId)) {
+          return json({ error: "This candidate isn't accepting messages from you." }, { status: 403 });
+        }
         const cProfile = await getProfile(env, email);
         const thread = await appendMessage(env, {
           employerUserId: userId,
@@ -1181,6 +1274,13 @@ export default {
         if (!thread) return json({ error: "Thread not found" }, { status: 404 });
         const role = participantRole(thread, userId);
         if (!role) return json({ error: "Not a participant" }, { status: 403 });
+        const other = otherParty(thread, userId);
+        if (await isBlockedBy(env, other, userId)) {
+          return json({ error: "This person isn't accepting messages from you." }, { status: 403 });
+        }
+        if ((await getBlocks(env, userId)).some((b) => b.toLowerCase() === other.toLowerCase())) {
+          return json({ error: "You've blocked this person. Unblock them to send a message." }, { status: 403 });
+        }
         const updated = await appendMessage(env, {
           employerUserId: thread.employerUserId,
           employerCompany: thread.employerCompany,
@@ -1193,6 +1293,50 @@ export default {
         // Replying means I've seen everything above.
         const readAt = await markThreadRead(env, updated, role, userId);
         return json({ thread: { ...updated, readAt } });
+      }
+
+      // Block / unblock the other person in a thread.
+      if (path === "/api/threads/block" && request.method === "POST") {
+        const { threadId, block = true } = (await request.json().catch(() => ({}))) as { threadId?: string; block?: boolean };
+        const thread = threadId ? await env.JOBS_CACHE.get<Thread>(`thread:${threadId}`, "json") : null;
+        if (!thread || !participantRole(thread, userId)) return json({ error: "Thread not found" }, { status: 404 });
+        const blocks = await setBlock(env, userId, otherParty(thread, userId), block);
+        return json({ blocked: block, count: blocks.length });
+      }
+
+      // Report a conversation to the VacancyPal team.
+      if (path === "/api/threads/report" && request.method === "POST") {
+        const { threadId, reason, details, block } = (await request.json().catch(() => ({}))) as {
+          threadId?: string;
+          reason?: string;
+          details?: string;
+          block?: boolean;
+        };
+        const thread = threadId ? await env.JOBS_CACHE.get<Thread>(`thread:${threadId}`, "json") : null;
+        if (!thread || !participantRole(thread, userId)) return json({ error: "Thread not found" }, { status: 404 });
+        const reasons = ["spam", "scam", "harassment", "inappropriate", "fake", "other"];
+        const report = await addReport(env, {
+          threadId: thread.id,
+          reporter: userId,
+          reported: otherParty(thread, userId),
+          reason: reasons.includes(String(reason)) ? String(reason) : "other",
+          details: String(details ?? "").slice(0, 1000),
+          excerpt: thread.messages.slice(-6).map((m) => ({ from: m.from, text: m.text.slice(0, 500), at: m.at })),
+        });
+        if (block) await setBlock(env, userId, report.reported, true);
+        return json({ ok: true });
+      }
+
+      // Delete my account and everything stored about me (Play requirement).
+      if (path === "/api/account/delete" && request.method === "POST") {
+        const { confirm } = (await request.json().catch(() => ({}))) as { confirm?: string };
+        if (confirm !== "DELETE") return json({ error: "Type DELETE to confirm." }, { status: 400 });
+        if (await isAdmin(env, userId)) {
+          return json({ error: "Admin accounts can't be deleted here — remove the admin role first." }, { status: 400 });
+        }
+        for (const sub of await getSubs(env, userId)) await deleteSub(env, userId, sub.endpoint);
+        const result = await deleteAccount(env, userId, candidateId(userId));
+        return json({ ok: true, ...result });
       }
 
       // List my threads (works for both roles).
@@ -1501,13 +1645,80 @@ async function isAdmin(env: Env, userId: string): Promise<boolean> {
   return invited.some((e) => e.toLowerCase() === email);
 }
 
-/** Never return the raw OpenAI key to the client — mask all but the last 4. */
+/** The config as sent to the admin browser: never any API key (they live in lib/ai/secrets.ts). */
 function maskConfig(config: AppConfig): AppConfig {
-  const key = config.openaiApiKey;
+  return { ...config, openaiApiKey: undefined };
+}
+
+/** One-time move of a key saved by the old admin page (plain text in the config) into the encrypted store. */
+async function migrateLegacyKey(env: Env): Promise<void> {
+  const cfg = await getConfig(env);
+  if (!cfg.openaiApiKey || !env.TOKEN_KEY) return;
+  const status = await aiKeyStatus(env);
+  if (!status.openai.set) await setAiKey(env, "openai", cfg.openaiApiKey);
+  await saveConfig(env, { ...cfg, openaiApiKey: undefined });
+}
+
+async function aiSettings(env: Env) {
+  const cfg = await getConfig(env);
   return {
-    ...config,
-    openaiApiKey: key ? `${"•".repeat(8)}${key.slice(-4)}` : undefined,
+    keys: await aiKeyStatus(env),
+    aiProvider: cfg.aiProvider,
+    docProvider: providerFor(cfg, true),
+    openaiModel: cfg.openaiModel,
+    anthropicModel: cfg.anthropicModel,
+    claudeModels: CLAUDE_MODELS,
+    encryption: !!env.TOKEN_KEY,
   };
+}
+
+type KeyTest = { ok: boolean; keyValid: boolean; message: string };
+
+/** Lists OpenAI models (free) to prove the key and model work. */
+async function testOpenAIKey(key: string, model: string): Promise<KeyTest> {
+  try {
+    const res = await fetch("https://api.openai.com/v1/models", {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { data?: { id: string }[] };
+      const hasModel = (data.data ?? []).some((m) => m.id === model);
+      return {
+        ok: hasModel,
+        keyValid: true,
+        message: hasModel ? `Works — model "${model}" is available.` : `The key works, but model "${model}" isn't available to it — pick another model.`,
+      };
+    }
+    return {
+      ok: false,
+      keyValid: res.status === 429,
+      message:
+        res.status === 401
+          ? "OpenAI rejected this key. Check it was copied correctly."
+          : res.status === 429
+            ? "The key is valid but the account has no quota left — check billing on platform.openai.com."
+            : `OpenAI returned HTTP ${res.status}.`,
+    };
+  } catch {
+    return { ok: false, keyValid: false, message: "Couldn't reach OpenAI — try again." };
+  }
+}
+
+/** Looks the chosen Claude model up (free) to prove the key and model work. */
+async function testClaudeKey(key: string, model: string): Promise<KeyTest> {
+  const client = new Anthropic({ apiKey: key, maxRetries: 0, timeout: 10_000 });
+  try {
+    const m = await client.models.retrieve(model);
+    return { ok: true, keyValid: true, message: `Works — ${m.display_name} is available.` };
+  } catch (err) {
+    if (err instanceof Anthropic.AuthenticationError) return { ok: false, keyValid: false, message: "Anthropic rejected this key. Check it was copied correctly." };
+    if (err instanceof Anthropic.PermissionDeniedError) return { ok: false, keyValid: false, message: "This key isn't allowed to use the Claude API." };
+    if (err instanceof Anthropic.NotFoundError) return { ok: false, keyValid: true, message: `The key works, but model "${model}" isn't available to it — pick another model.` };
+    if (err instanceof Anthropic.RateLimitError) return { ok: false, keyValid: true, message: "The key is valid but rate-limited right now — try again shortly." };
+    if (err instanceof Anthropic.APIError) return { ok: false, keyValid: false, message: `Anthropic returned an error (${err.status ?? "network"}).` };
+    return { ok: false, keyValid: false, message: "Couldn't reach Anthropic — try again." };
+  }
 }
 
 const prefsKey = (userId: string) => `prefs:${userId}`;
@@ -1637,10 +1848,12 @@ async function listThreads(env: Env, userId: string): Promise<ThreadSummary[]> {
   const candIds = (await env.JOBS_CACHE.get<string[]>(`candthreads:${userId}`, "json")) ?? [];
   const ids = [...new Set([...empIds, ...candIds])];
   const unread = await getUnread(env, userId);
+  const blocked = new Set((await getBlocks(env, userId)).map((b) => b.toLowerCase()));
   const out: ThreadSummary[] = [];
   for (const id of ids) {
     const t = await env.JOBS_CACHE.get<Thread>(`thread:${id}`, "json");
     if (!t) continue;
+    if (blocked.has(otherParty(t, userId).toLowerCase())) continue;
     const role = participantRole(t, userId);
     const last = t.messages[t.messages.length - 1];
     out.push({

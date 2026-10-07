@@ -25,6 +25,15 @@ body {
   outline-offset: 2px;
 }
 
+/* Inside the Android app: hide buying (credit packs, prices, top-up links) — Google Play rules. */
+html[data-app="android"] .web-only {
+  display: none !important;
+}
+/* …and show anything written only for the app. */
+html:not([data-app="android"]) .app-only {
+  display: none !important;
+}
+
 @layer components {
   /* Frosted-glass surface used across cards, the nav, and panels. */
   .glass {

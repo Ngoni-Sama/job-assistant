@@ -1,5 +1,8 @@
 import type {
   AdminUsersPage,
+  AiSettings,
+  KeyProvider,
+  ThreadReport,
   PromptKey,
   AtsCvRequest,
   AtsCvResult,
@@ -141,6 +144,13 @@ export const api = {
   renameCv: (id: string, fileName: string) => req<{ cvs: StoredCV[] }>("/api/cvs/rename", jsonBody({ id, fileName })),
   updateCv: (id: string, markdown: string) => req<{ cvs: StoredCV[] }>("/api/cvs/update", jsonBody({ id, markdown })),
   deleteCv: (id: string) => req<{ cvs: StoredCV[] }>("/api/cvs", { ...jsonBody({ id }), method: "DELETE" }),
+  deleteAccount: () => req<{ ok: boolean; deleted: number }>("/api/account/delete", jsonBody({ confirm: "DELETE" })),
+  blockThread: (threadId: string, block = true) => req<{ blocked: boolean }>("/api/threads/block", jsonBody({ threadId, block })),
+  reportThread: (threadId: string, reason: string, details: string, block: boolean) =>
+    req<{ ok: boolean }>("/api/threads/report", jsonBody({ threadId, reason, details, block })),
+  getReports: () => req<{ reports: ThreadReport[] }>("/api/admin/reports"),
+  resolveReport: (id: string, action: "dismiss" | "delete-thread") =>
+    req<{ reports: ThreadReport[] }>("/api/admin/reports/resolve", jsonBody({ id, action })),
   matchAll: () => req<{ scores: JobScore[] }>("/api/match-all", { method: "POST" }),
   uploadCV: (file: File) => {
     const form = new FormData();
@@ -230,6 +240,13 @@ export const api = {
     req<{ balance: number }>("/api/admin/credits", jsonBody({ userId, amount })),
   getDefaultPrompts: () => req<{ prompts: Record<PromptKey, string> }>("/api/admin/prompts/defaults"),
   testOpenAI: () => req<{ ok: boolean; message: string }>("/api/admin/openai/test", { method: "POST" }),
+  getAiSettings: () => req<AiSettings>("/api/admin/ai"),
+  saveAiKey: (provider: KeyProvider, key: string) => req<AiSettings>("/api/admin/ai/key", jsonBody({ provider, key })),
+  removeAiKey: (provider: KeyProvider) =>
+    req<AiSettings>("/api/admin/ai/key", { ...jsonBody({ provider }), method: "DELETE" }),
+  testAiKey: (provider: KeyProvider) => req<{ ok: boolean; message: string }>("/api/admin/ai/test", jsonBody({ provider })),
+  saveAiSettings: (patch: Partial<Pick<AiSettings, "aiProvider" | "docProvider" | "openaiModel" | "anthropicModel">>) =>
+    req<AiSettings>("/api/admin/ai/settings", jsonBody(patch)),
   addAdmin: (email: string) =>
     req<{ invited: string[]; bootstrap: string[] }>("/api/admin/admins", jsonBody({ email })),
   removeAdmin: (email: string) =>

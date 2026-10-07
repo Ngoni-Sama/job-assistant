@@ -21,7 +21,7 @@ export default async function PrivacyPage() {
   );
 
   return (
-    <LegalPage title="Privacy Policy" updated="2 October 2026">
+    <LegalPage title="Privacy Policy" updated="7 October 2026">
       <P>
         {name} (“we”, “us”) helps job seekers in Zimbabwe and Southern Africa find jobs and apply to them, and helps
         employers find candidates. This policy explains what information we collect, how we use it, and the choices
@@ -55,6 +55,11 @@ export default async function PrivacyPage() {
             <b>Notifications</b> — if you turn on notifications, we store the push address your browser issues for
             your device, and your notification settings, so we can alert you to new jobs, employer messages and
             auto-apply results. You can switch them off at any time in Settings.
+          </>,
+          <>
+            <b>Device location</b> — only when you tap &ldquo;Find my location&rdquo; on Jobs near me. Your
+            device&rsquo;s coordinates are sent to BigDataCloud&rsquo;s reverse-geocoding service once, to work out
+            your town or city, which is then used to filter jobs. We never store your coordinates.
           </>,
           <>
             <b>Technical data</b> — basic logs and anonymous usage statistics needed to run, secure and improve the
@@ -113,8 +118,8 @@ export default async function PrivacyPage() {
       <H>4. AI processing</H>
       <P>
         To match jobs and tailor applications, the text of your CV and of job adverts may be processed by AI services
-        (Cloudflare Workers AI and, where enabled, OpenAI) acting on our behalf. Data received from Google APIs,
-        including Gmail, is never sent to these AI services.
+        (Cloudflare Workers AI and, where enabled, OpenAI or Anthropic&apos;s Claude) acting on our behalf. They may not
+        use it to train their models. Data received from Google APIs, including Gmail, is never sent to these AI services.
       </P>
 
       <H>5. When we share information</H>
@@ -140,9 +145,15 @@ export default async function PrivacyPage() {
 
       <H>6. Keeping and deleting your information</H>
       <P>
-        We keep your information while your account is active. You can delete CVs at any time from the Upload page. To
-        delete your account and the information linked to it, email {mail} from the address you sign in with and we
-        will delete it within 30 days, except where we must keep records (for example payment records) by law.
+        We keep your information while your account is active. You can delete CVs at any time from the Upload page.
+        You can delete your whole account yourself, straight away, in Settings → Delete account (in the app or on the
+        website) or at{" "}
+        <a href="/delete-account" className="font-medium text-brand-700 underline">
+          vacancypal.co.zw/delete-account
+        </a>
+        . You can also email {mail} from the address you sign in with and we will delete it within 7 days. We keep
+        payment records where the law requires it. If you report a conversation, we keep the report and the last few
+        messages of that conversation so our team can review it, and delete them once the report is resolved.
       </P>
 
       <H>7. Security</H>

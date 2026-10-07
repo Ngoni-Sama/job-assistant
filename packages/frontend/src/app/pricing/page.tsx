@@ -88,8 +88,8 @@ export default function PricingPage() {
           <span className="bg-gradient-to-r from-brand-500 to-brand-800 bg-clip-text text-transparent">not monthly fees.</span>
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-left text-lg text-gray-600 sm:text-center">
-          Searching, swiping and applying are free. Buy credits only for the AI that does the heavy lifting — like an
-          ATS-ready CV for about {approx(costs.atsCv)}.
+          Searching, swiping and applying are free. Credits are only for the AI that does the heavy lifting
+          <span className="web-only"> — like an ATS-ready CV for about {approx(costs.atsCv)}</span>.
         </p>
         <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-green-50 px-4 py-1.5 text-sm font-medium text-green-800">
           <Gift className="h-4 w-4" /> {freeCredits} free credits when you sign up
@@ -97,7 +97,7 @@ export default function PricingPage() {
       </section>
 
       {/* Packs */}
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section className="web-only grid grid-cols-1 gap-4 md:grid-cols-3">
         {packs.map((p) => {
           const isPopular = popular?.id === p.id;
           const isBest = best?.id === p.id && packs.length > 1;
@@ -154,7 +154,7 @@ export default function PricingPage() {
           );
         })}
       </section>
-      <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs text-gray-500">
+      <div className="web-only flex flex-wrap items-center justify-center gap-1.5 text-xs text-gray-500">
         Pay securely with
         {[
           { icon: CreditCard, label: "Visa" },
@@ -194,12 +194,12 @@ export default function PricingPage() {
                   <span className="flex items-center justify-end gap-1 text-sm font-semibold">
                     <Coins className="h-3.5 w-3.5 text-amber-500" /> {a.cost}
                   </span>
-                  <span className="block text-[11px] text-gray-500">≈ {approx(a.cost)}</span>
+                  <span className="web-only block text-xs text-gray-500">≈ {approx(a.cost)}</span>
                 </span>
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-gray-500">≈ prices at the {starter?.label ?? "Starter"} pack rate — bigger packs cost less per credit.</p>
+          <p className="web-only mt-2 text-xs text-gray-500">≈ prices at the {starter?.label ?? "Starter"} pack rate — bigger packs cost less per credit.</p>
         </div>
       </section>
 
@@ -209,7 +209,7 @@ export default function PricingPage() {
         <dl className="mt-4 grid gap-5 text-sm md:grid-cols-2">
           <div>
             <dt className="font-semibold">Is there a subscription?</dt>
-            <dd className="mt-1 text-gray-600">No. You buy credits when you need them and spend them on any AI feature.</dd>
+            <dd className="mt-1 text-gray-600">No. Credits are spent only when you use an AI feature, and new accounts start with free credits.</dd>
           </div>
           <div>
             <dt className="font-semibold">What if the AI fails?</dt>

@@ -46,6 +46,9 @@ export function Footer() {
           <Link href="/how-we-use-gmail" className="hover:text-brand-700 hover:underline">
             How we use Gmail
           </Link>
+          <Link href="/delete-account" className="hover:text-brand-700 hover:underline">
+            Delete account
+          </Link>
         </nav>
       </div>
     </footer>

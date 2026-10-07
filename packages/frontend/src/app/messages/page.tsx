@@ -9,6 +9,7 @@ import { useLive, type PushData } from "@/components/LiveUpdates";
 import { offerPush } from "@/lib/push";
 import Link from "next/link";
 import { useMode } from "@/lib/mode";
+import { ThreadSafety } from "@/components/ThreadSafety";
 import { playMessageSound } from "@/lib/sound";
 
 /** One-tap replies, by side of the conversation. */
@@ -38,6 +39,7 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const openRef = useRef<Thread | null>(null);
   openRef.current = openThread;
@@ -178,9 +180,20 @@ export default function MessagesPage() {
         <button onClick={back} className="flex items-center gap-1 text-sm text-gray-600 hover:text-brand-700">
           <ChevronLeft className="h-4 w-4" /> Inbox
         </button>
-        <h1 className="text-xl font-bold">
-          {myRole === "employer" ? openThread.candidateName : openThread.employerCompany}
-        </h1>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="min-w-0 truncate text-xl font-bold">
+            {myRole === "employer" ? openThread.candidateName : openThread.employerCompany}
+          </h1>
+          <ThreadSafety
+            threadId={openThread.id}
+            name={myRole === "employer" ? openThread.candidateName : openThread.employerCompany}
+            onDone={(msg) => {
+              setThreads((prev) => prev.filter((t) => t.id !== openThread.id));
+              back();
+              setNotice(msg);
+            }}
+          />
+        </div>
         <div className="glass max-h-[60vh] space-y-2 overflow-y-auto rounded-2xl p-4">
           {openThread.messages.map((m, i) => {
             const mine = m.from === myRole;
@@ -255,6 +268,7 @@ export default function MessagesPage() {
       <h1 className="flex items-center gap-2 text-2xl font-bold">
         <MessageSquare className="h-6 w-6 text-brand-600" /> Messages
       </h1>
+      {notice && <p className="rounded-xl bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
       {threads.length === 0 ? (
         <EmptyMessages />

@@ -5,7 +5,6 @@ import { useSession, signIn } from "next-auth/react";
 import {
   Shield,
   Save,
-  KeyRound,
   ToggleLeft,
   Database,
   Users,
@@ -17,36 +16,22 @@ import {
   ShieldCheck,
   Megaphone,
   Globe,
-  CreditCard,
-  Coins,
-  Plus,
-  CheckCircle2,
-  AlertTriangle,
   Sparkles,
   UserRound,
-  PlugZap,
 } from "lucide-react";
 
-/** Paid actions and what they're called on the site. */
-const PRICED_ACTIONS: { key: keyof ActionCosts; label: string; body: string }[] = [
-  { key: "optimise", label: "AI Apply", body: "Tailor one application with AI (also each AI auto-apply, and profile from CV)" },
-  { key: "quickMatch", label: "Quick Match", body: "Analyse all listings against the CV" },
-  { key: "matchAll", label: "Match all jobs", body: "Score the latest jobs against the CV" },
-  { key: "unlockContact", label: "Unlock a candidate", body: "Employer reveals one candidate's contact details" },
-  { key: "atsCv", label: "ATS CV (AI-written)", body: "CV Creator: AI writes the summary, bullets and skills (the ATS score check stays free)" },
-  { key: "cvQuestions", label: "CV interview questions", body: "AI follow-up questions for one job in the CV interview (0 = free; capped at 30 a day per person)" },
-];
 import { api, payments } from "@/lib/api";
-import type { ActionCosts, AppConfig, CandidateCheck, CreditPack, Employer } from "@/lib/types";
+import type { AppConfig, CandidateCheck, CreditPack, Employer } from "@/lib/types";
 import { AdminUsers } from "@/components/admin/AdminUsers";
 import { AdminPrompts } from "@/components/admin/AdminPrompts";
+import { AiPricing } from "@/components/admin/AiPricing";
+import { AdminReports } from "@/components/admin/AdminReports";
 
-type Tab = "users" | "site" | "payments" | "ai" | "moderation" | "team" | "updates";
+type Tab = "users" | "pricing" | "site" | "moderation" | "team" | "updates";
 const TABS: { id: Tab; label: string; icon: typeof Shield }[] = [
   { id: "users", label: "Users", icon: UserRound },
+  { id: "pricing", label: "AI & Pricing", icon: Sparkles },
   { id: "site", label: "Site", icon: Globe },
-  { id: "payments", label: "Payments", icon: CreditCard },
-  { id: "ai", label: "AI", icon: Sparkles },
   { id: "moderation", label: "Moderation", icon: Building2 },
   { id: "team", label: "Team", icon: Users },
   { id: "updates", label: "Updates", icon: Megaphone },
@@ -61,7 +46,6 @@ export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("users");
   const [health, setHealth] = useState<Health | null>(null);
   const [defaultPacks, setDefaultPacks] = useState<CreditPack[]>([]);
-  const [packsDraft, setPacksDraft] = useState<CreditPack[]>([]);
   const [siteDraft, setSiteDraft] = useState<AppConfig["site"] | null>(null);
   const [invited, setInvited] = useState<string[]>([]);
   const [bootstrap, setBootstrap] = useState<string[]>([]);
@@ -70,16 +54,16 @@ export default function AdminPage() {
   const [annTitle, setAnnTitle] = useState("");
   const [annBody, setAnnBody] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
-  const [keyInput, setKeyInput] = useState("");
-  const [keyTest, setKeyTest] = useState<{ ok: boolean; message: string } | null>(null);
-  const [costsDraft, setCostsDraft] = useState<ActionCosts | null>(null);
   const [saving, setSaving] = useState(false);
+  const [openReports, setOpenReports] = useState(0);
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     try {
-      const t = localStorage.getItem("admin:tab") as Tab | null;
+      // ?tab=pricing opens a tab directly; old saved tabs (payments, ai) now live under AI & Pricing.
+      const raw = new URLSearchParams(window.location.search).get("tab") ?? localStorage.getItem("admin:tab");
+      const t = (raw === "payments" || raw === "ai" ? "pricing" : raw) as Tab | null;
       if (t && TABS.some((x) => x.id === t)) setTab(t);
     } catch {
       /* ignore */
@@ -110,16 +94,18 @@ export default function AdminPage() {
         const cfg = (await api.getAdminConfig()).config;
         setConfig(cfg);
         setSiteDraft(cfg.site);
-        setCostsDraft(cfg.costs);
         const p = await api.getPacks();
         setDefaultPacks(p.packs);
-        setPacksDraft(cfg.packs.length ? cfg.packs : p.packs);
         const a = await api.getAdmins();
         setInvited(a.invited);
         setBootstrap(a.bootstrap);
         setEmployers((await api.getAdminEmployers()).employers);
         setChecks((await api.getAdminChecks()).items);
         payments.health().then(setHealth).catch(() => setHealth(null));
+        api
+          .getReports()
+          .then((r) => setOpenReports(r.reports.filter((x) => x.status === "open").length))
+          .catch(() => {});
       } catch (e) {
         setError((e as Error).message);
         setAllowed(false);
@@ -134,7 +120,6 @@ export default function AdminPage() {
     try {
       const res = await api.saveAdminConfig(patch);
       setConfig(res.config);
-      setKeyInput("");
       setMsg(okMsg);
     } catch (e) {
       setError((e as Error).message);
@@ -211,9 +196,6 @@ export default function AdminPage() {
     }
   }
 
-  function updatePack(i: number, patch: Partial<CreditPack>) {
-    setPacksDraft((prev) => prev.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
-  }
 
   if (status === "loading" || allowed === null) return <p className="text-gray-500">Loading…</p>;
 
@@ -270,7 +252,7 @@ export default function AdminPage() {
       {/* Tabs */}
       <nav className="-mx-1 flex gap-1 overflow-x-auto pb-1">
         {TABS.map((t) => {
-          const badge = t.id === "moderation" ? pendingEmployers + pendingChecks : 0;
+          const badge = t.id === "moderation" ? pendingEmployers + pendingChecks + openReports : 0;
           return (
             <button
               key={t.id}
@@ -340,280 +322,8 @@ export default function AdminPage() {
           </button>
         </section>
       )}
-
-      {/* ---------------- PAYMENTS ---------------- */}
-      {tab === "payments" && (
-        <div className="space-y-5">
-          <section className="glass space-y-4 rounded-2xl p-6">
-            <h2 className="flex items-center gap-2 font-semibold">
-              <CreditCard className="h-4 w-4" /> Payment gateway
-            </h2>
-            <p className="text-sm text-gray-500">
-              Pesepay handles <b>Visa, Mastercard, EcoCash, OneMoney</b> and other local methods on its hosted page.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {(["pesepay", "none"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => save({ payments: { ...config.payments, provider: p } }, p === "none" ? "Top-ups disabled." : "Pesepay enabled.")}
-                  className={`rounded-full px-3 py-1.5 text-sm ${config.payments.provider === p ? "bg-brand-600 text-white" : "bg-white/60"}`}
-                >
-                  {p === "pesepay" ? "Pesepay (live)" : "Top-ups off"}
-                </button>
-              ))}
-            </div>
-
-            {/* Host status */}
-            <div className="space-y-2 rounded-xl bg-white/60 p-4 text-sm">
-              <p className="font-medium">Status on this server</p>
-              <StatusRow ok={!!health?.pesepayConfigured} label="Pesepay keys (PESEPAY_INTEGRATION_KEY + PESEPAY_ENCRYPTION_KEY)" />
-              <StatusRow ok={!!health?.internalSecretConfigured} label="Worker link (WORKER_INTERNAL_SECRET)" />
-              <StatusRow ok={!!health?.appUrl} label={`Public URL (APP_URL)${health?.appUrl ? ` — ${health.appUrl}` : ""}`} />
-              <p className="pt-1 text-xs text-gray-500">
-                Keys are set as server environment variables — never here — so they can’t leak from the browser or the
-                public repo. Rotate them in the Pesepay dashboard if they’re ever exposed.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Currency">
-                <select
-                  value={config.payments.currency}
-                  onChange={(e) => save({ payments: { ...config.payments, currency: e.target.value } })}
-                  className="input"
-                >
-                  <option value="USD">USD — US Dollar</option>
-                  <option value="ZWG">ZWG — Zimbabwe Gold</option>
-                </select>
-              </Field>
-              <Field label="Free credits for new accounts">
-                <input
-                  type="number"
-                  min={0}
-                  defaultValue={config.payments.freeCredits}
-                  onBlur={(e) =>
-                    save({ payments: { ...config.payments, freeCredits: Math.max(0, Number(e.target.value) || 0) } })
-                  }
-                  className="input"
-                />
-              </Field>
-            </div>
-          </section>
-
-          {costsDraft && (
-            <section className="glass space-y-3 rounded-2xl p-6">
-              <h2 className="flex items-center gap-2 font-semibold">
-                <Coins className="h-4 w-4 text-amber-500" /> Credit prices
-              </h2>
-              <p className="text-sm text-gray-500">How many credits each paid action costs. 0 makes it free.</p>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {PRICED_ACTIONS.map((a) => (
-                  <label key={a.key} className="flex items-center justify-between gap-3 rounded-xl bg-white/60 p-3">
-                    <span className="min-w-0 text-sm">
-                      <span className="block font-medium">{a.label}</span>
-                      <span className="block text-xs text-gray-500">{a.body}</span>
-                    </span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={10000}
-                      value={costsDraft[a.key]}
-                      onChange={(e) => setCostsDraft({ ...costsDraft, [a.key]: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
-                      className="input w-20 shrink-0 text-right"
-                      aria-label={`${a.label} price in credits`}
-                    />
-                  </label>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => save({ costs: costsDraft }, "Prices saved.")}
-                  disabled={saving}
-                  className="flex items-center gap-1.5 rounded-full bg-brand-600 px-4 py-1.5 text-sm text-white disabled:opacity-50"
-                >
-                  <Save className="h-4 w-4" /> Save prices
-                </button>
-                <button
-                  onClick={() => {
-                    const defaults = { quickMatch: 10, optimise: 3, matchAll: 5, unlockContact: 20, atsCv: 40, cvQuestions: 0 };
-                    setCostsDraft(defaults);
-                    save({ costs: defaults }, "Prices reset to defaults.");
-                  }}
-                  className="rounded-full px-3 py-1.5 text-sm text-gray-500 hover:bg-white/60"
-                >
-                  Reset to defaults
-                </button>
-              </div>
-            </section>
-          )}
-
-          <section className="glass space-y-3 rounded-2xl p-6">
-            <h2 className="flex items-center gap-2 font-semibold">
-              <Coins className="h-4 w-4 text-amber-500" /> Top-up packs
-            </h2>
-            <p className="text-sm text-gray-500">What users can buy on the top-up page. Prices in {config.payments.currency}.</p>
-            <div className="space-y-2">
-              <div className="hidden grid-cols-[1fr_1fr_1fr_auto] gap-2 px-1 text-xs font-medium text-gray-500 sm:grid">
-                <span>Name</span>
-                <span>Credits</span>
-                <span>Price</span>
-                <span />
-              </div>
-              {packsDraft.map((p, i) => (
-                <div key={i} className="grid grid-cols-2 gap-2 rounded-xl bg-white/60 p-2 sm:grid-cols-[1fr_1fr_1fr_auto]">
-                  <input
-                    value={p.label}
-                    onChange={(e) => updatePack(i, { label: e.target.value, id: p.id || e.target.value.toLowerCase().replace(/\W+/g, "-") })}
-                    placeholder="Starter"
-                    className="input"
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    value={p.credits}
-                    onChange={(e) => updatePack(i, { credits: Number(e.target.value) })}
-                    className="input"
-                  />
-                  <input
-                    type="number"
-                    min={0.01}
-                    step={0.01}
-                    value={(p.priceCents / 100).toString()}
-                    onChange={(e) => updatePack(i, { priceCents: Math.round(Number(e.target.value) * 100) })}
-                    className="input"
-                  />
-                  <button
-                    onClick={() => setPacksDraft(packsDraft.filter((_, idx) => idx !== i))}
-                    className="flex items-center justify-center rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                    aria-label="Remove pack"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setPacksDraft([...packsDraft, { id: `pack-${Date.now()}`, label: "New pack", credits: 100, priceCents: 500 }])}
-                className="flex items-center gap-1 rounded-full border border-dashed border-brand-300 px-3 py-1.5 text-sm text-brand-700"
-              >
-                <Plus className="h-4 w-4" /> Add pack
-              </button>
-              <button
-                onClick={() => save({ packs: packsDraft.map((p) => ({ ...p, id: p.id || p.label.toLowerCase().replace(/\W+/g, "-") })) }, "Packs saved.")}
-                disabled={saving}
-                className="flex items-center gap-1.5 rounded-full bg-brand-600 px-4 py-1.5 text-sm text-white disabled:opacity-50"
-              >
-                <Save className="h-4 w-4" /> Save packs
-              </button>
-              <button
-                onClick={() => {
-                  setPacksDraft(defaultPacks);
-                  save({ packs: [] }, "Reset to default packs.");
-                }}
-                className="rounded-full px-3 py-1.5 text-sm text-gray-500 hover:bg-white/60"
-              >
-                Reset to defaults
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-
-      {/* ---------------- AI ---------------- */}
-      {tab === "ai" && (
-        <div className="space-y-5">
-          <section className="glass space-y-4 rounded-2xl p-6">
-            <h2 className="flex items-center gap-2 font-semibold">
-              <KeyRound className="h-4 w-4" /> AI provider
-            </h2>
-            <p className="text-sm text-gray-500">Engine for matching, quick match and profile extraction.</p>
-            <div className="flex gap-2">
-              {(["workers-ai", "openai"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => save({ aiProvider: p })}
-                  className={`rounded-full px-3 py-1.5 text-sm ${config.aiProvider === p ? "bg-brand-600 text-white" : "bg-white/60"}`}
-                >
-                  {p === "workers-ai" ? "Cloudflare Workers AI" : "OpenAI"}
-                </button>
-              ))}
-            </div>
-
-            <Field label="OpenAI API key">
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={keyInput}
-                  onChange={(e) => setKeyInput(e.target.value)}
-                  placeholder={config.openaiApiKey ?? "sk-…"}
-                  className="input min-w-0 flex-1"
-                />
-                <button
-                  onClick={() => save({ openaiApiKey: keyInput }, "OpenAI key saved.")}
-                  disabled={saving || !keyInput}
-                  className="flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-2 text-sm text-white disabled:opacity-50"
-                >
-                  <Save className="h-4 w-4" /> Save
-                </button>
-                <button
-                  onClick={async () => {
-                    setKeyTest(null);
-                    try {
-                      setKeyTest(await api.testOpenAI());
-                    } catch (e) {
-                      setKeyTest({ ok: false, message: (e as Error).message });
-                    }
-                  }}
-                  disabled={!config.openaiApiKey}
-                  className="flex items-center gap-1 rounded-lg border px-3 py-2 text-sm text-gray-700 hover:bg-white disabled:opacity-50"
-                >
-                  <PlugZap className="h-4 w-4" /> Test
-                </button>
-              </div>
-              {keyTest && (
-                <p className={`mt-1 text-xs ${keyTest.ok ? "text-green-700" : "text-red-600"}`}>{keyTest.message}</p>
-              )}
-              <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-                {config.openaiApiKey ? (
-                  <>
-                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600" /> Key set ({config.openaiApiKey})
-                  </>
-                ) : (
-                  "No key set."
-                )}{" "}
-                Stored server-side; only the last 4 characters are ever shown.
-              </p>
-            </Field>
-
-            <Field label="OpenAI model">
-              <input
-                defaultValue={config.openaiModel}
-                onBlur={(e) => e.target.value !== config.openaiModel && save({ openaiModel: e.target.value })}
-                className="input"
-              />
-            </Field>
-
-            <label className="flex items-start gap-3 rounded-xl bg-white/60 p-3">
-              <input
-                type="checkbox"
-                checked={config.openaiForDocuments}
-                onChange={(e) => save({ openaiForDocuments: e.target.checked })}
-                className="mt-1 h-4 w-4"
-              />
-              <span className="text-sm">
-                <span className="font-medium">Use OpenAI for CV &amp; cover-letter generation</span>
-                <span className="block text-gray-500">
-                  AI Apply writes tailored CVs with OpenAI (when a key is set) even while the rest of the app runs on
-                  Workers AI. Falls back to Workers AI automatically if OpenAI errors.
-                </span>
-              </span>
-            </label>
-          </section>
-
-          <AdminPrompts config={config} save={save} saving={saving} />
-
-          <section className="glass rounded-2xl p-6">
+      {tab === "site" && (
+        <section className="glass rounded-2xl p-6">
             <h2 className="flex items-center gap-2 font-semibold">
               <ToggleLeft className="h-4 w-4" /> Features
             </h2>
@@ -624,12 +334,20 @@ export default function AdminPage() {
               {feature("autoApplyAllowed", "Allow auto-apply", "Let users auto-send applications")}
             </div>
           </section>
+      )}
+
+      {/* ---------------- AI & PRICING ---------------- */}
+      {tab === "pricing" && (
+        <div className="space-y-5">
+          <AiPricing config={config} save={save} saving={saving} defaultPacks={defaultPacks} health={health} />
+          <AdminPrompts config={config} save={save} saving={saving} />
         </div>
       )}
 
       {/* ---------------- MODERATION ---------------- */}
       {tab === "moderation" && (
         <div className="space-y-5">
+          <AdminReports onCount={setOpenReports} />
           <section className="glass rounded-2xl p-6">
             <h2 className="flex items-center gap-2 font-semibold">
               <Building2 className="h-4 w-4" /> Employer approvals
@@ -794,17 +512,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function StatusRow({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <p className="flex items-start gap-2">
-      {ok ? (
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
-      ) : (
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-      )}
-      <span className={ok ? "text-gray-700" : "text-amber-800"}>
-        {label} — {ok ? "configured" : "missing"}
-      </span>
-    </p>
-  );
-}

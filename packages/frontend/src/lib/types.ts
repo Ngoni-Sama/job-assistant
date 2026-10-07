@@ -108,10 +108,27 @@ export interface AutoApplyStatus {
   recent: { jobId: string; title: string; company: string; to: string; at: string }[];
 }
 
+export type AiProvider = "workers-ai" | "openai" | "anthropic";
+export type KeyProvider = "openai" | "anthropic";
+
+/** AI & Pricing dashboard: key status (never the key itself) and which engine does what. */
+export interface AiSettings {
+  keys: Record<KeyProvider, { set: boolean; last4?: string; savedAt?: string }>;
+  aiProvider: AiProvider;
+  docProvider: AiProvider;
+  openaiModel: string;
+  anthropicModel: string;
+  claudeModels: string[];
+  encryption: boolean;
+  message?: string;
+}
+
 export interface AppConfig {
-  aiProvider: "workers-ai" | "openai";
+  aiProvider: AiProvider;
+  docProvider?: AiProvider;
   openaiApiKey?: string;
   openaiModel: string;
+  anthropicModel: string;
   openaiForDocuments: boolean;
   features: {
     vacancymail: boolean;
@@ -362,4 +379,18 @@ export interface StoredCV {
   fileName: string;
   markdown: string;
   uploadedAt: string;
+}
+
+/** A conversation reported to the team (admin moderation queue). */
+export interface ThreadReport {
+  id: string;
+  threadId: string;
+  reporter: string;
+  reported: string;
+  reason: string;
+  details: string;
+  excerpt: { from: string; text: string; at: string }[];
+  at: string;
+  status: "open" | "resolved";
+  resolution?: string;
 }

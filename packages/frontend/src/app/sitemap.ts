@@ -20,6 +20,7 @@ const STATIC: { path: string; priority: number; changeFrequency: MetadataRoute.S
   { path: "/how-we-use-gmail", priority: 0.3, changeFrequency: "yearly" },
   { path: "/privacy", priority: 0.2, changeFrequency: "yearly" },
   { path: "/terms", priority: 0.2, changeFrequency: "yearly" },
+  { path: "/delete-account", priority: 0.1, changeFrequency: "yearly" },
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

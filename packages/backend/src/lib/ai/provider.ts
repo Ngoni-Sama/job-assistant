@@ -1,4 +1,6 @@
+import Anthropic from "@anthropic-ai/sdk";
 import type { Env } from "../../types";
+import { getAiKeys } from "./secrets";
 
 export interface CreditPackConfig {
   id: string;
@@ -69,11 +71,21 @@ export function promptFor(cfg: AppConfig, key: PromptKey): string {
   return custom ? custom.slice(0, MAX_PROMPT) : DEFAULT_PROMPTS[key];
 }
 
+export type AiProvider = "workers-ai" | "openai" | "anthropic";
+
+/** Claude models offered in the admin dashboard (best → cheapest). */
+export const CLAUDE_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-4-5"] as const;
+
 export interface AppConfig {
-  aiProvider: "workers-ai" | "openai";
+  /** Engine for matching, Quick Match and profile extraction. */
+  aiProvider: AiProvider;
+  /** Engine for writing documents (CVs, cover notes, ATS CV, CV interview). Unset → legacy rule below. */
+  docProvider?: AiProvider;
+  /** @deprecated Keys now live encrypted in lib/ai/secrets.ts; only read once to migrate. */
   openaiApiKey?: string;
   openaiModel: string;
-  /** Use OpenAI (when a key is set) for CV/cover-letter document generation. */
+  anthropicModel: string;
+  /** Legacy: use OpenAI (when a key is set) for document generation. Superseded by docProvider. */
   openaiForDocuments: boolean;
   features: {
     vacancymail: boolean;
@@ -103,6 +115,7 @@ export interface AppConfig {
 export const DEFAULT_CONFIG: AppConfig = {
   aiProvider: "workers-ai",
   openaiModel: "gpt-4o-mini",
+  anthropicModel: "claude-opus-5-5",
   openaiForDocuments: true,
   features: { vacancymail: true, jobszimbabwe: true, googleJobs: false, autoApplyAllowed: true },
   payments: { provider: "pesepay", currency: "USD", freeCredits: 50 },
@@ -180,19 +193,31 @@ export async function docChat(env: Env, messages: ChatMessage[], maxTokens = 900
   return run(env, messages, maxTokens, json, true);
 }
 
+/** Which engine a task uses (documents can use a different, stronger model). */
+export function providerFor(cfg: AppConfig, forDocuments: boolean): AiProvider {
+  if (!forDocuments) return cfg.aiProvider;
+  if (cfg.docProvider) return cfg.docProvider;
+  return cfg.openaiForDocuments ? "openai" : cfg.aiProvider; // configs saved before docProvider existed
+}
+
 async function run(env: Env, messages: ChatMessage[], maxTokens: number, json: boolean, forDocuments: boolean): Promise<string> {
   const cfg = await getConfig(env);
-  const useOpenAI =
-    !!cfg.openaiApiKey && (cfg.aiProvider === "openai" || (forDocuments && cfg.openaiForDocuments));
+  const provider = providerFor(cfg, forDocuments);
+  const keys = provider === "workers-ai" ? {} : await getAiKeys(env);
 
-  // Prefer OpenAI when configured, but NEVER let a bad key break the product —
-  // fall back to Workers AI if the OpenAI call fails for any reason.
-  if (useOpenAI && cfg.openaiApiKey) {
-    try {
-      return await openaiChat(cfg.openaiApiKey, cfg.openaiModel, messages, maxTokens, json);
-    } catch (err) {
-      console.error("OpenAI failed — falling back to Workers AI", err);
+  // Use the paid provider when it's chosen and has a key, but NEVER let a bad key
+  // or an outage break the product — fall back to Workers AI on any failure.
+  try {
+    // (cfg.openaiApiKey: a key saved by the old admin page, until the dashboard migrates it)
+    const openaiKey = keys.openai ?? cfg.openaiApiKey;
+    if (provider === "openai" && openaiKey) {
+      return await openaiChat(openaiKey, cfg.openaiModel, messages, maxTokens, json);
     }
+    if (provider === "anthropic" && keys.anthropic) {
+      return await claudeChat(keys.anthropic, cfg.anthropicModel, messages, json, forDocuments);
+    }
+  } catch (err) {
+    console.error(`${provider} failed — falling back to Workers AI`, err);
   }
 
   const base = { messages, max_tokens: maxTokens };
@@ -233,4 +258,48 @@ async function openaiChat(
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
   const data = (await res.json()) as { choices?: { message?: { content?: unknown } }[] };
   return asText(data.choices?.[0]?.message?.content);
+}
+
+/** Claude models that take an effort setting / the server-side refusal fallback. */
+const CLAUDE_EFFORT = /^claude-(opus-5|sonnet-5|fable-5|opus-4-[678]|sonnet-4-6)/;
+const CLAUDE_FALLBACK = /^claude-(opus-5|sonnet-5-5|fable-5)/;
+
+/**
+ * Claude via the official Anthropic SDK. Documents run at medium effort, quick
+ * jobs (matching, extraction) at low. Throws on any failure or refusal so the
+ * caller can fall back to Workers AI.
+ */
+async function claudeChat(
+  apiKey: string,
+  model: string,
+  messages: ChatMessage[],
+  json: boolean,
+  forDocuments: boolean,
+): Promise<string> {
+  const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 90_000 });
+  const system = messages
+    .filter((m) => m.role === "system")
+    .map((m) => m.content)
+    .join("\n\n");
+  const turns: Anthropic.Beta.BetaMessageParam[] = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
+  const response = await client.beta.messages.create({
+    model,
+    max_tokens: 16000, // thinking counts toward this on current models
+    system: json ? `${system}\n\nRespond with the JSON only — no prose, no code fences.` : system,
+    messages: turns,
+    ...(CLAUDE_EFFORT.test(model) ? { output_config: { effort: forDocuments ? ("medium" as const) : ("low" as const) } } : {}),
+    // On a policy decline, the API re-runs the request on a fallback model in the same call.
+    ...(CLAUDE_FALLBACK.test(model) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
+  });
+
+  if (response.stop_reason === "refusal") throw new Error("Claude declined this request");
+  const text = response.content
+    .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+  if (!text.trim()) throw new Error(`Claude returned no text (stop_reason ${response.stop_reason})`);
+  return text;
 }

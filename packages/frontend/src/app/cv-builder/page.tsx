@@ -532,10 +532,13 @@ export default function CvBuilderPage() {
             {needCredits && (
               <div className="rounded-xl bg-amber-50/90 p-3 text-sm text-amber-800">
                 You need {costs.atsCv} credits to write your CV with AI.{" "}
-                <Link href="/billing" className="font-medium underline">
-                  Top up credits
-                </Link>{" "}
-                — your ATS score and downloads stay free.
+                <span className="web-only">
+                  <Link href="/billing" className="font-medium underline">
+                    Top up credits
+                  </Link>{" "}
+                  —{" "}
+                </span>
+                Your ATS score and downloads stay free.
               </div>
             )}
             {error && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{error}</p>}

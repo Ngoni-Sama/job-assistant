@@ -9,6 +9,10 @@ const nextConfig = {
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
   compress: true,
+  async rewrites() {
+    // Android app ↔ website link (see src/app/api/assetlinks/route.ts).
+    return [{ source: "/.well-known/assetlinks.json", destination: "/api/assetlinks" }];
+  },
   async headers() {
     return [
       {

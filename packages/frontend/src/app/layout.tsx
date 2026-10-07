@@ -10,6 +10,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { LiveUpdates } from "@/components/LiveUpdates";
 import { DEFAULT_DESCRIPTION, INDEXABLE, SITE_NAME, SITE_URL } from "@/lib/seo";
 import { WORKER_BASE } from "@/lib/server/worker";
+import { APP_MODE_SCRIPT } from "@/lib/inApp";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -65,7 +66,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={jakarta.variable}>
+    // suppressHydrationWarning: the app-mode script may add data-app to <html> before React loads.
+    <html lang="en" className={jakarta.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: APP_MODE_SCRIPT }} />
+      </head>
       <body className="font-sans">
         {/* Job data comes from the API — open the connection early. */}
         <link rel="preconnect" href={WORKER_BASE} crossOrigin="anonymous" />

@@ -11,7 +11,7 @@ export const metadata: Metadata = pageMeta({
 
 // Same questions and answers as the FAQ on the page.
 const FAQ = [
-  ["Is there a subscription?", "No. You buy credits when you need them and spend them on any AI feature."],
+  ["Is there a subscription?", "No. Credits are spent only when you use an AI feature, and new accounts start with free credits."],
   [
     "What if the AI fails?",
     "If the CV writer or AI Apply can’t give you a result, your credits go straight back to your balance.",
