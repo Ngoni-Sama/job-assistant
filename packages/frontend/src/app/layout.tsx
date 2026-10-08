@@ -11,6 +11,7 @@ import { LiveUpdates } from "@/components/LiveUpdates";
 import { DEFAULT_DESCRIPTION, INDEXABLE, SITE_NAME, SITE_URL } from "@/lib/seo";
 import { WORKER_BASE } from "@/lib/server/worker";
 import { APP_MODE_SCRIPT } from "@/lib/inApp";
+import { INSTALL_CAPTURE_SCRIPT } from "@/lib/install";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -70,6 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={jakarta.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: APP_MODE_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: INSTALL_CAPTURE_SCRIPT }} />
       </head>
       <body className="font-sans">
         {/* Job data comes from the API — open the connection early. */}

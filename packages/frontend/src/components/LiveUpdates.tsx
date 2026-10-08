@@ -8,6 +8,7 @@ import { Bell, Briefcase, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { enablePush, pushSupported, registerServiceWorker, rememberPushOffer, shouldOfferPush } from "@/lib/push";
 import { playMessageSound } from "@/lib/sound";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 /** What the service worker forwards from a push notification. */
 export type PushData = {
@@ -293,6 +294,8 @@ export function LiveUpdates({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       )}
+
+      <InstallPrompt blocked={!!offer || askProfession} />
     </Ctx.Provider>
   );
 }
